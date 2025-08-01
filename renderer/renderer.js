@@ -4,6 +4,7 @@
 let isNodeStarted = false
 let selectedFiles = []
 let downloadInterval = null
+let isAutoStarting = false
 
 // DOM元素
 const elements = {
@@ -52,8 +53,40 @@ elements.searchInput.addEventListener('keypress', (e) => {
   }
 })
 
+// 监听自动启动事件
+window.electronAPI.onP2PNodeStarted((result) => {
+  console.log('Received auto-start result:', result)
+  
+  if (result.success) {
+    isNodeStarted = true
+    isAutoStarting = false
+    updateNodeStatus('online', '在线')
+    elements.startNode.disabled = true
+    elements.stopNode.disabled = false
+    elements.startNode.textContent = '启动节点'
+    
+    updateNodeInfo(result.nodeInfo)
+    
+    // 开始定期刷新统计信息
+    startStatsRefresh()
+    
+    showMessage('P2P节点自动启动成功', 'success')
+  } else {
+    isAutoStarting = false
+    elements.startNode.textContent = '启动节点'
+    elements.startNode.disabled = false
+    updateNodeStatus('offline', '离线')
+    showMessage(`自动启动失败: ${result.error}`, 'error')
+  }
+})
+
 // 启动节点
 async function startNode() {
+  if (isAutoStarting) {
+    showMessage('节点正在自动启动中，请稍候', 'info')
+    return
+  }
+
   try {
     elements.startNode.disabled = true
     elements.startNode.textContent = '启动中...'
@@ -132,6 +165,17 @@ function updateNodeInfo(nodeInfo) {
       <ul>
         ${nodeInfo.addresses.map(addr => `<li>${addr}</li>`).join('')}
       </ul>
+      ${nodeInfo.discoveredPeerIds && nodeInfo.discoveredPeerIds.length > 0 ? `
+        <p><strong>发现的节点列表:</strong></p>
+        <div class="discovered-peers">
+          ${nodeInfo.discoveredPeerIds.map(peerId => `
+            <div class="peer-item">
+              <span class="peer-id">${peerId}</span>
+              <button class="connect-btn" onclick="connectToDiscoveredPeer('${peerId}')">连接</button>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
     `
   }
 }
@@ -645,6 +689,19 @@ document.addEventListener('DOMContentLoaded', () => {
   // 初始化显示
   updateSelectedFilesDisplay()
   refreshDatabaseStats()
+  
+  // 设置自动启动状态
+  isAutoStarting = true
+  elements.startNode.disabled = true
+  elements.startNode.textContent = '自动启动中...'
+  updateNodeStatus('connecting', '启动中')
+  
+  showMessage('正在自动启动P2P节点...', 'info')
+})
+
+// 页面卸载时清理事件监听器
+window.addEventListener('beforeunload', () => {
+  window.electronAPI.removeAllListeners('p2p-node-started')
 })
 
 // 全局函数，供HTML调用
@@ -653,3 +710,5 @@ window.downloadFile = downloadFile
 window.pauseDownload = pauseDownload
 window.resumeDownload = resumeDownload
 window.cancelDownload = cancelDownload
+window.connectToDiscoveredPeer = connectToDiscoveredPeer
+window.refreshDiscoveredPeers = refreshDiscoveredPeers

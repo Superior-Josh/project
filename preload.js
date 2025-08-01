@@ -17,6 +17,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   searchFiles: (query) => ipcRenderer.invoke('search-files', query),
   getLocalFiles: () => ipcRenderer.invoke('get-local-files'),
 
+  // 节点发现
+  getDiscoveredPeers: () => ipcRenderer.invoke('get-discovered-peers'),
+  connectToDiscoveredPeer: (peerId) => ipcRenderer.invoke('connect-to-discovered-peer', peerId),
+
   // 文件操作
   selectFiles: () => ipcRenderer.invoke('select-files'),  
   shareFile: (filePath) => ipcRenderer.invoke('share-file', filePath),
@@ -36,5 +40,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getDatabaseStats: () => ipcRenderer.invoke('get-database-stats'),
   cleanupDatabase: () => ipcRenderer.invoke('cleanup-database'),
   exportData: () => ipcRenderer.invoke('export-data'),
-  importData: () => ipcRenderer.invoke('import-data')
+  importData: () => ipcRenderer.invoke('import-data'),
+
+  // 事件监听 - 用于自动启动
+  onP2PNodeStarted: (callback) => {
+    ipcRenderer.on('p2p-node-started', (event, data) => callback(data))
+  },
+  
+  // 移除事件监听器
+  removeAllListeners: (channel) => {
+    ipcRenderer.removeAllListeners(channel)
+  }
 })

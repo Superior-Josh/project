@@ -32,6 +32,15 @@ async function createWindow() {
   // 当页面加载完成后也更新标题
   mainWindow.webContents.once('did-finish-load', () => {
     mainWindow.setTitle(`P2P File Sharing - Node ${nodeId} (PID: ${processId})`)
+    
+    // 页面加载完成后自动启动P2P节点
+    setTimeout(async () => {
+      try {
+        await autoStartP2PNode(mainWindow)
+      } catch (error) {
+        console.error('Auto-start P2P node failed:', error)
+      }
+    }, 1000) // 延迟1秒确保页面完全加载
   })
 
   await mainWindow.loadFile('renderer/index.html')
@@ -42,6 +51,46 @@ async function createWindow() {
   }
 
   return mainWindow
+}
+
+// 自动启动P2P节点
+async function autoStartP2PNode(mainWindow) {
+  try {
+    console.log('Auto-starting P2P node...')
+    
+    if (!p2pNode) {
+      p2pNode = new P2PNode()
+      dhtManager = new DHTManager(p2pNode)
+    }
+    
+    await p2pNode.start()
+    await dhtManager.initialize()
+    
+    const nodeInfo = p2pNode.getNodeInfo()
+    
+    // 更新窗口标题，包含peer ID的前8位
+    if (nodeInfo) {
+      const shortPeerId = nodeInfo.peerId.slice(-8)
+      const processId = process.pid
+      mainWindow.setTitle(`P2P File Sharing - ${shortPeerId} (PID: ${processId})`)
+    }
+    
+    // 通知渲染进程节点已启动
+    mainWindow.webContents.send('p2p-node-started', {
+      success: true,
+      nodeInfo
+    })
+    
+    console.log('P2P node auto-started successfully')
+  } catch (error) {
+    console.error('Failed to auto-start P2P node:', error)
+    
+    // 通知渲染进程启动失败
+    mainWindow.webContents.send('p2p-node-started', {
+      success: false,
+      error: error.message
+    })
+  }
 }
 
 app.whenReady().then(async () => {
@@ -70,7 +119,12 @@ app.whenReady().then(async () => {
 app.on('window-all-closed', async () => {
   // 停止P2P节点
   if (p2pNode) {
-    await p2pNode.stop()
+    try {
+      await p2pNode.stop()
+      console.log('P2P node stopped on app quit')
+    } catch (error) {
+      console.error('Error stopping P2P node:', error)
+    }
   }
   
   if (process.platform !== 'darwin') {
@@ -140,7 +194,15 @@ ipcMain.handle('get-node-info', async () => {
   if (!p2pNode) {
     return null
   }
-  return p2pNode.getNodeInfo()
+  
+  const nodeInfo = p2pNode.getNodeInfo()
+  if (nodeInfo) {
+    // 添加发现的节点ID列表
+    const discoveredPeerIds = p2pNode.getDiscoveredPeers()
+    nodeInfo.discoveredPeerIds = discoveredPeerIds
+  }
+  
+  return nodeInfo
 })
 
 ipcMain.handle('connect-to-peer', async (event, multiaddr) => {
@@ -234,6 +296,29 @@ ipcMain.handle('get-local-files', async () => {
     return []
   }
   return dhtManager.getLocalFiles()
+})
+
+ipcMain.handle('get-discovered-peers', async () => {
+  try {
+    if (!p2pNode) {
+      return {
+        success: false,
+        error: 'P2P node not started'
+      }
+    }
+    
+    const discoveredPeers = p2pNode.getDiscoveredPeers()
+    return {
+      success: true,
+      peers: discoveredPeers
+    }
+  } catch (error) {
+    console.error('Error getting discovered peers:', error)
+    return {
+      success: false,
+      error: error.message
+    }
+  }
 })
 
 // 获取进程信息

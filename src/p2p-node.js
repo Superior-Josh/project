@@ -17,6 +17,7 @@ export class P2PNode {
     this.node = null
     this.isStarted = false
     this.discoveredPeers = new Set()
+    this.peerInfoMap = new Map() // 存储节点详细信息
     this.bootstrapNodes = options.bootstrapNodes || [
       // 添加一些默认的引导节点
       '/dnsaddr/bootstrap.libp2p.io/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN',
@@ -30,8 +31,8 @@ export class P2PNode {
       this.node = await createLibp2p({
         addresses: {
           listen: [
-            '/ip4/0.0.0.0/tcp/0',
-            '/ip4/0.0.0.0/tcp/0/ws'
+            '/ip4/127.0.0.1/tcp/0',
+            // '/ip4/0.0.0.0/tcp/0/ws'
           ]
         },
         transports: [
@@ -112,12 +113,26 @@ export class P2PNode {
       const peerId = evt.detail.toString()
       console.log('Connected to peer:', peerId)
       this.discoveredPeers.add(peerId)
+      
+      // 更新节点信息
+      this.peerInfoMap.set(peerId, {
+        id: peerId,
+        status: 'connected',
+        connectedAt: Date.now()
+      })
     })
 
     // 断开连接事件
     this.node.addEventListener('peer:disconnect', (evt) => {
       const peerId = evt.detail.toString()
       console.log('Disconnected from peer:', peerId)
+      
+      // 更新节点状态
+      const peerInfo = this.peerInfoMap.get(peerId)
+      if (peerInfo) {
+        peerInfo.status = 'disconnected'
+        peerInfo.disconnectedAt = Date.now()
+      }
     })
 
     // 发现新节点事件
@@ -126,13 +141,31 @@ export class P2PNode {
       console.log('Discovered peer:', peerId)
       this.discoveredPeers.add(peerId)
 
+      // 存储节点信息
+      this.peerInfoMap.set(peerId, {
+        id: peerId,
+        status: 'discovered',
+        discoveredAt: Date.now(),
+        multiaddrs: evt.detail.multiaddrs ? evt.detail.multiaddrs.map(ma => ma.toString()) : []
+      })
+
       // 自动尝试连接到发现的节点
       this.attemptConnection(evt.detail)
     })
 
     // DHT查询事件
     this.node.addEventListener('peer:update', (evt) => {
-      console.log('Peer updated:', evt.detail.peer.id.toString())
+      const peerId = evt.detail.peer.id.toString()
+      console.log('Peer updated:', peerId)
+      
+      // 更新节点信息
+      const existingInfo = this.peerInfoMap.get(peerId)
+      this.peerInfoMap.set(peerId, {
+        ...existingInfo,
+        id: peerId,
+        updatedAt: Date.now(),
+        multiaddrs: evt.detail.peer.multiaddrs ? evt.detail.peer.multiaddrs.map(ma => ma.toString()) : []
+      })
     })
   }
 
@@ -175,7 +208,17 @@ export class P2PNode {
       crypto.getRandomValues(randomKey)
 
       for await (const peer of this.node.services.dht.getClosestPeers(randomKey)) {
-        this.discoveredPeers.add(peer.toString())
+        const peerId = peer.toString()
+        this.discoveredPeers.add(peerId)
+        
+        // 存储发现的节点信息
+        this.peerInfoMap.set(peerId, {
+          id: peerId,
+          status: 'discovered',
+          discoveredAt: Date.now(),
+          source: 'dht'
+        })
+        
         await this.attemptConnection({ id: peer })
       }
 
@@ -188,6 +231,45 @@ export class P2PNode {
   // 获取发现的节点列表
   getDiscoveredPeers() {
     return Array.from(this.discoveredPeers)
+  }
+
+  // 获取节点详细信息
+  getDiscoveredPeersInfo() {
+    return Array.from(this.peerInfoMap.values())
+  }
+
+  // 连接到发现的节点（通过 peer ID）
+  async connectToDiscoveredPeer(peerId) {
+    try {
+      console.log(`Attempting to connect to discovered peer: ${peerId}`)
+      
+      // 检查是否已经连接
+      const connections = this.node.getConnections()
+      const isAlreadyConnected = connections.some(conn => 
+        conn.remotePeer.toString() === peerId
+      )
+      
+      if (isAlreadyConnected) {
+        console.log(`Already connected to peer: ${peerId}`)
+        return
+      }
+
+      // 尝试直接通过 peer ID 连接
+      await this.node.dial(peerId)
+      
+      console.log(`Successfully connected to discovered peer: ${peerId}`)
+      
+      // 更新节点状态
+      const peerInfo = this.peerInfoMap.get(peerId)
+      if (peerInfo) {
+        peerInfo.status = 'connected'
+        peerInfo.connectedAt = Date.now()
+      }
+      
+    } catch (error) {
+      console.error(`Failed to connect to discovered peer ${peerId}:`, error)
+      throw error
+    }
   }
 
   async start() {
@@ -203,6 +285,11 @@ export class P2PNode {
     listenAddrs.forEach(addr => {
       console.log('  ', addr.toString())
     })
+
+    // 启动节点发现
+    setTimeout(() => {
+      this.discoverPeers().catch(console.error)
+    }, 5000) // 5秒后开始发现
 
     return this.node
   }
@@ -247,6 +334,16 @@ export class P2PNode {
         // 如果有 peer ID，使用 peer ID 连接
         console.log('Connecting using peer ID:', peerIdStr)
         await this.node.dial(ma)
+        
+        // 添加到发现的节点列表
+        this.discoveredPeers.add(peerIdStr)
+        this.peerInfoMap.set(peerIdStr, {
+          id: peerIdStr,
+          status: 'connected',
+          connectedAt: Date.now(),
+          multiaddrs: [ma.toString()],
+          source: 'manual'
+        })
       } else {
         // 如果没有 peer ID，直接使用 multiaddr
         console.log('Connecting using multiaddr directly')
