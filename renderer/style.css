@@ -258,6 +258,16 @@ button.danger:hover:not(:disabled) {
   background: #f0f0f0;
 }
 
+/* 引导节点特殊样式 */
+.peer-item.bootstrap-peer {
+  background-color: #fff3cd;
+  border-left: 3px solid #f39c12;
+}
+
+.peer-item.bootstrap-peer:hover {
+  background-color: #ffeeba;
+}
+
 .peer-id {
   font-family: 'Courier New', monospace;
   font-size: 12px;
@@ -265,6 +275,11 @@ button.danger:hover:not(:disabled) {
   flex: 1;
   margin-right: 10px;
   word-break: break-all;
+}
+
+.bootstrap-peer .peer-id {
+  color: #856404;
+  font-weight: bold;
 }
 
 .connect-btn {
@@ -280,6 +295,15 @@ button.danger:hover:not(:disabled) {
 
 .connect-btn:hover {
   background: #1976D2;
+}
+
+.bootstrap-label {
+  font-size: 10px;
+  color: #856404;
+  background: #fff3cd;
+  padding: 2px 6px;
+  border-radius: 3px;
+  border: 1px solid #ffeeba;
 }
 
 /* 文件列表 */
@@ -396,6 +420,7 @@ button.danger:hover:not(:disabled) {
   z-index: 1000;
   max-width: 300px;
   animation: slideIn 0.3s ease;
+  white-space: pre-line;
 }
 
 @keyframes slideIn {
@@ -496,5 +521,15 @@ button.danger:hover:not(:disabled) {
   
   .connect-btn {
     align-self: flex-end;
+  }
+  
+  .bootstrap-label {
+    align-self: flex-end;
+  }
+  
+  .message {
+    left: 10px;
+    right: 10px;
+    max-width: none;
   }
 }

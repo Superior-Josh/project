@@ -168,16 +168,34 @@ function updateNodeInfo(nodeInfo) {
       ${nodeInfo.discoveredPeerIds && nodeInfo.discoveredPeerIds.length > 0 ? `
         <p><strong>发现的节点列表:</strong></p>
         <div class="discovered-peers">
-          ${nodeInfo.discoveredPeerIds.map(peerId => `
-            <div class="peer-item">
-              <span class="peer-id">${peerId}</span>
-              <button class="connect-btn" onclick="connectToDiscoveredPeer('${peerId}')">连接</button>
-            </div>
-          `).join('')}
+          ${nodeInfo.discoveredPeerIds.map(peerId => {
+            const shortPeerId = peerId
+            const isBootstrap = isBootstrapPeerId(peerId)
+            return `
+              <div class="peer-item ${isBootstrap ? 'bootstrap-peer' : ''}">
+                <span class="peer-id" title="${peerId}">
+                  ${shortPeerId}${isBootstrap ? ' (引导节点)' : ''}
+                </span>
+                ${!isBootstrap ? 
+                  `<button class="connect-btn" onclick="connectToDiscoveredPeer('${peerId}')">连接</button>` :
+                  `<span class="bootstrap-label">基础设施节点</span>`
+                }
+              </div>
+            `
+          }).join('')}
         </div>
       ` : ''}
     `
   }
+}
+
+// 检查是否是引导节点
+function isBootstrapPeerId(peerId) {
+  const bootstrapPeerIds = [
+    'QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN',
+    'QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa'
+  ]
+  return bootstrapPeerIds.includes(peerId)
 }
 
 // 连接到节点
@@ -541,16 +559,29 @@ async function cancelDownload(downloadId) {
   }
 }
 
-// 连接到发现的节点
+// 连接到发现的节点 - 改进版本
 async function connectToDiscoveredPeer(peerId) {
   try {
+    // 检查是否是引导节点
+    if (isBootstrapPeerId(peerId)) {
+      showMessage('无法连接到引导节点。引导节点是基础设施节点，用于网络发现，不支持直接连接。请尝试连接其他发现的节点。', 'warning')
+      return
+    }
+
     const result = await window.electronAPI.connectToDiscoveredPeer(peerId)
     
     if (result.success) {
       showMessage(`成功连接到节点: ${peerId.slice(-8)}`, 'success')
       await refreshStats()
     } else {
-      showMessage(`连接失败: ${result.error}`, 'error')
+      // 提供更友好的错误信息
+      let errorMessage = result.error
+      if (errorMessage.includes('bootstrap node')) {
+        errorMessage = '无法连接到引导节点。请尝试连接其他发现的节点。'
+      } else if (errorMessage.includes('offline or unreachable')) {
+        errorMessage = '节点离线或不可达。请尝试连接其他节点。'
+      }
+      showMessage(`连接失败: ${errorMessage}`, 'error')
     }
   } catch (error) {
     showMessage(`连接错误: ${error.message}`, 'error')
@@ -745,5 +776,3 @@ document.addEventListener('DOMContentLoaded', () => {
 window.addEventListener('beforeunload', () => {
   window.electronAPI.removeAllListeners('p2p-node-started')
 })
-
-// 注意：全局函数现在在 DOMContentLoaded 事件中定义，确保它们在页面加载时就可用
