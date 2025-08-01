@@ -1,10 +1,15 @@
 import { createLibp2p } from 'libp2p'
 import { tcp } from '@libp2p/tcp'
+import { webSockets } from '@libp2p/websockets'
 import { noise } from '@chainsafe/libp2p-noise'
 import { yamux } from '@chainsafe/libp2p-yamux'
+import { gossipsub } from '@chainsafe/libp2p-gossipsub'
+import { kadDHT } from '@libp2p/kad-dht'
+import { bootstrap } from '@libp2p/bootstrap'
 import { mdns } from '@libp2p/mdns'
 import { ping } from '@libp2p/ping'
 import { identify } from '@libp2p/identify'
+import { pubsubPeerDiscovery } from '@libp2p/pubsub-peer-discovery'
 import { multiaddr } from '@multiformats/multiaddr'
 
 export class P2PNode {
@@ -12,20 +17,26 @@ export class P2PNode {
     this.node = null
     this.isStarted = false
     this.discoveredPeers = new Set()
+    this.bootstrapNodes = options.bootstrapNodes || [
+      // 添加一些默认的引导节点
+      '/dnsaddr/bootstrap.libp2p.io/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN',
+      '/dnsaddr/bootstrap.libp2p.io/p2p/QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa'
+    ]
     this.connectionManager = null
   }
 
   async createNode() {
     try {
-      // 极简配置，专注解决连接问题
       this.node = await createLibp2p({
         addresses: {
           listen: [
-            '/ip4/0.0.0.0/tcp/0'
+            '/ip4/0.0.0.0/tcp/0',
+            '/ip4/0.0.0.0/tcp/0/ws'
           ]
         },
         transports: [
-          tcp()
+          tcp(),
+          webSockets()
         ],
         connectionEncryption: [
           noise()
@@ -34,47 +45,59 @@ export class P2PNode {
           yamux()
         ],
         peerDiscovery: [
+          // 本地网络发现 (mDNS)
           mdns({
-            interval: 20e3
+            interval: 20e3 // 每20秒扫描一次
+          }),
+          // 引导节点发现
+          bootstrap({
+            list: this.bootstrapNodes,
+            timeout: 10000,
+            tagName: 'bootstrap',
+            tagValue: 50,
+            tagTTL: 120000
+          }),
+          // 基于PubSub的节点发现
+          pubsubPeerDiscovery({
+            interval: 10000,
+            topics: ['p2p-file-sharing-discovery'], // 发现主题
+            listenOnly: false
           })
         ],
         services: {
-          ping: ping({
-            protocolPrefix: 'ipfs', // 添加协议前缀
-            maxEchoWait: 2000,
-            maxPings: 10
+          pubsub: gossipsub(),
+          dht: kadDHT({
+            // Kademlia DHT配置
+            kBucketSize: 20,
+            enabled: true,
+            randomWalk: {
+              enabled: true,
+              interval: 300e3, // 5分钟
+              timeout: 10e3 // 10秒
+            },
+            servers: false, // 设为false让所有节点都参与DHT
+            clientMode: false
           }),
-          identify: identify({
-            protocolPrefix: 'ipfs' // 添加协议前缀
-          })
+          ping: ping(),
+          identify: identify()
         },
         connectionManager: {
           maxConnections: 100,
-          minConnections: 1,
+          minConnections: 5,
           pollInterval: 2000,
           autoDialInterval: 10000,
-          inboundUpgradeTimeout: 30000,
-          outboundUpgradeTimeout: 30000
-        },
-        connectionGater: {
-          // 添加连接网关配置
-          denyDialMultiaddr: () => false,
-          denyDialPeer: () => false,
-          denyInboundConnection: () => false,
-          denyOutboundConnection: () => false,
-          denyInboundEncryptedConnection: () => false,
-          denyOutboundEncryptedConnection: () => false,
-          denyInboundUpgradedConnection: () => false,
-          denyOutboundUpgradedConnection: () => false
+          inboundUpgradeTimeout: 10000
         }
       })
 
       // 设置事件监听器
       this.setupEventListeners()
 
+      // 初始化连接管理器
+      this.connectionManager = new ConnectionManager(this.node)
+
       console.log('P2P node created successfully')
       console.log('Node ID:', this.node.peerId.toString())
-      console.log('Supported protocols:', this.node.getProtocols())
 
       return this.node
     } catch (error) {
@@ -87,31 +110,84 @@ export class P2PNode {
     // 连接事件
     this.node.addEventListener('peer:connect', (evt) => {
       const peerId = evt.detail.toString()
-      console.log('✅ Connected to peer:', peerId)
+      console.log('Connected to peer:', peerId)
       this.discoveredPeers.add(peerId)
     })
 
     // 断开连接事件
     this.node.addEventListener('peer:disconnect', (evt) => {
       const peerId = evt.detail.toString()
-      console.log('❌ Disconnected from peer:', peerId)
+      console.log('Disconnected from peer:', peerId)
     })
 
     // 发现新节点事件
     this.node.addEventListener('peer:discovery', (evt) => {
       const peerId = evt.detail.id.toString()
-      console.log('🔍 Discovered peer:', peerId)
+      console.log('Discovered peer:', peerId)
       this.discoveredPeers.add(peerId)
+
+      // 自动尝试连接到发现的节点
+      this.attemptConnection(evt.detail)
     })
 
-    // 监听协议事件
-    this.node.addEventListener('peer:identify', (evt) => {
-      console.log('🆔 Peer identified:', {
-        peerId: evt.detail.peerId.toString(),
-        protocols: evt.detail.protocols,
-        connection: evt.detail.connection.remoteAddr.toString()
-      })
+    // DHT查询事件
+    this.node.addEventListener('peer:update', (evt) => {
+      console.log('Peer updated:', evt.detail.peer.id.toString())
     })
+  }
+
+  // 尝试连接到发现的节点
+  async attemptConnection(peer) {
+    try {
+      const connections = this.node.getConnections()
+      const currentConnections = connections.length
+      const maxConnections = 100
+
+      // 避免过多连接
+      if (currentConnections >= maxConnections) {
+        return
+      }
+
+      // 检查是否已经连接
+      const isConnected = connections.some(conn =>
+        conn.remotePeer.toString() === peer.id.toString()
+      )
+
+      if (!isConnected && peer.multiaddrs && peer.multiaddrs.length > 0) {
+        console.log(`Attempting to connect to discovered peer: ${peer.id.toString()}`)
+        await this.node.dial(peer.id)
+      }
+    } catch (error) {
+      // 连接失败是正常的，不需要打印错误
+      if (error.code !== 'ERR_ALREADY_CONNECTED') {
+        console.debug(`Failed to connect to ${peer.id.toString()}:`, error.message)
+      }
+    }
+  }
+
+  // 主动发现节点
+  async discoverPeers() {
+    try {
+      console.log('Starting peer discovery...')
+
+      // 通过DHT查找随机节点
+      const randomKey = new Uint8Array(32)
+      crypto.getRandomValues(randomKey)
+
+      for await (const peer of this.node.services.dht.getClosestPeers(randomKey)) {
+        this.discoveredPeers.add(peer.toString())
+        await this.attemptConnection({ id: peer })
+      }
+
+      console.log(`Discovered ${this.discoveredPeers.size} peers`)
+    } catch (error) {
+      console.error('Error during peer discovery:', error)
+    }
+  }
+
+  // 获取发现的节点列表
+  getDiscoveredPeers() {
+    return Array.from(this.discoveredPeers)
   }
 
   async start() {
@@ -123,9 +199,9 @@ export class P2PNode {
     this.isStarted = true
 
     const listenAddrs = this.node.getMultiaddrs()
-    console.log('🚀 Node started, listening on:')
+    console.log('Node started, listening on:')
     listenAddrs.forEach(addr => {
-      console.log('  📍', addr.toString())
+      console.log('  ', addr.toString())
     })
 
     return this.node
@@ -135,7 +211,7 @@ export class P2PNode {
     if (this.node && this.isStarted) {
       await this.node.stop()
       this.isStarted = false
-      console.log('🛑 Node stopped')
+      console.log('Node stopped')
     }
   }
 
@@ -145,95 +221,41 @@ export class P2PNode {
     return this.node.getPeers()
   }
 
-  // 调试版本的连接方法
+  // 手动连接到特定节点 - 修复版本
   async connectToPeer(multiaddrString) {
     if (!this.node) {
       throw new Error('Node not initialized')
     }
 
-    if (!this.isStarted) {
-      throw new Error('Node is not started')
-    }
-
     try {
-      console.log('🔗 Attempting to connect to:', multiaddrString)
-      
-      // 解析 multiaddr
-      const ma = multiaddr(multiaddrString)
-      console.log('📋 Parsed multiaddr:', ma.toString())
-      
-      // 检查协议组件 - 修复版本
-      try {
-        const protoNames = ma.protoNames()
-        console.log('🔧 Multiaddr protocols:', protoNames)
-      } catch (protoError) {
-        console.log('⚠️ Could not get protocols:', protoError.message)
+      // 处理 multiaddr 字符串
+      let ma
+      if (typeof multiaddrString === 'string') {
+        ma = multiaddr(multiaddrString)
+      } else if (multiaddrString && typeof multiaddrString.toString === 'function') {
+        ma = multiaddr(multiaddrString.toString())
+      } else {
+        throw new Error('Invalid multiaddr format')
       }
-      
-      // 提取 peer ID
+
+      console.log('Connecting to multiaddr:', ma.toString())
+
+      // 尝试从 multiaddr 中提取 peer ID
       const peerIdStr = ma.getPeerId()
-      if (!peerIdStr) {
-        throw new Error('Multiaddr does not contain a peer ID')
-      }
-      console.log('🆔 Target peer ID:', peerIdStr)
-
-      // 检查是否已经连接
-      const connections = this.node.getConnections()
-      const isAlreadyConnected = connections.some(conn => 
-        conn.remotePeer.toString() === peerIdStr
-      )
       
-      if (isAlreadyConnected) {
-        console.log('✅ Already connected to peer:', peerIdStr)
-        return
+      if (peerIdStr) {
+        // 如果有 peer ID，使用 peer ID 连接
+        console.log('Connecting using peer ID:', peerIdStr)
+        await this.node.dial(ma)
+      } else {
+        // 如果没有 peer ID，直接使用 multiaddr
+        console.log('Connecting using multiaddr directly')
+        await this.node.dial(ma)
       }
 
-      console.log('📊 Current connections:', connections.length)
-      console.log('🔐 Local protocols:', this.node.getProtocols())
-
-      // 尝试连接
-      console.log('⏳ Dialing...')
-      const dialOptions = {
-        signal: AbortSignal.timeout(30000)
-      }
-
-      const connection = await this.node.dial(ma, dialOptions)
-      
-      console.log('🎉 Connection successful!')
-      console.log('📊 Connection details:', {
-        status: connection.status,
-        remoteAddr: connection.remoteAddr.toString(),
-        remotePeer: connection.remotePeer.toString(),
-        direction: connection.direction,
-        timeline: connection.timeline
-      })
-
-      // 尝试 ping 测试连接
-      try {
-        console.log('🏓 Testing connection with ping...')
-        const latency = await this.node.services.ping.ping(connection.remotePeer)
-        console.log('✅ Ping successful, latency:', latency, 'ms')
-      } catch (pingError) {
-        console.log('⚠️ Ping failed (but connection exists):', pingError.message)
-      }
-
+      console.log('Successfully connected to:', ma.toString())
     } catch (error) {
-      console.error('❌ Connection failed:', error.message)
-      console.error('🔍 Error details:', {
-        name: error.name,
-        code: error.code,
-        stack: error.stack?.split('\n').slice(0, 3)
-      })
-      
-      // 针对特定错误提供建议
-      if (error.message.includes('At least one protocol must be specified')) {
-        console.error('💡 Suggestions:')
-        console.error('   1. Check if both nodes use the same libp2p version')
-        console.error('   2. Verify encryption configuration (noise)')
-        console.error('   3. Check stream muxer configuration (yamux)')
-        console.error('   4. Ensure both nodes are properly started')
-      }
-      
+      console.error('Failed to connect to peer:', error)
       throw error
     }
   }
@@ -247,21 +269,64 @@ export class P2PNode {
       addresses: this.node.getMultiaddrs().map(addr => addr.toString()),
       connectedPeers: this.getConnectedPeers().length,
       discoveredPeers: this.discoveredPeers.size,
-      isStarted: this.isStarted,
-      protocols: this.node.getProtocols()
+      isStarted: this.isStarted
+    }
+  }
+}
+
+// 连接管理器类
+class ConnectionManager {
+  constructor(node) {
+    this.node = node
+    this.connectionStats = new Map()
+    this.startMonitoring()
+  }
+
+  startMonitoring() {
+    // 每30秒检查连接状态
+    setInterval(() => {
+      this.monitorConnections()
+    }, 30000)
+  }
+
+  monitorConnections() {
+    const connections = this.node.getConnections()
+
+    // 更新连接统计
+    connections.forEach(conn => {
+      const peerId = conn.remotePeer.toString()
+      if (!this.connectionStats.has(peerId)) {
+        this.connectionStats.set(peerId, {
+          firstConnected: Date.now(),
+          lastSeen: Date.now(),
+          connectionCount: 1
+        })
+      } else {
+        const stats = this.connectionStats.get(peerId)
+        stats.lastSeen = Date.now()
+        stats.connectionCount++
+      }
+    })
+
+    // 清理过期的统计信息
+    this.cleanupOldStats()
+  }
+
+  cleanupOldStats() {
+    const now = Date.now()
+    const maxAge = 24 * 60 * 60 * 1000 // 24小时
+
+    for (const [peerId, stats] of this.connectionStats) {
+      if (now - stats.lastSeen > maxAge) {
+        this.connectionStats.delete(peerId)
+      }
     }
   }
 
-  // 获取连接详情
-  getConnectionDetails() {
-    if (!this.node) return []
-    
-    return this.node.getConnections().map(conn => ({
-      remotePeer: conn.remotePeer.toString(),
-      remoteAddr: conn.remoteAddr.toString(),
-      status: conn.status,
-      direction: conn.direction,
-      timeline: conn.timeline
+  getConnectionStats() {
+    return Array.from(this.connectionStats.entries()).map(([peerId, stats]) => ({
+      peerId,
+      ...stats
     }))
   }
 }
