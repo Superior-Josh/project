@@ -147,18 +147,45 @@ export class DHTManager {
   // 获取DHT统计信息
   async getDHTStats() {
     try {
-      const routingTable = await this.dht.getRoutingTable()
+      // 获取基本的连接信息
+      const connectedPeers = this.p2pNode.getConnectedPeers().length
+      
+      // 尝试获取DHT特定信息，但要安全处理可能不存在的方法
+      let routingTableSize = 0
+      
+      try {
+        // 尝试不同的方式获取路由表信息
+        if (this.dht && typeof this.dht.getRoutingTable === 'function') {
+          const routingTable = await this.dht.getRoutingTable()
+          routingTableSize = routingTable?.size || 0
+        } else if (this.dht && this.dht.routingTable) {
+          // 如果直接有routingTable属性
+          routingTableSize = this.dht.routingTable.size || 0
+        } else if (this.dht && typeof this.dht.getKBuckets === 'function') {
+          // 尝试通过K-buckets获取信息
+          const kBuckets = this.dht.getKBuckets()
+          routingTableSize = kBuckets ? kBuckets.length : 0
+        }
+      } catch (dhtError) {
+        console.debug('Could not get routing table info:', dhtError.message)
+        // 如果获取DHT特定信息失败，继续使用默认值
+      }
+      
       return {
-        connectedPeers: this.p2pNode.getConnectedPeers().length,
-        routingTableSize: routingTable?.size || 0,
-        localFiles: this.fileIndex.size
+        connectedPeers,
+        routingTableSize,
+        localFiles: this.fileIndex.size,
+        dhtEnabled: !!this.dht
       }
     } catch (error) {
       console.error('Error getting DHT stats:', error)
+      // 返回安全的默认值
       return {
-        connectedPeers: 0,
+        connectedPeers: this.p2pNode.getConnectedPeers()?.length || 0,
         routingTableSize: 0,
-        localFiles: this.fileIndex.size
+        localFiles: this.fileIndex.size,
+        dhtEnabled: false,
+        error: error.message
       }
     }
   }

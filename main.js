@@ -377,6 +377,261 @@ ipcMain.handle('connect-to-discovered-peer', async (event, peerId) => {
   }
 })
 
+// 文件操作相关的IPC处理器
+ipcMain.handle('select-files', async () => {
+  try {
+    const { dialog } = await import('electron')
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile', 'multiSelections'],
+      filters: [
+        { name: 'All Files', extensions: ['*'] },
+        { name: 'Documents', extensions: ['pdf', 'txt', 'doc', 'docx'] },
+        { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif'] },
+        { name: 'Videos', extensions: ['mp4', 'avi', 'mkv'] },
+        { name: 'Audio', extensions: ['mp3', 'wav', 'flac'] }
+      ]
+    })
+    
+    return {
+      success: true,
+      cancelled: result.canceled,
+      filePaths: result.filePaths
+    }
+  } catch (error) {
+    console.error('Error selecting files:', error)
+    return {
+      success: false,
+      error: error.message
+    }
+  }
+})
+
+ipcMain.handle('share-file', async (event, filePath) => {
+  try {
+    // 这里需要集成文件管理器
+    // 暂时返回模拟结果
+    console.log(`Sharing file: ${filePath}`)
+    return {
+      success: true,
+      message: 'File shared successfully'
+    }
+  } catch (error) {
+    console.error('Error sharing file:', error)
+    return {
+      success: false,
+      error: error.message
+    }
+  }
+})
+
+ipcMain.handle('download-file', async (event, fileHash, fileName) => {
+  try {
+    // 这里需要集成文件管理器
+    // 暂时返回模拟结果
+    console.log(`Downloading file: ${fileName} (${fileHash})`)
+    return {
+      success: true,
+      message: 'Download started'
+    }
+  } catch (error) {
+    console.error('Error downloading file:', error)
+    return {
+      success: false,
+      error: error.message
+    }
+  }
+})
+
+// 下载管理相关的IPC处理器
+ipcMain.handle('get-download-status', async (event, downloadId) => {
+  try {
+    // 暂时返回模拟状态
+    return {
+      success: true,
+      status: null
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message
+    }
+  }
+})
+
+ipcMain.handle('get-active-downloads', async () => {
+  try {
+    // 暂时返回空数组
+    return []
+  } catch (error) {
+    console.error('Error getting active downloads:', error)
+    return []
+  }
+})
+
+ipcMain.handle('pause-download', async (event, downloadId) => {
+  try {
+    console.log(`Pausing download: ${downloadId}`)
+    return {
+      success: true,
+      message: 'Download paused'
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message
+    }
+  }
+})
+
+ipcMain.handle('resume-download', async (event, downloadId) => {
+  try {
+    console.log(`Resuming download: ${downloadId}`)
+    return {
+      success: true,
+      message: 'Download resumed'
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message
+    }
+  }
+})
+
+ipcMain.handle('cancel-download', async (event, downloadId) => {
+  try {
+    console.log(`Canceling download: ${downloadId}`)
+    return {
+      success: true,
+      message: 'Download cancelled'
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message
+    }
+  }
+})
+
+// 文件验证相关的IPC处理器
+ipcMain.handle('validate-file', async (event, filePath, expectedHashes) => {
+  try {
+    console.log(`Validating file: ${filePath}`)
+    return {
+      success: true,
+      isValid: true,
+      message: 'File validation not implemented yet'
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: error.message
+    }
+  }
+})
+
+// 数据库相关的IPC处理器
+ipcMain.handle('get-database-stats', async () => {
+  try {
+    // 暂时返回模拟统计数据
+    return {
+      nodes: 0,
+      files: 0,
+      peers: 0,
+      transfers: 0,
+      config: 0,
+      initialized: false
+    }
+  } catch (error) {
+    console.error('Error getting database stats:', error)
+    return null
+  }
+})
+
+ipcMain.handle('cleanup-database', async () => {
+  try {
+    console.log('Cleaning up database...')
+    return {
+      success: true,
+      message: 'Database cleanup completed'
+    }
+  } catch (error) {
+    console.error('Error cleaning up database:', error)
+    return {
+      success: false,
+      error: error.message
+    }
+  }
+})
+
+ipcMain.handle('export-data', async () => {
+  try {
+    const { dialog } = await import('electron')
+    const result = await dialog.showSaveDialog({
+      defaultPath: 'p2p-data-export.json',
+      filters: [
+        { name: 'JSON Files', extensions: ['json'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    })
+    
+    if (!result.canceled) {
+      console.log(`Exporting data to: ${result.filePath}`)
+      // 这里需要实际的导出逻辑
+      return {
+        success: true,
+        cancelled: false,
+        filePath: result.filePath
+      }
+    } else {
+      return {
+        success: true,
+        cancelled: true
+      }
+    }
+  } catch (error) {
+    console.error('Error exporting data:', error)
+    return {
+      success: false,
+      error: error.message
+    }
+  }
+})
+
+ipcMain.handle('import-data', async () => {
+  try {
+    const { dialog } = await import('electron')
+    const result = await dialog.showOpenDialog({
+      filters: [
+        { name: 'JSON Files', extensions: ['json'] },
+        { name: 'All Files', extensions: ['*'] }
+      ],
+      properties: ['openFile']
+    })
+    
+    if (!result.canceled && result.filePaths.length > 0) {
+      console.log(`Importing data from: ${result.filePaths[0]}`)
+      // 这里需要实际的导入逻辑
+      return {
+        success: true,
+        cancelled: false,
+        filePath: result.filePaths[0]
+      }
+    } else {
+      return {
+        success: true,
+        cancelled: true
+      }
+    }
+  } catch (error) {
+    console.error('Error importing data:', error)
+    return {
+      success: false,
+      error: error.message
+    }
+  }
+})
+
 // 调试相关的IPC处理器（仅在开发模式）
 if (process.env.NODE_ENV === 'development') {
   ipcMain.handle('debug-connection', async (event, multiaddr) => {

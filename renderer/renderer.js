@@ -541,6 +541,39 @@ async function cancelDownload(downloadId) {
   }
 }
 
+// 连接到发现的节点
+async function connectToDiscoveredPeer(peerId) {
+  try {
+    const result = await window.electronAPI.connectToDiscoveredPeer(peerId)
+    
+    if (result.success) {
+      showMessage(`成功连接到节点: ${peerId.slice(-8)}`, 'success')
+      await refreshStats()
+    } else {
+      showMessage(`连接失败: ${result.error}`, 'error')
+    }
+  } catch (error) {
+    showMessage(`连接错误: ${error.message}`, 'error')
+  }
+}
+
+// 刷新发现的节点列表
+async function refreshDiscoveredPeers() {
+  try {
+    const result = await window.electronAPI.getDiscoveredPeers()
+    
+    if (result.success) {
+      // 更新节点信息显示
+      await refreshStats()
+      showMessage(`刷新完成，发现 ${result.peers.length} 个节点`, 'info')
+    } else {
+      showMessage(`刷新失败: ${result.error}`, 'error')
+    }
+  } catch (error) {
+    showMessage(`刷新错误: ${error.message}`, 'error')
+  }
+}
+
 // 刷新数据库统计
 async function refreshDatabaseStats() {
   try {
@@ -686,6 +719,15 @@ function showMessage(message, type = 'info') {
 document.addEventListener('DOMContentLoaded', () => {
   console.log('P2P文件共享系统已加载')
   
+  // 立即定义全局函数，确保它们在页面加载时就可用
+  window.removeSelectedFile = removeSelectedFile
+  window.downloadFile = downloadFile
+  window.pauseDownload = pauseDownload
+  window.resumeDownload = resumeDownload
+  window.cancelDownload = cancelDownload
+  window.connectToDiscoveredPeer = connectToDiscoveredPeer
+  window.refreshDiscoveredPeers = refreshDiscoveredPeers
+  
   // 初始化显示
   updateSelectedFilesDisplay()
   refreshDatabaseStats()
@@ -704,11 +746,4 @@ window.addEventListener('beforeunload', () => {
   window.electronAPI.removeAllListeners('p2p-node-started')
 })
 
-// 全局函数，供HTML调用
-window.removeSelectedFile = removeSelectedFile
-window.downloadFile = downloadFile
-window.pauseDownload = pauseDownload
-window.resumeDownload = resumeDownload
-window.cancelDownload = cancelDownload
-window.connectToDiscoveredPeer = connectToDiscoveredPeer
-window.refreshDiscoveredPeers = refreshDiscoveredPeers
+// 注意：全局函数现在在 DOMContentLoaded 事件中定义，确保它们在页面加载时就可用

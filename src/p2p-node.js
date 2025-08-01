@@ -291,15 +291,33 @@ export class P2PNode {
         return
       }
 
+      // 检查是否是引导节点
+      const isBootstrapNode = this.bootstrapNodes.some(bootstrapAddr => 
+        bootstrapAddr.includes(peerId)
+      )
+      
+      if (isBootstrapNode) {
+        throw new Error(`Cannot connect to bootstrap node ${peerId}. Bootstrap nodes are infrastructure nodes, not regular peers.`)
+      }
+
       // 获取节点的 multiaddr 信息
       const peerInfo = this.peerInfoMap.get(peerId)
       
       if (peerInfo && peerInfo.multiaddrs && peerInfo.multiaddrs.length > 0) {
-        // 如果有 multiaddr 信息，使用它进行连接
+        console.log(`Found ${peerInfo.multiaddrs.length} multiaddrs for peer`)
+        
         for (const multiaddrStr of peerInfo.multiaddrs) {
           try {
             const ma = multiaddr(multiaddrStr)
             console.log(`Trying to connect via multiaddr: ${multiaddrStr}`)
+            
+            // 验证multiaddr是否包含peer ID
+            const maPeerId = ma.getPeerId()
+            if (!maPeerId || maPeerId !== peerId) {
+              console.log(`Multiaddr ${multiaddrStr} does not contain correct peer ID, skipping`)
+              continue
+            }
+            
             await this.node.dial(ma)
             
             // 连接成功
@@ -307,6 +325,7 @@ export class P2PNode {
             peerInfo.connectedAt = Date.now()
             console.log(`Successfully connected to discovered peer: ${peerId}`)
             return
+            
           } catch (error) {
             console.log(`Failed to connect via ${multiaddrStr}:`, error.message)
             continue
@@ -314,22 +333,8 @@ export class P2PNode {
         }
       }
       
-      // 如果没有 multiaddr 或者通过 multiaddr 连接失败，尝试直接通过 peer ID 连接
-      try {
-        console.log(`Trying to connect directly via peer ID: ${peerId}`)
-        await this.node.dial(peerId)
-        
-        // 更新节点状态
-        if (peerInfo) {
-          peerInfo.status = 'connected'
-          peerInfo.connectedAt = Date.now()
-        }
-        
-        console.log(`Successfully connected to discovered peer: ${peerId}`)
-      } catch (error) {
-        console.error(`Failed to connect to discovered peer ${peerId}:`, error)
-        throw new Error(`Unable to connect to peer ${peerId}: ${error.message}`)
-      }
+      // 所有连接方法都失败了
+      throw new Error(`Unable to connect to peer ${peerId}: No valid multiaddr found. The peer may be offline, unreachable, or this may be a bootstrap/infrastructure node.`)
       
     } catch (error) {
       console.error(`Failed to connect to discovered peer ${peerId}:`, error)
