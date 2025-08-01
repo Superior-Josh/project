@@ -9,9 +9,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // 导入P2P相关模块
-let P2PNode, DHTManager
+let P2PNode, DHTManager, ConnectionDebugger
 let p2pNode = null
 let dhtManager = null
+let connectionDebugger = null // 修改变量名，避免使用保留字
 
 async function createWindow() {
   // 获取进程ID用于区分不同实例
@@ -61,10 +62,21 @@ async function autoStartP2PNode(mainWindow) {
     if (!p2pNode) {
       p2pNode = new P2PNode()
       dhtManager = new DHTManager(p2pNode)
+      
+      // 初始化调试器
+      if (process.env.NODE_ENV === 'development' && ConnectionDebugger) {
+        connectionDebugger = new ConnectionDebugger(p2pNode)
+      }
     }
     
     await p2pNode.start()
     await dhtManager.initialize()
+    
+    // 启用调试日志（仅在开发模式）
+    if (connectionDebugger) {
+      connectionDebugger.enableVerboseLogging()
+      await connectionDebugger.testLocalConnectivity()
+    }
     
     const nodeInfo = p2pNode.getNodeInfo()
     
@@ -102,6 +114,16 @@ app.whenReady().then(async () => {
     P2PNode = p2pModule.P2PNode
     DHTManager = dhtModule.DHTManager
     
+    // 导入调试器（仅在开发模式）
+    if (process.env.NODE_ENV === 'development') {
+      try {
+        const debugModule = await import('./src/debug-connection.js')
+        ConnectionDebugger = debugModule.ConnectionDebugger
+      } catch (error) {
+        console.log('Debug module not available:', error.message)
+      }
+    }
+    
     console.log('P2P modules loaded successfully')
   } catch (error) {
     console.error('Error loading P2P modules:', error)
@@ -138,10 +160,21 @@ ipcMain.handle('start-p2p-node', async () => {
     if (!p2pNode) {
       p2pNode = new P2PNode()
       dhtManager = new DHTManager(p2pNode)
+      
+      // 初始化调试器
+      if (process.env.NODE_ENV === 'development' && ConnectionDebugger) {
+        connectionDebugger = new ConnectionDebugger(p2pNode)
+      }
     }
     
     await p2pNode.start()
     await dhtManager.initialize()
+    
+    // 启用调试日志（仅在开发模式）
+    if (connectionDebugger) {
+      connectionDebugger.enableVerboseLogging()
+      await connectionDebugger.testLocalConnectivity()
+    }
     
     const nodeInfo = p2pNode.getNodeInfo()
     
@@ -209,6 +242,12 @@ ipcMain.handle('connect-to-peer', async (event, multiaddr) => {
   try {
     if (!p2pNode) {
       throw new Error('P2P node not started')
+    }
+    
+    // 使用调试器诊断连接（如果可用）
+    if (connectionDebugger && process.env.NODE_ENV === 'development') {
+      console.log('🔧 Running connection diagnosis...')
+      await connectionDebugger.diagnoseConnection(multiaddr)
     }
     
     await p2pNode.connectToPeer(multiaddr)
@@ -320,6 +359,67 @@ ipcMain.handle('get-discovered-peers', async () => {
     }
   }
 })
+
+ipcMain.handle('connect-to-discovered-peer', async (event, peerId) => {
+  try {
+    if (!p2pNode) {
+      throw new Error('P2P node not started')
+    }
+    
+    await p2pNode.connectToDiscoveredPeer(peerId)
+    return { success: true }
+  } catch (error) {
+    console.error('Error connecting to discovered peer:', error)
+    return {
+      success: false,
+      error: error.message
+    }
+  }
+})
+
+// 调试相关的IPC处理器（仅在开发模式）
+if (process.env.NODE_ENV === 'development') {
+  ipcMain.handle('debug-connection', async (event, multiaddr) => {
+    try {
+      if (!connectionDebugger) {
+        return {
+          success: false,
+          error: 'Debugger not available'
+        }
+      }
+      
+      await connectionDebugger.diagnoseConnection(multiaddr)
+      return { success: true }
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      }
+    }
+  })
+
+  ipcMain.handle('get-debug-report', async () => {
+    try {
+      if (!connectionDebugger) {
+        return {
+          success: false,
+          error: 'Debugger not available'
+        }
+      }
+      
+      const report = connectionDebugger.generateReport()
+      return {
+        success: true,
+        report
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      }
+    }
+  })
+}
 
 // 获取进程信息
 ipcMain.handle('get-process-info', () => {

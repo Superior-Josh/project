@@ -31,8 +31,8 @@ export class P2PNode {
       this.node = await createLibp2p({
         addresses: {
           listen: [
-            '/ip4/127.0.0.1/tcp/0',
-            // '/ip4/0.0.0.0/tcp/0/ws'
+            '/ip4/0.0.0.0/tcp/0',
+            '/ip4/0.0.0.0/tcp/0/ws'
           ]
         },
         transports: [
@@ -48,7 +48,9 @@ export class P2PNode {
         peerDiscovery: [
           // 本地网络发现 (mDNS)
           mdns({
-            interval: 20e3 // 每20秒扫描一次
+            interval: 20e3, // 每20秒扫描一次
+            broadcast: true,
+            serviceTag: 'p2p-file-sharing'
           }),
           // 引导节点发现
           bootstrap({
@@ -66,7 +68,18 @@ export class P2PNode {
           })
         ],
         services: {
-          pubsub: gossipsub(),
+          pubsub: gossipsub({
+            enabled: true,
+            emitSelf: false,
+            gossipIncoming: true,
+            fallbackToFloodsub: true,
+            floodPublish: true,
+            doPX: true,
+            msgIdFn: (msg) => {
+              return new TextEncoder().encode(msg.data.toString())
+            },
+            messageProcessingConcurrency: 10
+          }),
           dht: kadDHT({
             // Kademlia DHT配置
             kBucketSize: 20,
@@ -77,18 +90,42 @@ export class P2PNode {
               timeout: 10e3 // 10秒
             },
             servers: false, // 设为false让所有节点都参与DHT
-            clientMode: false
+            clientMode: false,
+            validators: {},
+            selectors: {}
           }),
-          ping: ping(),
-          identify: identify()
+          ping: ping({
+            protocolPrefix: 'ipfs',
+            maxInboundStreams: 32,
+            maxOutboundStreams: 64,
+            timeout: 10000
+          }),
+          identify: identify({
+            protocolPrefix: 'ipfs',
+            agentVersion: 'p2p-file-sharing/1.0.0',
+            clientVersion: '1.0.0'
+          })
         },
         connectionManager: {
           maxConnections: 100,
           minConnections: 5,
           pollInterval: 2000,
           autoDialInterval: 10000,
-          inboundUpgradeTimeout: 10000
-        }
+          inboundUpgradeTimeout: 10000,
+          outboundUpgradeTimeout: 10000,
+          connectionGater: {
+            denyDialMultiaddr: () => false,
+            denyDialPeer: () => false,
+            denyInboundConnection: () => false,
+            denyOutboundConnection: () => false,
+            denyInboundEncryptedConnection: () => false,
+            denyOutboundEncryptedConnection: () => false,
+            denyInboundUpgradedConnection: () => false,
+            denyOutboundUpgradedConnection: () => false,
+            filterMultiaddrForPeer: (peer, multiaddr) => true
+          }
+        },
+        connectionProtector: undefined // 确保没有连接保护器干扰
       })
 
       // 设置事件监听器
@@ -254,16 +291,44 @@ export class P2PNode {
         return
       }
 
-      // 尝试直接通过 peer ID 连接
-      await this.node.dial(peerId)
-      
-      console.log(`Successfully connected to discovered peer: ${peerId}`)
-      
-      // 更新节点状态
+      // 获取节点的 multiaddr 信息
       const peerInfo = this.peerInfoMap.get(peerId)
-      if (peerInfo) {
-        peerInfo.status = 'connected'
-        peerInfo.connectedAt = Date.now()
+      
+      if (peerInfo && peerInfo.multiaddrs && peerInfo.multiaddrs.length > 0) {
+        // 如果有 multiaddr 信息，使用它进行连接
+        for (const multiaddrStr of peerInfo.multiaddrs) {
+          try {
+            const ma = multiaddr(multiaddrStr)
+            console.log(`Trying to connect via multiaddr: ${multiaddrStr}`)
+            await this.node.dial(ma)
+            
+            // 连接成功
+            peerInfo.status = 'connected'
+            peerInfo.connectedAt = Date.now()
+            console.log(`Successfully connected to discovered peer: ${peerId}`)
+            return
+          } catch (error) {
+            console.log(`Failed to connect via ${multiaddrStr}:`, error.message)
+            continue
+          }
+        }
+      }
+      
+      // 如果没有 multiaddr 或者通过 multiaddr 连接失败，尝试直接通过 peer ID 连接
+      try {
+        console.log(`Trying to connect directly via peer ID: ${peerId}`)
+        await this.node.dial(peerId)
+        
+        // 更新节点状态
+        if (peerInfo) {
+          peerInfo.status = 'connected'
+          peerInfo.connectedAt = Date.now()
+        }
+        
+        console.log(`Successfully connected to discovered peer: ${peerId}`)
+      } catch (error) {
+        console.error(`Failed to connect to discovered peer ${peerId}:`, error)
+        throw new Error(`Unable to connect to peer ${peerId}: ${error.message}`)
       }
       
     } catch (error) {
@@ -331,9 +396,24 @@ export class P2PNode {
       const peerIdStr = ma.getPeerId()
       
       if (peerIdStr) {
-        // 如果有 peer ID，使用 peer ID 连接
         console.log('Connecting using peer ID:', peerIdStr)
-        await this.node.dial(ma)
+        
+        // 检查是否已经连接
+        const connections = this.node.getConnections()
+        const isAlreadyConnected = connections.some(conn => 
+          conn.remotePeer.toString() === peerIdStr
+        )
+        
+        if (isAlreadyConnected) {
+          console.log(`Already connected to peer: ${peerIdStr}`)
+          return
+        }
+
+        // 使用完整的 multiaddr 进行连接，而不是只使用 peer ID
+        const connection = await this.node.dial(ma)
+        
+        // 等待连接稳定
+        await new Promise(resolve => setTimeout(resolve, 1000))
         
         // 添加到发现的节点列表
         this.discoveredPeers.add(peerIdStr)
@@ -344,15 +424,23 @@ export class P2PNode {
           multiaddrs: [ma.toString()],
           source: 'manual'
         })
+        
+        console.log('Successfully connected to peer:', peerIdStr)
       } else {
-        // 如果没有 peer ID，直接使用 multiaddr
-        console.log('Connecting using multiaddr directly')
-        await this.node.dial(ma)
+        throw new Error('No peer ID found in multiaddr')
       }
-
-      console.log('Successfully connected to:', ma.toString())
     } catch (error) {
       console.error('Failed to connect to peer:', error)
+      
+      // 提供更详细的错误信息
+      if (error.message.includes('EncryptionFailedError')) {
+        throw new Error('Connection encryption failed. Make sure both nodes are using compatible protocols.')
+      } else if (error.message.includes('CONNECTION_DENIED')) {
+        throw new Error('Connection was denied by the remote peer.')
+      } else if (error.message.includes('DIAL_ERROR')) {
+        throw new Error('Failed to dial the peer. Check if the address is correct and the peer is online.')
+      }
+      
       throw error
     }
   }
