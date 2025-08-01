@@ -65,7 +65,7 @@ export class P2PNode {
           tcp(),
           webSockets()
         ],
-        connectionEncryption: [
+        connectionEncrypters: [
           noise()
         ],
         streamMuxers: [
@@ -405,7 +405,7 @@ export class P2PNode {
     )
   }
 
-  // 连接到发现的节点（通过 peer ID）- 简化版本
+  // 连接到发现的节点（通过 peer ID）- 修复版本
   async connectToDiscoveredPeer(peerId) {
     try {
       console.log(`Attempting to connect to discovered peer: ${peerId}`)
@@ -479,64 +479,80 @@ export class P2PNode {
         }
       }
       
-      // 方法2: 如果存储的地址都失败了，尝试从peerStore获取
+      // 方法2: 如果存储的地址都失败了，直接使用 peer ID 连接
       if (!connectionSuccessful) {
-        console.log('Stored multiaddrs failed, trying peerStore...')
+        console.log('Stored multiaddrs failed, trying direct peer ID connection...')
         
         try {
-          const peer = await this.node.peerStore.get(peerIdFromString(peerId))
+          // 创建 PeerId 对象
+          const peerIdObj = peerIdFromString(peerId)
           
-          if (peer && peer.addresses && peer.addresses.length > 0) {
-            console.log(`Found ${peer.addresses.length} addresses in peerStore`)
-            
-            for (const addressInfo of peer.addresses) {
-              try {
-                let ma = addressInfo.multiaddr
-                
-                // 确保multiaddr包含peer ID
-                if (!ma.getPeerId()) {
-                  ma = ma.encapsulate(`/p2p/${peerId}`)
-                }
-                
-                console.log(`Trying to connect via peerStore address: ${ma.toString()}`)
-                
-                const dialPromise = this.node.dial(ma)
-                const timeoutPromise = new Promise((_, reject) => {
-                  setTimeout(() => reject(new Error('Connection timeout')), 15000)
-                })
-                
-                await Promise.race([dialPromise, timeoutPromise])
-                
-                // 连接成功，更新状态
-                if (peerInfo) {
-                  peerInfo.status = 'connected'
-                  peerInfo.connectedAt = Date.now()
-                  if (!peerInfo.multiaddrs) {
-                    peerInfo.multiaddrs = [ma.toString()]
-                  }
-                } else {
-                  this.peerInfoMap.set(peerId, {
-                    id: peerId,
-                    status: 'connected',
-                    connectedAt: Date.now(),
-                    multiaddrs: [ma.toString()],
-                    source: 'peerStore',
-                    type: 'regular'
-                  })
-                }
-                
-                console.log(`Successfully connected to discovered peer via peerStore: ${peerId}`)
-                connectionSuccessful = true
-                break
-                
-              } catch (error) {
-                console.log(`Failed to connect via peerStore address ${addressInfo.multiaddr.toString()}:`, error.message)
-                continue
-              }
-            }
+          console.log(`Trying to connect directly to peer ID: ${peerId}`)
+          
+          const dialPromise = this.node.dial(peerIdObj)
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Connection timeout')), 15000)
+          })
+          
+          await Promise.race([dialPromise, timeoutPromise])
+          
+          // 连接成功，更新状态
+          if (peerInfo) {
+            peerInfo.status = 'connected'
+            peerInfo.connectedAt = Date.now()
+          } else {
+            this.peerInfoMap.set(peerId, {
+              id: peerId,
+              status: 'connected',
+              connectedAt: Date.now(),
+              source: 'direct',
+              type: 'regular'
+            })
           }
-        } catch (peerStoreError) {
-          console.log(`PeerStore lookup failed:`, peerStoreError.message)
+          
+          console.log(`Successfully connected to discovered peer via direct peer ID: ${peerId}`)
+          connectionSuccessful = true
+          
+        } catch (error) {
+          console.log(`Failed to connect via direct peer ID:`, error.message)
+          
+          // 方法3: 尝试从 peerStore 获取地址信息
+          try {
+            console.log('Direct peer ID connection failed, trying peerStore...')
+            
+            const peer = await this.node.peerStore.get(peerIdFromString(peerId))
+            
+            if (peer && peer.addresses && peer.addresses.length > 0) {
+              console.log(`Found ${peer.addresses.length} addresses in peerStore`)
+              
+              // 直接使用 peer ID 连接，让 libp2p 自动选择最佳地址
+              const dialPromise = this.node.dial(peerIdFromString(peerId))
+              const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Connection timeout')), 20000)
+              })
+              
+              await Promise.race([dialPromise, timeoutPromise])
+              
+              // 连接成功，更新状态
+              if (peerInfo) {
+                peerInfo.status = 'connected'
+                peerInfo.connectedAt = Date.now()
+              } else {
+                this.peerInfoMap.set(peerId, {
+                  id: peerId,
+                  status: 'connected',
+                  connectedAt: Date.now(),
+                  source: 'peerStore',
+                  type: 'regular'
+                })
+              }
+              
+              console.log(`Successfully connected to discovered peer via peerStore: ${peerId}`)
+              connectionSuccessful = true
+            }
+          } catch (peerStoreError) {
+            console.log(`PeerStore connection failed:`, peerStoreError.message)
+          }
         }
       }
       
