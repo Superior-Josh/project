@@ -41,7 +41,7 @@ header h1 {
   gap: 10px;
 }
 
-/* 按钮样式 */
+/* 按钮样式 - 改进版 */
 button {
   background: #3498db;
   color: white;
@@ -50,18 +50,89 @@ button {
   border-radius: 6px;
   cursor: pointer;
   font-size: 14px;
+  font-weight: 500;
   transition: all 0.3s ease;
+  min-width: 100px;
+  position: relative;
+  overflow: hidden;
 }
 
 button:hover:not(:disabled) {
   background: #2980b9;
   transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
+button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* 禁用状态的按钮 */
 button:disabled {
   background: #bdc3c7;
+  color: #7f8c8d;
   cursor: not-allowed;
   transform: none;
+  box-shadow: none;
+  opacity: 0.6;
+  position: relative;
+}
+
+/* 节点启动按钮特殊样式 */
+#startNode {
+  background: #27ae60;
+}
+
+#startNode:hover:not(:disabled) {
+  background: #229954;
+}
+
+#startNode:disabled {
+  background: #a8d4b4;
+  color: #2d5233;
+  border: 1px solid #82c596;
+}
+
+/* 节点停止按钮特殊样式 */
+#stopNode {
+  background: #e74c3c;
+}
+
+#stopNode:hover:not(:disabled) {
+  background: #c0392b;
+}
+
+#stopNode:disabled {
+  background: #f5b7b7;
+  color: #8b3232;
+  border: 1px solid #e8a8a8;
+}
+
+/* 加载状态的按钮 */
+button.loading {
+  background: #f39c12 !important;
+  color: white;
+  cursor: wait;
+}
+
+button.loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 50%;
+  animation: button-spin 1s linear infinite;
+}
+
+@keyframes button-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 button.primary {
@@ -80,34 +151,61 @@ button.danger:hover:not(:disabled) {
   background: #c0392b;
 }
 
-/* 状态指示器 */
+button.secondary {
+  background: #95a5a6;
+}
+
+button.secondary:hover:not(:disabled) {
+  background: #7f8c8d;
+}
+
+/* 状态指示器 - 改进版 */
 .status {
-  padding: 6px 12px;
+  padding: 8px 14px;
   border-radius: 20px;
   font-size: 12px;
   font-weight: bold;
   text-transform: uppercase;
+  letter-spacing: 0.5px;
+  min-width: 80px;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  border: 2px solid transparent;
 }
 
 .status.online {
-  background: #d5f4e6;
+  background: linear-gradient(135deg, #d5f4e6, #c8f7c5);
   color: #27ae60;
+  border-color: #27ae60;
+  animation: status-glow-green 2s infinite;
 }
 
 .status.offline {
-  background: #fadbd8;
+  background: linear-gradient(135deg, #fadbd8, #f2d7d5);
   color: #e74c3c;
+  border-color: #e74c3c;
 }
 
 .status.connecting {
-  background: #fff3cd;
+  background: linear-gradient(135deg, #fff3cd, #ffeaa7);
   color: #f39c12;
-  animation: pulse 2s infinite;
+  border-color: #f39c12;
+  animation: pulse 2s infinite, status-glow-orange 2s infinite;
+}
+
+@keyframes status-glow-green {
+  0%, 100% { box-shadow: 0 0 5px rgba(39, 174, 96, 0.3); }
+  50% { box-shadow: 0 0 15px rgba(39, 174, 96, 0.6); }
+}
+
+@keyframes status-glow-orange {
+  0%, 100% { box-shadow: 0 0 5px rgba(243, 156, 18, 0.3); }
+  50% { box-shadow: 0 0 15px rgba(243, 156, 18, 0.6); }
 }
 
 @keyframes pulse {
   0% { opacity: 1; }
-  50% { opacity: 0.5; }
+  50% { opacity: 0.7; }
   100% { opacity: 1; }
 }
 
@@ -118,15 +216,21 @@ button.danger:hover:not(:disabled) {
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   overflow: hidden;
+  transition: box-shadow 0.3s ease;
+}
+
+.section:hover {
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
 }
 
 .section h2 {
-  background: #ecf0f1;
+  background: linear-gradient(135deg, #ecf0f1, #d5dbdb);
   padding: 15px 20px;
   margin: 0;
   color: #2c3e50;
   font-size: 18px;
   border-bottom: 1px solid #bdc3c7;
+  font-weight: 600;
 }
 
 .section > div {
@@ -135,9 +239,10 @@ button.danger:hover:not(:disabled) {
 
 /* 信息面板 */
 .info-panel {
-  background: #f8f9fa;
+  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
   border-left: 4px solid #3498db;
   margin: 0;
+  border-radius: 0 4px 4px 0;
 }
 
 .info-panel p {
@@ -146,6 +251,7 @@ button.danger:hover:not(:disabled) {
 
 .info-panel strong {
   color: #2c3e50;
+  font-weight: 600;
 }
 
 .info-panel ul {
@@ -157,8 +263,9 @@ button.danger:hover:not(:disabled) {
   font-family: 'Courier New', monospace;
   font-size: 12px;
   background: #ecf0f1;
-  padding: 2px 6px;
-  border-radius: 3px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border-left: 3px solid #3498db;
 }
 
 /* 连接面板 */
@@ -170,16 +277,18 @@ button.danger:hover:not(:disabled) {
 
 .connect-panel input {
   flex: 1;
-  padding: 10px;
-  border: 1px solid #bdc3c7;
-  border-radius: 4px;
+  padding: 12px;
+  border: 2px solid #bdc3c7;
+  border-radius: 6px;
   font-size: 14px;
+  transition: all 0.3s ease;
 }
 
 .connect-panel input:focus {
   outline: none;
   border-color: #3498db;
-  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+  transform: translateY(-1px);
 }
 
 /* 文件面板 */
@@ -194,6 +303,12 @@ button.danger:hover:not(:disabled) {
   border: 2px dashed #bdc3c7;
   border-radius: 8px;
   text-align: center;
+  transition: all 0.3s ease;
+}
+
+.upload-area:hover, .search-area:hover {
+  border-color: #3498db;
+  background: #f8f9fa;
 }
 
 .search-area {
@@ -203,10 +318,17 @@ button.danger:hover:not(:disabled) {
 }
 
 .search-area input {
-  padding: 10px;
-  border: 1px solid #bdc3c7;
-  border-radius: 4px;
+  padding: 12px;
+  border: 2px solid #bdc3c7;
+  border-radius: 6px;
   font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.search-area input:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
 }
 
 /* 选中文件显示 */
@@ -219,35 +341,44 @@ button.danger:hover:not(:disabled) {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 12px;
-  background: #ecf0f1;
-  border-radius: 4px;
-  margin: 5px 0;
+  padding: 10px 12px;
+  background: linear-gradient(135deg, #ecf0f1, #d5dbdb);
+  border-radius: 6px;
+  margin: 8px 0;
+  border-left: 4px solid #3498db;
+  transition: all 0.3s ease;
+}
+
+.selected-file:hover {
+  background: linear-gradient(135deg, #d5dbdb, #bdc3c7);
+  transform: translateX(5px);
 }
 
 .selected-file button {
   background: #e74c3c;
-  padding: 4px 8px;
+  padding: 6px 10px;
   font-size: 12px;
+  min-width: auto;
 }
 
-/* 发现的节点样式 */
+/* 发现的节点样式 - 改进版 */
 .discovered-peers {
   max-height: 300px;
   overflow-y: auto;
   margin-top: 10px;
-  border: 1px solid #ddd;
-  border-radius: 5px;
-  background: #fafafa;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #fafafa, #f5f5f5);
 }
 
 .peer-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 12px;
+  padding: 12px 15px;
   border-bottom: 1px solid #eee;
-  transition: background-color 0.2s ease;
+  transition: all 0.3s ease;
+  position: relative;
 }
 
 .peer-item:last-child {
@@ -255,55 +386,71 @@ button.danger:hover:not(:disabled) {
 }
 
 .peer-item:hover {
-  background: #f0f0f0;
+  background: linear-gradient(135deg, #f0f0f0, #e8e8e8);
+  transform: translateX(3px);
+  box-shadow: inset 3px 0 0 #3498db;
 }
 
 /* 引导节点特殊样式 */
 .peer-item.bootstrap-peer {
-  background-color: #fff3cd;
-  border-left: 3px solid #f39c12;
+  background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+  border-left: 4px solid #f39c12;
 }
 
 .peer-item.bootstrap-peer:hover {
-  background-color: #ffeeba;
+  background: linear-gradient(135deg, #ffeeba, #fdcb6e);
 }
 
 .peer-id {
-  font-family: 'Courier New', monospace;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
   font-size: 12px;
   color: #666;
   flex: 1;
   margin-right: 10px;
   word-break: break-all;
+  background: rgba(255,255,255,0.8);
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
 }
 
 .bootstrap-peer .peer-id {
   color: #856404;
-  font-weight: bold;
+  font-weight: 600;
+  background: rgba(255,243,205,0.8);
+  border-color: #f39c12;
 }
 
 .connect-btn {
-  background: #2196F3;
+  background: linear-gradient(135deg, #2196F3, #1976D2);
   color: white;
   border: none;
-  padding: 4px 8px;
-  border-radius: 3px;
+  padding: 6px 12px;
+  border-radius: 4px;
   cursor: pointer;
   font-size: 11px;
-  transition: background-color 0.2s ease;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  min-width: auto;
+  box-shadow: 0 2px 4px rgba(33, 150, 243, 0.3);
 }
 
 .connect-btn:hover {
-  background: #1976D2;
+  background: linear-gradient(135deg, #1976D2, #1565C0);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(33, 150, 243, 0.4);
 }
 
 .bootstrap-label {
   font-size: 10px;
   color: #856404;
-  background: #fff3cd;
-  padding: 2px 6px;
-  border-radius: 3px;
-  border: 1px solid #ffeeba;
+  background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #f39c12;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 /* 文件列表 */
@@ -318,15 +465,23 @@ button.danger:hover:not(:disabled) {
   align-items: center;
   padding: 15px;
   border-bottom: 1px solid #ecf0f1;
+  transition: all 0.3s ease;
 }
 
 .file-item:last-child {
   border-bottom: none;
 }
 
+.file-item:hover {
+  background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+  transform: translateX(5px);
+  box-shadow: inset 3px 0 0 #3498db;
+}
+
 .file-info h4 {
   margin: 0 0 8px 0;
   color: #2c3e50;
+  font-weight: 600;
 }
 
 .file-info p {
@@ -341,8 +496,9 @@ button.danger:hover:not(:disabled) {
 }
 
 .file-actions button {
-  padding: 6px 12px;
+  padding: 8px 12px;
   font-size: 12px;
+  min-width: auto;
 }
 
 /* 下载列表 */
@@ -352,15 +508,23 @@ button.danger:hover:not(:disabled) {
 }
 
 .download-item {
-  border: 1px solid #ecf0f1;
-  border-radius: 6px;
+  border: 2px solid #ecf0f1;
+  border-radius: 8px;
   margin: 10px 0;
   padding: 15px;
+  background: linear-gradient(135deg, #ffffff, #f8f9fa);
+  transition: all 0.3s ease;
+}
+
+.download-item:hover {
+  border-color: #3498db;
+  box-shadow: 0 4px 8px rgba(52, 152, 219, 0.1);
 }
 
 .download-info h4 {
   margin: 0 0 10px 0;
   color: #2c3e50;
+  font-weight: 600;
 }
 
 .download-info p {
@@ -371,28 +535,32 @@ button.danger:hover:not(:disabled) {
 
 .progress-bar {
   width: 100%;
-  height: 8px;
+  height: 10px;
   background: #ecf0f1;
-  border-radius: 4px;
+  border-radius: 5px;
   overflow: hidden;
   margin: 8px 0;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .progress-fill {
   height: 100%;
-  background: #27ae60;
+  background: linear-gradient(90deg, #27ae60, #2ecc71);
   transition: width 0.3s ease;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(39, 174, 96, 0.3);
 }
 
 .download-actions {
-  margin-top: 10px;
+  margin-top: 12px;
   display: flex;
   gap: 8px;
 }
 
 .download-actions button {
-  padding: 6px 12px;
+  padding: 8px 12px;
   font-size: 12px;
+  min-width: auto;
 }
 
 /* 数据库控制 */
@@ -405,22 +573,25 @@ button.danger:hover:not(:disabled) {
 
 .database-controls button {
   font-size: 12px;
-  padding: 8px 12px;
+  padding: 10px 14px;
+  min-width: auto;
 }
 
-/* 消息提示 */
+/* 消息提示 - 改进版 */
 .message {
   position: fixed;
   top: 20px;
   right: 20px;
-  padding: 12px 20px;
-  border-radius: 6px;
+  padding: 14px 20px;
+  border-radius: 8px;
   color: white;
-  font-weight: bold;
+  font-weight: 600;
   z-index: 1000;
-  max-width: 300px;
+  max-width: 350px;
   animation: slideIn 0.3s ease;
   white-space: pre-line;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  border-left: 5px solid rgba(255,255,255,0.5);
 }
 
 @keyframes slideIn {
@@ -435,38 +606,39 @@ button.danger:hover:not(:disabled) {
 }
 
 .message-success {
-  background: #27ae60;
+  background: linear-gradient(135deg, #27ae60, #2ecc71);
 }
 
 .message-error {
-  background: #e74c3c;
+  background: linear-gradient(135deg, #e74c3c, #c0392b);
 }
 
 .message-warning {
-  background: #f39c12;
+  background: linear-gradient(135deg, #f39c12, #e67e22);
 }
 
 .message-info {
-  background: #3498db;
+  background: linear-gradient(135deg, #3498db, #2980b9);
 }
 
 /* 滚动条样式 */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 10px;
 }
 
 ::-webkit-scrollbar-track {
   background: #f1f1f1;
-  border-radius: 4px;
+  border-radius: 5px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 4px;
+  background: linear-gradient(135deg, #c1c1c1, #a8a8a8);
+  border-radius: 5px;
+  border: 1px solid #999;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+  background: linear-gradient(135deg, #a8a8a8, #888);
 }
 
 /* 响应式设计 */
@@ -517,6 +689,7 @@ button.danger:hover:not(:disabled) {
   .peer-id {
     margin-right: 0;
     font-size: 11px;
+    width: 100%;
   }
   
   .connect-btn {
@@ -531,5 +704,10 @@ button.danger:hover:not(:disabled) {
     left: 10px;
     right: 10px;
     max-width: none;
+  }
+  
+  .status {
+    min-width: 60px;
+    font-size: 10px;
   }
 }

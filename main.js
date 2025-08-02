@@ -13,13 +13,14 @@ let P2PNode, DHTManager, ConnectionDebugger
 let p2pNode = null
 let dhtManager = null
 let connectionDebugger = null // 修改变量名，避免使用保留字
+let mainWindow = null // 保存主窗口引用
 
 async function createWindow() {
   // 获取进程ID用于区分不同实例
   const processId = process.pid
   const nodeId = Math.random().toString(36).substr(2, 6) // 生成短随机ID
   
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     title: `P2P File Sharing - Node ${nodeId} (PID: ${processId})`, // 在标题中显示信息
@@ -55,7 +56,7 @@ async function createWindow() {
 }
 
 // 自动启动P2P节点
-async function autoStartP2PNode(mainWindow) {
+async function autoStartP2PNode(window) {
   try {
     console.log('Auto-starting P2P node...')
     
@@ -81,27 +82,31 @@ async function autoStartP2PNode(mainWindow) {
     const nodeInfo = p2pNode.getNodeInfo()
     
     // 更新窗口标题，包含peer ID的前8位
-    if (nodeInfo) {
+    if (nodeInfo && window) {
       const shortPeerId = nodeInfo.peerId.slice(-8)
       const processId = process.pid
-      mainWindow.setTitle(`P2P File Sharing - ${shortPeerId} (PID: ${processId})`)
+      window.setTitle(`P2P File Sharing - ${shortPeerId} (PID: ${processId})`)
     }
     
     // 通知渲染进程节点已启动
-    mainWindow.webContents.send('p2p-node-started', {
-      success: true,
-      nodeInfo
-    })
+    if (window) {
+      window.webContents.send('p2p-node-started', {
+        success: true,
+        nodeInfo
+      })
+    }
     
     console.log('P2P node auto-started successfully')
   } catch (error) {
     console.error('Failed to auto-start P2P node:', error)
     
     // 通知渲染进程启动失败
-    mainWindow.webContents.send('p2p-node-started', {
-      success: false,
-      error: error.message
-    })
+    if (window) {
+      window.webContents.send('p2p-node-started', {
+        success: false,
+        error: error.message
+      })
+    }
   }
 }
 
@@ -154,9 +159,33 @@ app.on('window-all-closed', async () => {
   }
 })
 
+// 通知所有窗口状态变化
+function notifyNodeStatusChange(success, nodeInfo = null, error = null) {
+  const allWindows = BrowserWindow.getAllWindows()
+  allWindows.forEach(window => {
+    if (window && !window.isDestroyed()) {
+      window.webContents.send('p2p-node-status-changed', {
+        success,
+        nodeInfo,
+        error
+      })
+    }
+  })
+}
+
 // IPC处理程序
 ipcMain.handle('start-p2p-node', async () => {
   try {
+    // 如果节点已经启动，直接返回成功
+    if (p2pNode && p2pNode.isStarted) {
+      const nodeInfo = p2pNode.getNodeInfo()
+      return {
+        success: true,
+        nodeInfo,
+        message: 'Node is already running'
+      }
+    }
+
     if (!p2pNode) {
       p2pNode = new P2PNode()
       dhtManager = new DHTManager(p2pNode)
@@ -179,12 +208,15 @@ ipcMain.handle('start-p2p-node', async () => {
     const nodeInfo = p2pNode.getNodeInfo()
     
     // 更新窗口标题，包含peer ID的前8位
-    const mainWindow = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
-    if (mainWindow && nodeInfo) {
+    const currentWindow = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
+    if (currentWindow && nodeInfo) {
       const shortPeerId = nodeInfo.peerId.slice(-8)
       const processId = process.pid
-      mainWindow.setTitle(`P2P File Sharing - ${shortPeerId} (PID: ${processId})`)
+      currentWindow.setTitle(`P2P File Sharing - ${shortPeerId} (PID: ${processId})`)
     }
+    
+    // 通知状态变化
+    notifyNodeStatusChange(true, nodeInfo)
     
     return {
       success: true,
@@ -192,6 +224,10 @@ ipcMain.handle('start-p2p-node', async () => {
     }
   } catch (error) {
     console.error('Error starting P2P node:', error)
+    
+    // 通知状态变化
+    notifyNodeStatusChange(false, null, error.message)
+    
     return {
       success: false,
       error: error.message
@@ -203,15 +239,21 @@ ipcMain.handle('stop-p2p-node', async () => {
   try {
     if (p2pNode) {
       await p2pNode.stop()
+      p2pNode = null
+      dhtManager = null
+      connectionDebugger = null
     }
     
     // 重置窗口标题
-    const mainWindow = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
-    if (mainWindow) {
+    const currentWindow = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
+    if (currentWindow) {
       const processId = process.pid
       const nodeId = Math.random().toString(36).substr(2, 6)
-      mainWindow.setTitle(`P2P File Sharing - Node ${nodeId} (PID: ${processId}) - STOPPED`)
+      currentWindow.setTitle(`P2P File Sharing - Node ${nodeId} (PID: ${processId}) - STOPPED`)
     }
+    
+    // 通知状态变化
+    notifyNodeStatusChange(true, null, null)
     
     return { success: true }
   } catch (error) {
@@ -675,6 +717,14 @@ if (process.env.NODE_ENV === 'development') {
     }
   })
 }
+
+// 获取节点状态
+ipcMain.handle('get-node-status', async () => {
+  return {
+    isStarted: p2pNode ? p2pNode.isStarted : false,
+    nodeInfo: p2pNode ? p2pNode.getNodeInfo() : null
+  }
+})
 
 // 获取进程信息
 ipcMain.handle('get-process-info', () => {

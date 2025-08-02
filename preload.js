@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   startP2PNode: () => ipcRenderer.invoke('start-p2p-node'),
   stopP2PNode: () => ipcRenderer.invoke('stop-p2p-node'),
   getNodeInfo: () => ipcRenderer.invoke('get-node-info'),
+  getNodeStatus: () => ipcRenderer.invoke('get-node-status'),
   connectToPeer: (multiaddr) => ipcRenderer.invoke('connect-to-peer', multiaddr),
   
   // DHT操作
@@ -42,13 +43,26 @@ contextBridge.exposeInMainWorld('electronAPI', {
   exportData: () => ipcRenderer.invoke('export-data'),
   importData: () => ipcRenderer.invoke('import-data'),
 
+  // 进程信息
+  getProcessInfo: () => ipcRenderer.invoke('get-process-info'),
+
   // 事件监听 - 用于自动启动
   onP2PNodeStarted: (callback) => {
     ipcRenderer.on('p2p-node-started', (event, data) => callback(data))
   },
   
+  // 事件监听 - 用于状态变化
+  onP2PNodeStatusChanged: (callback) => {
+    ipcRenderer.on('p2p-node-status-changed', (event, data) => callback(data))
+  },
+  
   // 移除事件监听器
   removeAllListeners: (channel) => {
     ipcRenderer.removeAllListeners(channel)
+  },
+  
+  // 移除特定监听器
+  removeListener: (channel, callback) => {
+    ipcRenderer.removeListener(channel, callback)
   }
 })

@@ -32,6 +32,27 @@ const elements = {
   importData: document.getElementById('importData')
 }
 
+// 更新按钮状态的统一函数
+function updateButtonStates(nodeStarted) {
+  isNodeStarted = nodeStarted
+
+  if (nodeStarted) {
+    // 节点已启动状态
+    elements.startNode.disabled = true
+    elements.startNode.textContent = '节点已启动'
+    elements.stopNode.disabled = false
+    elements.stopNode.textContent = '停止节点'
+    updateNodeStatus('online', '在线')
+  } else {
+    // 节点未启动状态
+    elements.startNode.disabled = false
+    elements.startNode.textContent = '启动节点'
+    elements.stopNode.disabled = true
+    elements.stopNode.textContent = '停止节点'
+    updateNodeStatus('offline', '离线')
+  }
+}
+
 // 事件监听器
 elements.startNode.addEventListener('click', startNode)
 elements.stopNode.addEventListener('click', stopNode)
@@ -56,27 +77,40 @@ elements.searchInput.addEventListener('keypress', (e) => {
 // 监听自动启动事件
 window.electronAPI.onP2PNodeStarted((result) => {
   console.log('Received auto-start result:', result)
-  
+
+  isAutoStarting = false
+
   if (result.success) {
-    isNodeStarted = true
-    isAutoStarting = false
-    updateNodeStatus('online', '在线')
-    elements.startNode.disabled = true
-    elements.stopNode.disabled = false
-    elements.startNode.textContent = '启动节点'
-    
+    updateButtonStates(true)
     updateNodeInfo(result.nodeInfo)
-    
+
     // 开始定期刷新统计信息
     startStatsRefresh()
-    
+
     showMessage('P2P节点自动启动成功', 'success')
   } else {
-    isAutoStarting = false
-    elements.startNode.textContent = '启动节点'
-    elements.startNode.disabled = false
-    updateNodeStatus('offline', '离线')
+    updateButtonStates(false)
+    elements.nodeInfo.innerHTML = '<p>自动启动失败</p>'
     showMessage(`自动启动失败: ${result.error}`, 'error')
+  }
+})
+
+// 监听节点状态变化事件
+window.electronAPI.onP2PNodeStatusChanged((result) => {
+  console.log('Received node status change:', result)
+
+  if (result.success && result.nodeInfo) {
+    // 节点启动成功
+    updateButtonStates(true)
+    updateNodeInfo(result.nodeInfo)
+  } else if (result.success && !result.nodeInfo) {
+    // 节点停止成功
+    updateButtonStates(false)
+    elements.nodeInfo.innerHTML = '<p>节点已停止</p>'
+    elements.dhtStats.innerHTML = '<p>DHT未运行</p>'
+  } else if (!result.success && result.error) {
+    // 操作失败
+    showMessage(`节点操作失败: ${result.error}`, 'error')
   }
 })
 
@@ -87,64 +121,78 @@ async function startNode() {
     return
   }
 
+  if (isNodeStarted) {
+    showMessage('节点已经启动', 'info')
+    return
+  }
+
   try {
+    // 设置启动中状态
     elements.startNode.disabled = true
     elements.startNode.textContent = '启动中...'
-    
+    updateNodeStatus('connecting', '启动中')
+
     const result = await window.electronAPI.startP2PNode()
-    
+
     if (result.success) {
-      isNodeStarted = true
-      updateNodeStatus('online', '在线')
-      elements.startNode.disabled = true
-      elements.stopNode.disabled = false
-      
+      updateButtonStates(true)
       updateNodeInfo(result.nodeInfo)
-      
+
       // 开始定期刷新统计信息
       startStatsRefresh()
-      
+
       showMessage('P2P节点启动成功', 'success')
     } else {
+      updateButtonStates(false)
       showMessage(`启动失败: ${result.error}`, 'error')
     }
   } catch (error) {
+    updateButtonStates(false)
     showMessage(`启动错误: ${error.message}`, 'error')
-  } finally {
-    elements.startNode.disabled = false
-    elements.startNode.textContent = '启动节点'
   }
 }
 
 // 停止节点
 async function stopNode() {
+  if (!isNodeStarted) {
+    showMessage('节点未启动', 'info')
+    return
+  }
+
   try {
+    // 设置停止中状态
     elements.stopNode.disabled = true
     elements.stopNode.textContent = '停止中...'
-    
+    updateNodeStatus('connecting', '停止中')
+
     const result = await window.electronAPI.stopP2PNode()
-    
+
     if (result.success) {
-      isNodeStarted = false
-      updateNodeStatus('offline', '离线')
-      elements.startNode.disabled = false
-      elements.stopNode.disabled = true
-      
+      updateButtonStates(false)
+
       elements.nodeInfo.innerHTML = '<p>节点已停止</p>'
       elements.dhtStats.innerHTML = '<p>DHT未运行</p>'
-      
+
       // 停止统计信息刷新
-      clearInterval(downloadInterval)
-      
+      if (downloadInterval) {
+        clearInterval(downloadInterval)
+        downloadInterval = null
+      }
+
       showMessage('P2P节点已停止', 'info')
     } else {
+      // 恢复按钮状态
+      elements.stopNode.disabled = false
+      elements.stopNode.textContent = '停止节点'
+      updateNodeStatus('online', '在线')
       showMessage(`停止失败: ${result.error}`, 'error')
     }
   } catch (error) {
-    showMessage(`停止错误: ${error.message}`, 'error')
-  } finally {
+    // 恢复按钮状态
     elements.stopNode.disabled = false
     elements.stopNode.textContent = '停止节点'
+    updateNodeStatus('online', '在线')
+    showMessage(`停止错误: ${error.message}`, 'error')
   }
 }
 
@@ -169,20 +217,20 @@ function updateNodeInfo(nodeInfo) {
         <p><strong>发现的节点列表:</strong></p>
         <div class="discovered-peers">
           ${nodeInfo.discoveredPeerIds.map(peerId => {
-            const shortPeerId = peerId
-            const isBootstrap = isBootstrapPeerId(peerId)
-            return `
+      const shortPeerId = peerId
+      const isBootstrap = isBootstrapPeerId(peerId)
+      return `
               <div class="peer-item ${isBootstrap ? 'bootstrap-peer' : ''}">
                 <span class="peer-id" title="${peerId}">
                   ${shortPeerId}${isBootstrap ? ' (引导节点)' : ''}
                 </span>
-                ${!isBootstrap ? 
-                  `<button class="connect-btn" onclick="connectToDiscoveredPeer('${peerId}')">连接</button>` :
-                  `<span class="bootstrap-label">基础设施节点</span>`
-                }
+                ${!isBootstrap ?
+          `<button class="connect-btn" onclick="connectToDiscoveredPeer('${peerId}')">连接</button>` :
+          `<span class="bootstrap-label">基础设施节点</span>`
+        }
               </div>
             `
-          }).join('')}
+    }).join('')}
         </div>
       ` : ''}
     `
@@ -200,6 +248,11 @@ function isBootstrapPeerId(peerId) {
 
 // 连接到节点
 async function connectToPeer() {
+  if (!isNodeStarted) {
+    showMessage('请先启动P2P节点', 'warning')
+    return
+  }
+
   const address = elements.peerAddress.value.trim()
   if (!address) {
     showMessage('请输入节点地址', 'warning')
@@ -209,9 +262,9 @@ async function connectToPeer() {
   try {
     elements.connectPeer.disabled = true
     elements.connectPeer.textContent = '连接中...'
-    
+
     const result = await window.electronAPI.connectToPeer(address)
-    
+
     if (result.success) {
       showMessage('成功连接到节点', 'success')
       elements.peerAddress.value = ''
@@ -258,12 +311,17 @@ async function refreshStats() {
 
 // 开始统计信息刷新
 function startStatsRefresh() {
+  // 停止之前的刷新定时器
+  if (downloadInterval) {
+    clearInterval(downloadInterval)
+  }
+
   // 立即刷新一次
   refreshStats()
-  
+
   // 每30秒刷新一次
   downloadInterval = setInterval(refreshStats, 30000)
-  
+
   // 每5秒刷新下载状态
   setInterval(refreshDownloads, 5000)
 }
@@ -272,7 +330,7 @@ function startStatsRefresh() {
 async function selectFiles() {
   try {
     const result = await window.electronAPI.selectFiles()
-    
+
     if (result.success && !result.cancelled) {
       selectedFiles = result.filePaths
       updateSelectedFilesDisplay()
@@ -295,7 +353,7 @@ function updateSelectedFilesDisplay() {
         <button onclick="removeSelectedFile('${filePath}')">移除</button>
       </div>`
     }).join('')
-    
+
     elements.selectedFiles.innerHTML = `
       <p>已选择 ${selectedFiles.length} 个文件:</p>
       ${fileList}
@@ -325,7 +383,7 @@ async function shareSelectedFiles() {
   try {
     elements.shareSelected.disabled = true
     elements.shareSelected.textContent = '分享中...'
-    
+
     let successCount = 0
     let errorCount = 0
     const errors = []
@@ -333,7 +391,7 @@ async function shareSelectedFiles() {
     for (const filePath of selectedFiles) {
       try {
         const result = await window.electronAPI.shareFile(filePath)
-        
+
         if (result.success) {
           successCount++
         } else {
@@ -350,7 +408,7 @@ async function shareSelectedFiles() {
     if (successCount > 0) {
       showMessage(`成功分享 ${successCount} 个文件`, 'success')
     }
-    
+
     if (errorCount > 0) {
       showMessage(`${errorCount} 个文件分享失败:\n${errors.join('\n')}`, 'error')
     }
@@ -358,10 +416,10 @@ async function shareSelectedFiles() {
     // 清空选择
     selectedFiles = []
     updateSelectedFilesDisplay()
-    
+
     // 刷新本地文件列表
     await refreshLocalFiles()
-    
+
   } catch (error) {
     showMessage(`分享错误: ${error.message}`, 'error')
   } finally {
@@ -381,9 +439,9 @@ async function searchFiles() {
   try {
     elements.searchFiles.disabled = true
     elements.searchFiles.textContent = '搜索中...'
-    
+
     const result = await window.electronAPI.searchFiles(query)
-    
+
     if (result.success) {
       displaySearchResults(result.results)
     } else {
@@ -416,7 +474,7 @@ function displaySearchResults(results) {
         </div>
       </div>
     `).join('')
-    
+
     elements.searchResults.innerHTML = `
       <p>找到 ${results.length} 个文件:</p>
       ${resultList}
@@ -433,7 +491,7 @@ async function downloadFile(fileHash, fileName) {
 
   try {
     const result = await window.electronAPI.downloadFile(fileHash, fileName)
-    
+
     if (result.success) {
       showMessage(`开始下载: ${fileName}`, 'success')
       await refreshDownloads()
@@ -449,7 +507,7 @@ async function downloadFile(fileHash, fileName) {
 async function refreshLocalFiles() {
   try {
     const files = await window.electronAPI.getLocalFiles()
-    
+
     if (files.length === 0) {
       elements.localFiles.innerHTML = '<p>暂无本地文件</p>'
     } else {
@@ -463,7 +521,7 @@ async function refreshLocalFiles() {
           </div>
         </div>
       `).join('')
-      
+
       elements.localFiles.innerHTML = `
         <p>本地文件 (${files.length}):</p>
         ${fileList}
@@ -478,7 +536,7 @@ async function refreshLocalFiles() {
 async function refreshDownloads() {
   try {
     const downloads = await window.electronAPI.getActiveDownloads()
-    
+
     if (downloads.length === 0) {
       elements.activeDownloads.innerHTML = '<p>暂无活跃下载</p>'
     } else {
@@ -495,16 +553,16 @@ async function refreshDownloads() {
             ${download.estimatedTime ? `<p>预计剩余: ${formatTime(download.estimatedTime)}</p>` : ''}
           </div>
           <div class="download-actions">
-            ${download.status === 'downloading' ? 
-              `<button onclick="pauseDownload('${download.fileHash}')">暂停</button>` :
-              download.status === 'paused' ?
-              `<button onclick="resumeDownload('${download.fileHash}')">恢复</button>` : ''
-            }
+            ${download.status === 'downloading' ?
+          `<button onclick="pauseDownload('${download.fileHash}')">暂停</button>` :
+          download.status === 'paused' ?
+            `<button onclick="resumeDownload('${download.fileHash}')">恢复</button>` : ''
+        }
             <button onclick="cancelDownload('${download.fileHash}')">取消</button>
           </div>
         </div>
       `).join('')
-      
+
       elements.activeDownloads.innerHTML = downloadList
     }
   } catch (error) {
@@ -569,7 +627,7 @@ async function connectToDiscoveredPeer(peerId) {
     }
 
     const result = await window.electronAPI.connectToDiscoveredPeer(peerId)
-    
+
     if (result.success) {
       showMessage(`成功连接到节点: ${peerId.slice(-8)}`, 'success')
       await refreshStats()
@@ -592,7 +650,7 @@ async function connectToDiscoveredPeer(peerId) {
 async function refreshDiscoveredPeers() {
   try {
     const result = await window.electronAPI.getDiscoveredPeers()
-    
+
     if (result.success) {
       // 更新节点信息显示
       await refreshStats()
@@ -609,7 +667,7 @@ async function refreshDiscoveredPeers() {
 async function refreshDatabaseStats() {
   try {
     const stats = await window.electronAPI.getDatabaseStats()
-    
+
     if (stats) {
       elements.databaseStats.innerHTML = `
         <p><strong>节点记录:</strong> ${stats.nodes}</p>
@@ -633,9 +691,9 @@ async function cleanupDatabase() {
     try {
       elements.cleanupDatabase.disabled = true
       elements.cleanupDatabase.textContent = '清理中...'
-      
+
       const result = await window.electronAPI.cleanupDatabase()
-      
+
       if (result.success) {
         showMessage('数据库清理完成', 'success')
         await refreshDatabaseStats()
@@ -656,9 +714,9 @@ async function exportData() {
   try {
     elements.exportData.disabled = true
     elements.exportData.textContent = '导出中...'
-    
+
     const result = await window.electronAPI.exportData()
-    
+
     if (result.success && !result.cancelled) {
       showMessage(`数据已导出到: ${result.filePath}`, 'success')
     } else if (result.cancelled) {
@@ -680,9 +738,9 @@ async function importData() {
     try {
       elements.importData.disabled = true
       elements.importData.textContent = '导入中...'
-      
+
       const result = await window.electronAPI.importData()
-      
+
       if (result.success && !result.cancelled) {
         showMessage(`数据已从 ${result.filePath} 导入`, 'success')
         await refreshDatabaseStats()
@@ -732,24 +790,24 @@ function showMessage(message, type = 'info') {
   const messageEl = document.createElement('div')
   messageEl.className = `message message-${type}`
   messageEl.textContent = message
-  
+
   // 添加到页面
   document.body.appendChild(messageEl)
-  
+
   // 3秒后自动消失
   setTimeout(() => {
     if (messageEl.parentNode) {
       messageEl.parentNode.removeChild(messageEl)
     }
   }, 3000)
-  
+
   console.log(`[${type.toUpperCase()}] ${message}`)
 }
 
 // 页面加载完成后的初始化
 document.addEventListener('DOMContentLoaded', () => {
   console.log('P2P文件共享系统已加载')
-  
+
   // 立即定义全局函数，确保它们在页面加载时就可用
   window.removeSelectedFile = removeSelectedFile
   window.downloadFile = downloadFile
@@ -758,21 +816,15 @@ document.addEventListener('DOMContentLoaded', () => {
   window.cancelDownload = cancelDownload
   window.connectToDiscoveredPeer = connectToDiscoveredPeer
   window.refreshDiscoveredPeers = refreshDiscoveredPeers
-  
+
   // 初始化显示
   updateSelectedFilesDisplay()
   refreshDatabaseStats()
-  
+
   // 设置自动启动状态
   isAutoStarting = true
   elements.startNode.disabled = true
   elements.startNode.textContent = '自动启动中...'
+  elements.stopNode.disabled = true
   updateNodeStatus('connecting', '启动中')
-  
-  showMessage('正在自动启动P2P节点...', 'info')
-})
-
-// 页面卸载时清理事件监听器
-window.addEventListener('beforeunload', () => {
-  window.electronAPI.removeAllListeners('p2p-node-started')
 })
