@@ -1,4 +1,4 @@
-// debug-connection.js - 添加到 src 目录中
+// debug-connection.js
 import { multiaddr } from '@multiformats/multiaddr'
 
 export class ConnectionDebugger {

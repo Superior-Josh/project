@@ -29,10 +29,28 @@ export class FileManager {
   }
 
   initializeProtocol() {
-    // 注册文件传输协议处理器
-    this.p2pNode.node.handle(PROTOCOL_ID, ({ stream, connection }) => {
-      this.handleIncomingFileRequest(stream, connection)
-    })
+    // 等待节点启动后再注册协议
+    if (this.p2pNode.node) {
+      this.registerProtocolHandler()
+    } else {
+      // 如果节点还未启动，等待启动后注册
+      setTimeout(() => {
+        if (this.p2pNode.node) {
+          this.registerProtocolHandler()
+        }
+      }, 1000)
+    }
+  }
+
+  registerProtocolHandler() {
+    try {
+      this.p2pNode.node.handle(PROTOCOL_ID, ({ stream, connection }) => {
+        this.handleIncomingFileRequest(stream, connection)
+      })
+      console.log('File transfer protocol registered')
+    } catch (error) {
+      console.error('Error registering protocol handler:', error)
+    }
   }
 
   // 计算文件哈希
@@ -197,74 +215,124 @@ export class FileManager {
 
   // 请求特定块
   async requestChunk(peerId, fileHash, chunkIndex) {
-    const stream = await this.p2pNode.node.dialProtocol(peerId, PROTOCOL_ID)
-    
-    const request = {
-      type: 'CHUNK_REQUEST',
-      fileHash,
-      chunkIndex
-    }
+    try {
+      // 确保节点已启动
+      if (!this.p2pNode.node) {
+        throw new Error('P2P node not initialized')
+      }
 
-    // 发送请求
-    const requestData = JSON.stringify(request)
-    const requestBuffer = Buffer.from(requestData)
-    stream.write(new Uint8Array([requestBuffer.length]))
-    stream.write(requestBuffer)
-
-    // 接收响应
-    return new Promise((resolve, reject) => {
-      let responseBuffer = Buffer.alloc(0)
+      const stream = await this.p2pNode.node.dialProtocol(peerId, PROTOCOL_ID)
       
-      stream.on('data', (data) => {
-        responseBuffer = Buffer.concat([responseBuffer, Buffer.from(data)])
-      })
+      const request = {
+        type: 'CHUNK_REQUEST',
+        fileHash,
+        chunkIndex
+      }
 
-      stream.on('end', () => {
-        try {
-          const response = JSON.parse(responseBuffer.toString())
-          if (response.success) {
-            resolve({
-              index: chunkIndex,
-              data: Buffer.from(response.data, 'base64'),
-              hash: response.hash
-            })
-          } else {
-            reject(new Error(response.error))
+      // 发送请求
+      const requestData = JSON.stringify(request)
+      const requestBuffer = Buffer.from(requestData)
+      
+      // 发送长度和数据
+      const lengthBuffer = Buffer.allocUnsafe(4)
+      lengthBuffer.writeUInt32BE(requestBuffer.length, 0)
+      
+      stream.sink(async function* () {
+        yield lengthBuffer
+        yield requestBuffer
+      }())
+
+      // 接收响应
+      return new Promise((resolve, reject) => {
+        let responseData = []
+        let expectedLength = null
+        let receivedLength = 0
+
+        const processData = async () => {
+          try {
+            for await (const chunk of stream.source) {
+              responseData.push(chunk)
+              receivedLength += chunk.length
+
+              // 如果还没有读取长度信息
+              if (expectedLength === null && receivedLength >= 4) {
+                const allData = Buffer.concat(responseData)
+                expectedLength = allData.readUInt32BE(0)
+                responseData = [allData.slice(4)]
+                receivedLength -= 4
+              }
+
+              // 如果已经接收到完整数据
+              if (expectedLength !== null && receivedLength >= expectedLength) {
+                const responseBuffer = Buffer.concat(responseData).slice(0, expectedLength)
+                const response = JSON.parse(responseBuffer.toString())
+                
+                if (response.success) {
+                  resolve({
+                    index: chunkIndex,
+                    data: Buffer.from(response.data, 'base64'),
+                    hash: response.hash
+                  })
+                } else {
+                  reject(new Error(response.error))
+                }
+                break
+              }
+            }
+          } catch (error) {
+            reject(error)
           }
-        } catch (error) {
-          reject(error)
         }
-      })
 
-      stream.on('error', reject)
-      
-      setTimeout(() => {
-        reject(new Error('Chunk request timeout'))
-      }, 30000) // 30秒超时
-    })
+        processData()
+
+        // 设置超时
+        setTimeout(() => {
+          reject(new Error('Chunk request timeout'))
+        }, 30000) // 30秒超时
+      })
+    } catch (error) {
+      console.error('Error requesting chunk:', error)
+      throw error
+    }
   }
 
   // 处理传入的文件请求
   async handleIncomingFileRequest(stream, connection) {
     try {
-      let requestBuffer = Buffer.alloc(0)
-      
-      stream.on('data', async (data) => {
-        requestBuffer = Buffer.concat([requestBuffer, Buffer.from(data)])
-        
-        // 简单的协议：第一个字节是长度，然后是JSON请求
-        if (requestBuffer.length > 1) {
-          const requestLength = requestBuffer[0]
-          if (requestBuffer.length >= requestLength + 1) {
-            const requestData = requestBuffer.slice(1, requestLength + 1)
-            const request = JSON.parse(requestData.toString())
-            
-            await this.processFileRequest(request, stream)
-          }
+      let requestData = []
+      let expectedLength = null
+      let receivedLength = 0
+
+      for await (const chunk of stream.source) {
+        requestData.push(chunk)
+        receivedLength += chunk.length
+
+        // 读取消息长度
+        if (expectedLength === null && receivedLength >= 4) {
+          const allData = Buffer.concat(requestData)
+          expectedLength = allData.readUInt32BE(0)
+          requestData = [allData.slice(4)]
+          receivedLength -= 4
         }
-      })
+
+        // 处理完整的请求
+        if (expectedLength !== null && receivedLength >= expectedLength) {
+          const requestBuffer = Buffer.concat(requestData).slice(0, expectedLength)
+          const request = JSON.parse(requestBuffer.toString())
+          
+          await this.processFileRequest(request, stream)
+          break
+        }
+      }
     } catch (error) {
       console.error('Error handling file request:', error)
+      // 发送错误响应
+      const errorResponse = {
+        success: false,
+        error: error.message
+      }
+      await this.sendResponse(stream, errorResponse)
     }
   }
 
@@ -280,8 +348,7 @@ export class FileManager {
             success: false,
             error: 'File not found'
           }
-          stream.write(Buffer.from(JSON.stringify(errorResponse)))
-          stream.end()
+          await this.sendResponse(stream, errorResponse)
           return
         }
 
@@ -291,8 +358,7 @@ export class FileManager {
             success: false,
             error: 'Chunk not found'
           }
-          stream.write(Buffer.from(JSON.stringify(errorResponse)))
-          stream.end()
+          await this.sendResponse(stream, errorResponse)
           return
         }
 
@@ -303,8 +369,7 @@ export class FileManager {
           index: chunkIndex
         }
 
-        stream.write(Buffer.from(JSON.stringify(response)))
-        stream.end()
+        await this.sendResponse(stream, response)
       }
     } catch (error) {
       console.error('Error processing file request:', error)
@@ -312,9 +377,23 @@ export class FileManager {
         success: false,
         error: error.message
       }
-      stream.write(Buffer.from(JSON.stringify(errorResponse)))
-      stream.end()
+      await this.sendResponse(stream, errorResponse)
     }
+  }
+
+  // 发送响应
+  async sendResponse(stream, response) {
+    const responseData = JSON.stringify(response)
+    const responseBuffer = Buffer.from(responseData)
+    
+    // 发送长度和数据
+    const lengthBuffer = Buffer.allocUnsafe(4)
+    lengthBuffer.writeUInt32BE(responseBuffer.length, 0)
+    
+    stream.sink(async function* () {
+      yield lengthBuffer
+      yield responseBuffer
+    }())
   }
 
   // 验证块

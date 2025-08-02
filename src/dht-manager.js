@@ -23,7 +23,7 @@ export class DHTManager {
     try {
       // 创建CID
       const cid = await this.createCID(fileHash)
-      
+
       // 准备要存储的数据
       const fileInfo = {
         name: fileMetadata.name,
@@ -35,13 +35,13 @@ export class DHTManager {
 
       // 将文件信息序列化
       const data = new TextEncoder().encode(JSON.stringify(fileInfo))
-      
+
       // 发布到DHT
       await this.dht.put(cid.bytes, data)
-      
+
       // 同时添加到本地索引
       this.fileIndex.set(fileHash, fileInfo)
-      
+
       console.log(`File published to DHT: ${fileMetadata.name} (${fileHash})`)
       return cid
     } catch (error) {
@@ -51,21 +51,46 @@ export class DHTManager {
   }
 
   // 从DHT查找文件
+  // async findFile(fileHash) {
+  //   try {
+  //     const cid = await this.createCID(fileHash)
+
+  //     // 从DHT获取数据
+  //     const data = await this.dht.get(cid.bytes)
+
+  //     if (data) {
+  //       console.log('data:',data)
+  //       const fileInfo = JSON.parse(new TextDecoder().decode(data))
+  //       console.log('File found in DHT:', fileInfo)
+  //       return fileInfo
+  //     } else {
+  //       console.log('File not found in DHT')
+  //       return null
+  //     }
+  //   } catch (error) {
+  //     console.error('Error finding file in DHT:', error)
+  //     return null
+  //   }
+  // }
+
   async findFile(fileHash) {
     try {
       const cid = await this.createCID(fileHash)
-      
-      // 从DHT获取数据
-      const data = await this.dht.get(cid.bytes)
-      
-      if (data) {
-        const fileInfo = JSON.parse(new TextDecoder().decode(data))
-        console.log('File found in DHT:', fileInfo)
-        return fileInfo
-      } else {
-        console.log('File not found in DHT')
-        return null
+
+      // 获取异步迭代器
+      const results = this.dht.get(cid.bytes)
+
+      for await (const event of results) {
+        if (event.value) {  // 只取包含 value 的事件
+          const fileInfo = JSON.parse(new TextDecoder().decode(event.value))
+          console.log('fileInfo:', fileInfo)
+          console.log('File found in DHT:', fileInfo)
+          return fileInfo
+        }
       }
+
+      console.log('File not found in DHT')
+      return null
     } catch (error) {
       console.error('Error finding file in DHT:', error)
       return null
@@ -76,7 +101,7 @@ export class DHTManager {
   async findProviders(fileHash) {
     try {
       const cid = await this.createCID(fileHash)
-      
+
       // 查找提供者
       const providers = []
       for await (const provider of this.dht.findProviders(cid)) {
@@ -85,7 +110,7 @@ export class DHTManager {
           multiaddrs: provider.multiaddrs.map(addr => addr.toString())
         })
       }
-      
+
       console.log(`Found ${providers.length} providers for file ${fileHash}`)
       return providers
     } catch (error) {
@@ -98,10 +123,10 @@ export class DHTManager {
   async provideFile(fileHash) {
     try {
       const cid = await this.createCID(fileHash)
-      
+
       // 宣告提供文件
       await this.dht.provide(cid)
-      
+
       console.log(`Announced as provider for file: ${fileHash}`)
     } catch (error) {
       console.error('Error providing file:', error)
@@ -112,7 +137,7 @@ export class DHTManager {
   // 搜索文件（按名称或关键词）
   async searchFiles(query) {
     const results = []
-    
+
     // 首先搜索本地索引
     for (const [hash, fileInfo] of this.fileIndex) {
       if (fileInfo.name.toLowerCase().includes(query.toLowerCase())) {
@@ -122,7 +147,7 @@ export class DHTManager {
 
     // TODO: 实现分布式搜索
     // 可以通过遍历已知节点来查询他们的文件列表
-    
+
     return results
   }
 
@@ -139,7 +164,7 @@ export class DHTManager {
     } else {
       bytes = data
     }
-    
+
     const hash = await sha256.digest(bytes)
     return CID.create(1, raw.code, hash)
   }
@@ -149,10 +174,10 @@ export class DHTManager {
     try {
       // 获取基本的连接信息
       const connectedPeers = this.p2pNode.getConnectedPeers().length
-      
+
       // 尝试获取DHT特定信息，但要安全处理可能不存在的方法
       let routingTableSize = 0
-      
+
       try {
         // 尝试不同的方式获取路由表信息
         if (this.dht && typeof this.dht.getRoutingTable === 'function') {
@@ -170,7 +195,7 @@ export class DHTManager {
         console.debug('Could not get routing table info:', dhtError.message)
         // 如果获取DHT特定信息失败，继续使用默认值
       }
-      
+
       return {
         connectedPeers,
         routingTableSize,

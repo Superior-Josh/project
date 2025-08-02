@@ -9,10 +9,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // 导入P2P相关模块
-let P2PNode, DHTManager, ConnectionDebugger
+let P2PNode, DHTManager, ConnectionDebugger, FileManager, DatabaseManager, ChunkManager
 let p2pNode = null
 let dhtManager = null
-let connectionDebugger = null // 修改变量名，避免使用保留字
+let connectionDebugger = null
+let fileManager = null
+let databaseManager = null
+let chunkManager = null
 let mainWindow = null // 保存主窗口引用
 
 async function createWindow() {
@@ -63,6 +66,16 @@ async function autoStartP2PNode(window) {
     if (!p2pNode) {
       p2pNode = new P2PNode()
       dhtManager = new DHTManager(p2pNode)
+      
+      // 初始化数据库管理器
+      databaseManager = new DatabaseManager('./data')
+      await databaseManager.initialize()
+      
+      // 初始化文件管理器
+      fileManager = new FileManager(p2pNode, dhtManager, './downloads')
+      
+      // 初始化分块管理器
+      chunkManager = new ChunkManager(fileManager, databaseManager)
       
       // 初始化调试器
       if (process.env.NODE_ENV === 'development' && ConnectionDebugger) {
@@ -115,9 +128,15 @@ app.whenReady().then(async () => {
   try {
     const p2pModule = await import('./src/p2p-node.js')
     const dhtModule = await import('./src/dht-manager.js')
+    const fileModule = await import('./src/file-manager.js')
+    const dbModule = await import('./src/database.js')
+    const chunkModule = await import('./src/chunk-manager.js')
     
     P2PNode = p2pModule.P2PNode
     DHTManager = dhtModule.DHTManager
+    FileManager = fileModule.FileManager
+    DatabaseManager = dbModule.DatabaseManager
+    ChunkManager = chunkModule.ChunkManager
     
     // 导入调试器（仅在开发模式）
     if (process.env.NODE_ENV === 'development') {
@@ -151,6 +170,16 @@ app.on('window-all-closed', async () => {
       console.log('P2P node stopped on app quit')
     } catch (error) {
       console.error('Error stopping P2P node:', error)
+    }
+  }
+  
+  // 保存数据库
+  if (databaseManager) {
+    try {
+      await databaseManager.saveAllData()
+      console.log('Database saved on app quit')
+    } catch (error) {
+      console.error('Error saving database:', error)
     }
   }
   
@@ -189,6 +218,16 @@ ipcMain.handle('start-p2p-node', async () => {
     if (!p2pNode) {
       p2pNode = new P2PNode()
       dhtManager = new DHTManager(p2pNode)
+      
+      // 初始化数据库管理器
+      databaseManager = new DatabaseManager('./data')
+      await databaseManager.initialize()
+      
+      // 初始化文件管理器
+      fileManager = new FileManager(p2pNode, dhtManager, './downloads')
+      
+      // 初始化分块管理器
+      chunkManager = new ChunkManager(fileManager, databaseManager)
       
       // 初始化调试器
       if (process.env.NODE_ENV === 'development' && ConnectionDebugger) {
@@ -241,7 +280,14 @@ ipcMain.handle('stop-p2p-node', async () => {
       await p2pNode.stop()
       p2pNode = null
       dhtManager = null
+      fileManager = null
+      chunkManager = null
       connectionDebugger = null
+    }
+    
+    // 保存数据库
+    if (databaseManager) {
+      await databaseManager.saveAllData()
     }
     
     // 重置窗口标题
@@ -319,6 +365,15 @@ ipcMain.handle('publish-file', async (event, fileHash, fileMetadata) => {
     const cid = await dhtManager.publishFile(fileHash, fileMetadata)
     await dhtManager.provideFile(fileHash)
     
+    // 保存文件信息到数据库
+    if (databaseManager) {
+      await databaseManager.saveFileInfo(fileHash, {
+        ...fileMetadata,
+        cid: cid.toString(),
+        provider: p2pNode.node.peerId.toString()
+      })
+    }
+    
     return {
       success: true,
       cid: cid.toString()
@@ -354,14 +409,25 @@ ipcMain.handle('find-file', async (event, fileHash) => {
 
 ipcMain.handle('search-files', async (event, query) => {
   try {
-    if (!dhtManager) {
-      throw new Error('DHT manager not initialized')
+    if (!dhtManager || !databaseManager) {
+      throw new Error('DHT manager or Database not initialized')
     }
     
-    const results = await dhtManager.searchFiles(query)
+    // 首先搜索本地数据库
+    const localResults = await databaseManager.searchFiles(query)
+    
+    // 然后搜索DHT
+    const dhtResults = await dhtManager.searchFiles(query)
+    
+    // 合并结果并去重
+    const allResults = [...localResults, ...dhtResults]
+    const uniqueResults = Array.from(
+      new Map(allResults.map(item => [item.hash, item])).values()
+    )
+    
     return {
       success: true,
-      results
+      results: uniqueResults
     }
   } catch (error) {
     console.error('Error searching files:', error)
@@ -376,7 +442,24 @@ ipcMain.handle('get-local-files', async () => {
   if (!dhtManager) {
     return []
   }
-  return dhtManager.getLocalFiles()
+  
+  // 从DHT获取本地文件列表
+  const dhtFiles = dhtManager.getLocalFiles()
+  
+  // 如果有数据库，也从数据库获取
+  if (databaseManager) {
+    const dbFiles = await databaseManager.getAllFiles()
+    
+    // 合并并去重
+    const allFiles = [...dhtFiles, ...dbFiles]
+    const uniqueFiles = Array.from(
+      new Map(allFiles.map(file => [file.hash, file])).values()
+    )
+    
+    return uniqueFiles
+  }
+  
+  return dhtFiles
 })
 
 ipcMain.handle('get-discovered-peers', async () => {
@@ -448,14 +531,36 @@ ipcMain.handle('select-files', async () => {
   }
 })
 
+// 实际的文件分享实现
 ipcMain.handle('share-file', async (event, filePath) => {
   try {
-    // 这里需要集成文件管理器
-    // 暂时返回模拟结果
+    if (!fileManager) {
+      throw new Error('File manager not initialized')
+    }
+    
     console.log(`Sharing file: ${filePath}`)
-    return {
-      success: true,
-      message: 'File shared successfully'
+    
+    // 使用文件管理器分享文件
+    const result = await fileManager.shareFile(filePath)
+    
+    if (result.success) {
+      // 保存到数据库
+      if (databaseManager) {
+        await databaseManager.saveFileInfo(result.fileHash, {
+          ...result.metadata,
+          sharedAt: Date.now(),
+          localPath: filePath
+        })
+      }
+      
+      return {
+        success: true,
+        message: 'File shared successfully',
+        fileHash: result.fileHash,
+        metadata: result.metadata
+      }
+    } else {
+      throw new Error(result.error)
     }
   } catch (error) {
     console.error('Error sharing file:', error)
@@ -466,14 +571,80 @@ ipcMain.handle('share-file', async (event, filePath) => {
   }
 })
 
+// 实际的文件下载实现
 ipcMain.handle('download-file', async (event, fileHash, fileName) => {
   try {
-    // 这里需要集成文件管理器
-    // 暂时返回模拟结果
-    console.log(`Downloading file: ${fileName} (${fileHash})`)
+    if (!fileManager) {
+      throw new Error('File manager not initialized')
+    }
+    
+    if (!dhtManager) {
+      throw new Error('DHT manager not initialized')
+    }
+    
+    console.log(`Starting download: ${fileName} (${fileHash})`)
+    
+    // 先尝试查找文件信息
+    const fileInfo = await dhtManager.findFile(fileHash)
+    if (!fileInfo) {
+      throw new Error('File not found in DHT network')
+    }
+    
+    // 查找文件提供者
+    const providers = await dhtManager.findProviders(fileHash)
+    
+    if (providers.length === 0) {
+      throw new Error('No providers found for this file')
+    }
+    
+    console.log(`Found ${providers.length} providers for file ${fileHash}`)
+    
+    let downloadId
+    
+    // 检查是否需要分块下载
+    if (fileInfo && fileInfo.chunks && fileInfo.chunks > 1 && chunkManager) {
+      // 使用分块下载
+      console.log(`Starting chunked download for ${fileName} (${fileInfo.chunks} chunks)`)
+      downloadId = await chunkManager.startChunkedDownload(fileHash, fileName, providers)
+    } else {
+      // 使用简单下载
+      console.log(`Starting simple download for ${fileName}`)
+      const result = await fileManager.downloadFile(fileHash, fileName)
+      
+      if (result.success) {
+        // 保存到数据库
+        if (databaseManager) {
+          await databaseManager.saveFileInfo(fileHash, {
+            name: fileName,
+            hash: fileHash,
+            downloadedAt: Date.now(),
+            localPath: result.filePath
+          })
+          
+          // 记录传输
+          await databaseManager.saveTransferRecord(`download-${fileHash}-${Date.now()}`, {
+            type: 'download',
+            fileHash,
+            fileName,
+            status: 'completed',
+            completedAt: Date.now()
+          })
+        }
+        
+        return {
+          success: true,
+          message: 'Download completed',
+          filePath: result.filePath
+        }
+      } else {
+        throw new Error(result.error)
+      }
+    }
+    
     return {
       success: true,
-      message: 'Download started'
+      message: 'Download started',
+      downloadId
     }
   } catch (error) {
     console.error('Error downloading file:', error)
@@ -487,10 +658,18 @@ ipcMain.handle('download-file', async (event, fileHash, fileName) => {
 // 下载管理相关的IPC处理器
 ipcMain.handle('get-download-status', async (event, downloadId) => {
   try {
-    // 暂时返回模拟状态
+    if (!chunkManager) {
+      return {
+        success: false,
+        error: 'Chunk manager not initialized'
+      }
+    }
+    
+    const status = chunkManager.getDownloadStatus(downloadId)
+    
     return {
       success: true,
-      status: null
+      status
     }
   } catch (error) {
     return {
@@ -502,8 +681,35 @@ ipcMain.handle('get-download-status', async (event, downloadId) => {
 
 ipcMain.handle('get-active-downloads', async () => {
   try {
-    // 暂时返回空数组
-    return []
+    const downloads = []
+    
+    // 从文件管理器获取简单下载
+    if (fileManager) {
+      const transfers = fileManager.getActiveTransfers()
+      downloads.push(...transfers.map(transfer => ({
+        ...transfer,
+        type: 'simple',
+        status: 'downloading'
+      })))
+    }
+    
+    // 从分块管理器获取分块下载
+    if (chunkManager) {
+      const chunkedDownloads = chunkManager.getAllActiveDownloads()
+      downloads.push(...chunkedDownloads.map(download => ({
+        ...download,
+        type: 'chunked',
+        fileHash: download.fileHash,
+        fileName: download.fileName,
+        progress: download.progress,
+        status: download.status,
+        downloadedChunks: download.completedChunks.size,
+        totalChunks: download.totalChunks,
+        estimatedTime: download.estimatedTime
+      })))
+    }
+    
+    return downloads
   } catch (error) {
     console.error('Error getting active downloads:', error)
     return []
@@ -512,7 +718,15 @@ ipcMain.handle('get-active-downloads', async () => {
 
 ipcMain.handle('pause-download', async (event, downloadId) => {
   try {
-    console.log(`Pausing download: ${downloadId}`)
+    if (!chunkManager) {
+      return {
+        success: false,
+        error: 'Chunk manager not initialized'
+      }
+    }
+    
+    await chunkManager.pauseDownload(downloadId)
+    
     return {
       success: true,
       message: 'Download paused'
@@ -527,7 +741,15 @@ ipcMain.handle('pause-download', async (event, downloadId) => {
 
 ipcMain.handle('resume-download', async (event, downloadId) => {
   try {
-    console.log(`Resuming download: ${downloadId}`)
+    if (!chunkManager) {
+      return {
+        success: false,
+        error: 'Chunk manager not initialized'
+      }
+    }
+    
+    await chunkManager.resumeDownload(downloadId)
+    
     return {
       success: true,
       message: 'Download resumed'
@@ -542,7 +764,15 @@ ipcMain.handle('resume-download', async (event, downloadId) => {
 
 ipcMain.handle('cancel-download', async (event, downloadId) => {
   try {
-    console.log(`Canceling download: ${downloadId}`)
+    if (!chunkManager) {
+      return {
+        success: false,
+        error: 'Chunk manager not initialized'
+      }
+    }
+    
+    await chunkManager.cancelDownload(downloadId)
+    
     return {
       success: true,
       message: 'Download cancelled'
@@ -558,11 +788,16 @@ ipcMain.handle('cancel-download', async (event, downloadId) => {
 // 文件验证相关的IPC处理器
 ipcMain.handle('validate-file', async (event, filePath, expectedHashes) => {
   try {
-    console.log(`Validating file: ${filePath}`)
+    const { FileValidator } = await import('./src/file-validator.js')
+    const validator = new FileValidator()
+    
+    const validation = await validator.validateFile(filePath, expectedHashes)
+    
     return {
       success: true,
-      isValid: true,
-      message: 'File validation not implemented yet'
+      isValid: validation.isValid,
+      validatedHashes: validation.validatedHashes,
+      errors: validation.errors
     }
   } catch (error) {
     return {
@@ -575,15 +810,11 @@ ipcMain.handle('validate-file', async (event, filePath, expectedHashes) => {
 // 数据库相关的IPC处理器
 ipcMain.handle('get-database-stats', async () => {
   try {
-    // 暂时返回模拟统计数据
-    return {
-      nodes: 0,
-      files: 0,
-      peers: 0,
-      transfers: 0,
-      config: 0,
-      initialized: false
+    if (!databaseManager) {
+      return null
     }
+    
+    return databaseManager.getStats()
   } catch (error) {
     console.error('Error getting database stats:', error)
     return null
@@ -592,7 +823,13 @@ ipcMain.handle('get-database-stats', async () => {
 
 ipcMain.handle('cleanup-database', async () => {
   try {
-    console.log('Cleaning up database...')
+    if (!databaseManager) {
+      throw new Error('Database manager not initialized')
+    }
+    
+    await databaseManager.cleanupOldRecords()
+    await databaseManager.saveAllData()
+    
     return {
       success: true,
       message: 'Database cleanup completed'
@@ -608,9 +845,13 @@ ipcMain.handle('cleanup-database', async () => {
 
 ipcMain.handle('export-data', async () => {
   try {
+    if (!databaseManager) {
+      throw new Error('Database manager not initialized')
+    }
+    
     const { dialog } = await import('electron')
     const result = await dialog.showSaveDialog({
-      defaultPath: 'p2p-data-export.json',
+      defaultPath: `p2p-data-export-${new Date().toISOString().split('T')[0]}.json`,
       filters: [
         { name: 'JSON Files', extensions: ['json'] },
         { name: 'All Files', extensions: ['*'] }
@@ -618,8 +859,10 @@ ipcMain.handle('export-data', async () => {
     })
     
     if (!result.canceled) {
-      console.log(`Exporting data to: ${result.filePath}`)
-      // 这里需要实际的导出逻辑
+      const exportData = await databaseManager.exportData()
+      const fs = await import('fs/promises')
+      await fs.writeFile(result.filePath, JSON.stringify(exportData, null, 2))
+      
       return {
         success: true,
         cancelled: false,
@@ -642,6 +885,10 @@ ipcMain.handle('export-data', async () => {
 
 ipcMain.handle('import-data', async () => {
   try {
+    if (!databaseManager) {
+      throw new Error('Database manager not initialized')
+    }
+    
     const { dialog } = await import('electron')
     const result = await dialog.showOpenDialog({
       filters: [
@@ -652,8 +899,12 @@ ipcMain.handle('import-data', async () => {
     })
     
     if (!result.canceled && result.filePaths.length > 0) {
-      console.log(`Importing data from: ${result.filePaths[0]}`)
-      // 这里需要实际的导入逻辑
+      const fs = await import('fs/promises')
+      const data = await fs.readFile(result.filePaths[0], 'utf8')
+      const importData = JSON.parse(data)
+      
+      await databaseManager.importData(importData)
+      
       return {
         success: true,
         cancelled: false,

@@ -436,6 +436,11 @@ async function searchFiles() {
     return
   }
 
+  if (!isNodeStarted) {
+    showMessage('请先启动P2P节点', 'warning')
+    return
+  }
+
   try {
     elements.searchFiles.disabled = true
     elements.searchFiles.textContent = '搜索中...'
@@ -466,11 +471,11 @@ function displaySearchResults(results) {
           <h4>${file.name}</h4>
           <p>大小: ${formatFileSize(file.size)}</p>
           <p>哈希: ${file.hash}</p>
-          <p>提供者: ${file.provider}</p>
-          <p>时间: ${new Date(file.timestamp).toLocaleString()}</p>
+          <p>提供者: ${file.provider || '未知'}</p>
+          <p>时间: ${new Date(file.timestamp || file.savedAt || Date.now()).toLocaleString()}</p>
         </div>
         <div class="file-actions">
-          <button onclick="downloadFile('${file.hash}', '${file.name}')">下载</button>
+          <button onclick="window.downloadFile('${file.hash}', '${file.name}')">下载</button>
         </div>
       </div>
     `).join('')
@@ -482,23 +487,29 @@ function displaySearchResults(results) {
   }
 }
 
-// 下载文件
-async function downloadFile(fileHash, fileName) {
+// 下载文件 - 修复并确保为全局函数
+window.downloadFile = async function(fileHash, fileName) {
+  console.log('Download button clicked:', { fileHash, fileName })
+  
   if (!isNodeStarted) {
     showMessage('请先启动P2P节点', 'warning')
     return
   }
 
   try {
+    showMessage(`正在查找文件: ${fileName}`, 'info')
+    
     const result = await window.electronAPI.downloadFile(fileHash, fileName)
 
     if (result.success) {
       showMessage(`开始下载: ${fileName}`, 'success')
+      // 立即刷新下载列表
       await refreshDownloads()
     } else {
       showMessage(`下载失败: ${result.error}`, 'error')
     }
   } catch (error) {
+    console.error('Download error:', error)
     showMessage(`下载错误: ${error.message}`, 'error')
   }
 }
@@ -517,7 +528,7 @@ async function refreshLocalFiles() {
             <h4>${file.name}</h4>
             <p>大小: ${formatFileSize(file.size)}</p>
             <p>哈希: ${file.hash}</p>
-            <p>分享时间: ${new Date(file.sharedAt || file.timestamp).toLocaleString()}</p>
+            <p>分享时间: ${new Date(file.sharedAt || file.timestamp || file.savedAt).toLocaleString()}</p>
           </div>
         </div>
       `).join('')
@@ -554,11 +565,11 @@ async function refreshDownloads() {
           </div>
           <div class="download-actions">
             ${download.status === 'downloading' ?
-          `<button onclick="pauseDownload('${download.fileHash}')">暂停</button>` :
+          `<button onclick="pauseDownload('${download.id || download.fileHash}')">暂停</button>` :
           download.status === 'paused' ?
-            `<button onclick="resumeDownload('${download.fileHash}')">恢复</button>` : ''
+            `<button onclick="resumeDownload('${download.id || download.fileHash}')">恢复</button>` : ''
         }
-            <button onclick="cancelDownload('${download.fileHash}')">取消</button>
+            <button onclick="cancelDownload('${download.id || download.fileHash}')">取消</button>
           </div>
         </div>
       `).join('')
@@ -810,7 +821,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 立即定义全局函数，确保它们在页面加载时就可用
   window.removeSelectedFile = removeSelectedFile
-  window.downloadFile = downloadFile
   window.pauseDownload = pauseDownload
   window.resumeDownload = resumeDownload
   window.cancelDownload = cancelDownload
