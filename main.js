@@ -1,32 +1,237 @@
-// main.js
+// Settings IPC handlers (simplified - no separate window)
+ipcMain.handle('get-settings', async () => {
+  try {
+    if (!settingsManager) {
+      throw new Error('Settings manager not initialized')
+    }
+    return settingsManager.getAll()
+  } catch (error) {
+    console.error('Error getting settings:', error)
+    throw error
+  }
+})
 
-import { app, BrowserWindow, ipcMain } from 'electron';
+ipcMain.handle('save-settings', async (event, settings) => {
+  try {
+    if (!settingsManager) {
+      throw new Error('Settings manager not initialized')
+    }
+    
+    await settingsManager.setMultiple(settings)
+    
+    // Apply certain settings immediately
+    applySettings(settings)
+    
+    return { success: true }
+  } catch (error) {
+    console.error('Error saving settings:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('reset-settings', async () => {
+  try {
+    if (!settingsManager) {
+      throw new Error('Settings manager not initialized')
+    }
+    
+    await settingsManager.resetToDefaults()
+    return { success: true }
+  } catch (error) {
+    console.error('Error resetting settings:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('select-folder', async (event, title = 'Select Folder') => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title,
+      properties: ['openDirectory']
+    })
+    
+    return {
+      success: true,
+      cancelled: result.canceled,
+      filePaths: result.filePaths
+    }
+  } catch (error) {
+    console.error('Error selecting folder:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('create-settings-backup', async () => {
+  try {
+    if (!settingsManager) {
+      throw new Error('Settings manager not initialized')
+    }
+    
+    const backupPath = await settingsManager.createBackup()
+    return { success: true, backupPath }
+  } catch (error) {
+    console.error('Error creating settings backup:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('get-available-backups', async () => {
+  try {
+    if (!settingsManager) {
+      throw new Error('Settings manager not initialized')
+    }
+    
+    return await settingsManager.getAvailableBackups()
+  } catch (error) {
+    console.error('Error getting available backups:', error)
+    return []
+  }
+})
+
+ipcMain.handle('restore-settings-backup', async (event, backupPath) => {
+  try {
+    if (!settingsManager) {
+      throw new Error('Settings manager not initialized')
+    }
+    
+    await settingsManager.restoreFromBackup(backupPath)
+    return { success: true }
+  } catch (error) {
+    console.error('Error restoring settings backup:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('delete-settings-backup', async (event, backupPath) => {
+  try {
+    const fs = await import('fs/promises')
+    await fs.unlink(backupPath)
+    return { success: true }
+  } catch (error) {
+    console.error('Error deleting settings backup:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('export-settings', async () => {
+  try {
+    if (!settingsManager) {
+      throw new Error('Settings manager not initialized')
+    }
+    
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: 'Export Settings',
+      defaultPath: `p2p-settings-${new Date().toISOString().split('T')[0]}.json`,
+      filters: [
+        { name: 'JSON Files', extensions: ['json'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    })
+    
+    if (!result.canceled) {
+      await settingsManager.exportSettings(result.filePath)
+      return { success: true, cancelled: false, filePath: result.filePath }
+    } else {
+      return { success: true, cancelled: true }
+    }
+  } catch (error) {
+    console.error('Error exporting settings:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('import-settings', async () => {
+  try {
+    if (!settingsManager) {
+      throw new Error('Settings manager not initialized')
+    }
+    
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Import Settings',
+      filters: [
+        { name: 'JSON Files', extensions: ['json'] },
+        { name: 'All Files', extensions: ['*'] }
+      ],
+      properties: ['openFile']
+    })
+    
+    if (!result.canceled && result.filePaths.length > 0) {
+      await settingsManager.importSettings(result.filePaths[0])
+      return { success: true, cancelled: false, filePath: result.filePaths[0] }
+    } else {
+      return { success: true, cancelled: true }
+    }
+  } catch (error) {
+    console.error('Error importing settings:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+// Apply settings immediately
+function applySettings(settings) {
+  try {
+    // Update download path for file manager
+    if (settings.downloadPath && fileManager) {
+      fileManager.downloadDir = settings.downloadPath
+    }
+    
+    // Update chunk size for chunk manager
+    if (settings.chunkSize && chunkManager) {
+      chunkManager.defaultChunkSize = settings.chunkSize
+    }
+    
+    // Update max connections for P2P node
+    if (settings.maxConnections && p2pNode) {
+      // This would require P2P node to support dynamic reconfiguration
+      console.log('Max connections setting updated:', settings.maxConnections)
+    }
+    
+    // Create or destroy tray based on window behavior
+    if (settings.windowBehavior === 'hide' && !tray) {
+      createTray()
+    } else if (settings.windowBehavior !== 'hide' && tray) {
+      tray.destroy()
+      tray = null
+    }
+    
+    console.log('Settings applied successfully')
+  } catch (error) {
+    console.error('Error applying settings:', error)
+  }
+}// main.js
+
+import { app, BrowserWindow, ipcMain, Tray, Menu, dialog } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-// 在 ES 模块中获取 __dirname
+// Get __dirname in ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// 导入P2P相关模块
-let P2PNode, DHTManager, ConnectionDebugger, FileManager, DatabaseManager, ChunkManager
+// Import P2P and Settings modules
+let P2PNode, DHTManager, ConnectionDebugger, FileManager, DatabaseManager, ChunkManager, SettingsManager
 let p2pNode = null
 let dhtManager = null
 let connectionDebugger = null
 let fileManager = null
 let databaseManager = null
 let chunkManager = null
-let mainWindow = null // 保存主窗口引用
+let settingsManager = null
+let mainWindow = null
+let tray = null
 
 async function createWindow() {
-  // 获取进程ID用于区分不同实例
   const processId = process.pid
-  const nodeId = Math.random().toString(36).substr(2, 6) // 生成短随机ID
+  const nodeId = Math.random().toString(36).substr(2, 6)
+
+  // Get window behavior setting
+  const startMinimized = settingsManager ? settingsManager.get('startMinimized', false) : false
 
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    title: `P2P File Sharing - Node ${nodeId} (PID: ${processId})`, // 在标题中显示信息
+    title: `P2P File Sharing - Node ${nodeId} (PID: ${processId})`,
+    show: !startMinimized,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -34,23 +239,47 @@ async function createWindow() {
     }
   })
 
-  // 当页面加载完成后也更新标题
+  // Handle window close based on settings
+  mainWindow.on('close', (event) => {
+    const windowBehavior = settingsManager ? settingsManager.get('windowBehavior', 'close') : 'close'
+    
+    if (windowBehavior === 'minimize') {
+      event.preventDefault()
+      mainWindow.minimize()
+    } else if (windowBehavior === 'hide') {
+      event.preventDefault()
+      mainWindow.hide()
+      
+      // Show tray notification on first hide
+      if (tray && settingsManager?.get('showNotifications', true)) {
+        tray.displayBalloon({
+          iconType: 'info',
+          title: 'P2P File Sharing',
+          content: 'Application minimized to system tray'
+        })
+      }
+    }
+    // If 'close', let the default behavior happen
+  })
+
   mainWindow.webContents.once('did-finish-load', () => {
     mainWindow.setTitle(`P2P File Sharing - Node ${nodeId} (PID: ${processId})`)
 
-    // 页面加载完成后自动启动P2P节点
-    setTimeout(async () => {
-      try {
-        await autoStartP2PNode(mainWindow)
-      } catch (error) {
-        console.error('Auto-start P2P node failed:', error)
-      }
-    }, 1000) // 延迟1秒确保页面完全加载
+    // Auto-start P2P node if enabled in settings
+    const autoStartNode = settingsManager ? settingsManager.get('autoStartNode', true) : true
+    if (autoStartNode) {
+      setTimeout(async () => {
+        try {
+          await autoStartP2PNode(mainWindow)
+        } catch (error) {
+          console.error('Auto-start P2P node failed:', error)
+        }
+      }, 1000)
+    }
   })
 
   await mainWindow.loadFile('renderer/index.html')
 
-  // 开发时打开开发者工具
   if (process.env.NODE_ENV === 'development') {
     mainWindow.webContents.openDevTools()
   }
@@ -58,26 +287,103 @@ async function createWindow() {
   return mainWindow
 }
 
-// 自动启动P2P节点
+// Create system tray
+function createTray() {
+  const iconPath = path.join(__dirname, 'assets', 'tray-icon.png') // You'll need to add this icon
+  
+  try {
+    tray = new Tray(iconPath)
+    
+    const contextMenu = Menu.buildFromTemplate([
+      {
+        label: 'Show Application',
+        click: () => {
+          if (mainWindow) {
+            mainWindow.show()
+            mainWindow.focus()
+          }
+        }
+      },
+      { type: 'separator' },
+      {
+        label: 'Quit',
+        click: async () => {
+          await gracefulShutdown()
+          app.quit()
+        }
+      }
+    ])
+    
+    tray.setToolTip('P2P File Sharing')
+    tray.setContextMenu(contextMenu)
+    
+    // Double click to show window
+    tray.on('double-click', () => {
+      if (mainWindow) {
+        mainWindow.show()
+        mainWindow.focus()
+      }
+    })
+  } catch (error) {
+    console.log('Failed to create system tray:', error.message)
+  }
+}
+
+// Graceful shutdown
+async function gracefulShutdown() {
+  console.log('Starting graceful shutdown...')
+  
+  // Stop P2P node
+  if (p2pNode) {
+    try {
+      await p2pNode.stop()
+      console.log('P2P node stopped on app quit')
+    } catch (error) {
+      console.error('Error stopping P2P node:', error)
+    }
+  }
+
+  // Save database
+  if (databaseManager) {
+    try {
+      await databaseManager.saveAllData()
+      console.log('Database saved on app quit')
+    } catch (error) {
+      console.error('Error saving database:', error)
+    }
+  }
+
+  // Save settings
+  if (settingsManager) {
+    try {
+      await settingsManager.saveSettings()
+      console.log('Settings saved on app quit')
+    } catch (error) {
+      console.error('Error saving settings:', error)
+    }
+  }
+
+  console.log('Graceful shutdown completed')
+}
+
+// Auto-start P2P node
 async function autoStartP2PNode(window) {
   try {
     console.log('Auto-starting P2P node...')
 
     if (!p2pNode) {
+      // Get download path from settings
+      const downloadPath = settingsManager ? settingsManager.get('downloadPath') : './downloads'
+      
       p2pNode = new P2PNode()
       dhtManager = new DHTManager(p2pNode)
 
-      // 初始化数据库管理器
       databaseManager = new DatabaseManager('./data')
       await databaseManager.initialize()
 
-      // 初始化文件管理器
-      fileManager = new FileManager(p2pNode, dhtManager, './downloads')
-
-      // 初始化分块管理器
+      fileManager = new FileManager(p2pNode, dhtManager, downloadPath)
       chunkManager = new ChunkManager(fileManager, databaseManager)
 
-      // 初始化调试器
       if (process.env.NODE_ENV === 'development' && ConnectionDebugger) {
         connectionDebugger = new ConnectionDebugger(p2pNode)
       }
@@ -86,7 +392,6 @@ async function autoStartP2PNode(window) {
     await p2pNode.start()
     await dhtManager.initialize()
 
-    // 启用调试日志（仅在开发模式）
     if (connectionDebugger) {
       connectionDebugger.enableVerboseLogging()
       await connectionDebugger.testLocalConnectivity()
@@ -94,14 +399,12 @@ async function autoStartP2PNode(window) {
 
     const nodeInfo = p2pNode.getNodeInfo()
 
-    // 更新窗口标题，包含peer ID的前8位
     if (nodeInfo && window) {
       const shortPeerId = nodeInfo.peerId.slice(-8)
       const processId = process.pid
       window.setTitle(`P2P File Sharing - ${shortPeerId} (PID: ${processId})`)
     }
 
-    // 通知渲染进程节点已启动
     if (window) {
       window.webContents.send('p2p-node-started', {
         success: true,
@@ -109,11 +412,19 @@ async function autoStartP2PNode(window) {
       })
     }
 
+    // Show notification if enabled
+    if (settingsManager?.get('showNotifications', true) && tray) {
+      tray.displayBalloon({
+        iconType: 'info',
+        title: 'P2P File Sharing',
+        content: 'P2P node started successfully'
+      })
+    }
+
     console.log('P2P node auto-started successfully')
   } catch (error) {
     console.error('Failed to auto-start P2P node:', error)
 
-    // 通知渲染进程启动失败
     if (window) {
       window.webContents.send('p2p-node-started', {
         success: false,
@@ -124,21 +435,26 @@ async function autoStartP2PNode(window) {
 }
 
 app.whenReady().then(async () => {
-  // 动态导入ES模块
   try {
+    // Load modules
     const p2pModule = await import('./src/p2p-node.js')
     const dhtModule = await import('./src/dht-manager.js')
     const fileModule = await import('./src/file-manager.js')
     const dbModule = await import('./src/database.js')
     const chunkModule = await import('./src/chunk-manager.js')
+    const settingsModule = await import('./src/settings-manager.js')
 
     P2PNode = p2pModule.P2PNode
     DHTManager = dhtModule.DHTManager
     FileManager = fileModule.FileManager
     DatabaseManager = dbModule.DatabaseManager
     ChunkManager = chunkModule.ChunkManager
+    SettingsManager = settingsModule.SettingsManager
 
-    // 导入调试器（仅在开发模式）
+    // Initialize settings first
+    settingsManager = new SettingsManager('./settings')
+    await settingsManager.initialize()
+
     if (process.env.NODE_ENV === 'development') {
       try {
         const debugModule = await import('./src/debug-connection.js')
@@ -149,11 +465,19 @@ app.whenReady().then(async () => {
     }
 
     console.log('P2P modules loaded successfully')
-  } catch (error) {
-    console.error('Error loading P2P modules:', error)
-  }
 
-  await createWindow()
+    // Create main window
+    await createWindow()
+
+    // Create system tray if window behavior is set to hide
+    const windowBehavior = settingsManager.get('windowBehavior', 'close')
+    if (windowBehavior === 'hide') {
+      createTray()
+    }
+
+  } catch (error) {
+    console.error('Error loading modules:', error)
+  }
 
   app.on('activate', async () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -163,32 +487,36 @@ app.whenReady().then(async () => {
 })
 
 app.on('window-all-closed', async () => {
-  // 停止P2P节点
-  if (p2pNode) {
-    try {
-      await p2pNode.stop()
-      console.log('P2P node stopped on app quit')
-    } catch (error) {
-      console.error('Error stopping P2P node:', error)
-    }
+  const windowBehavior = settingsManager ? settingsManager.get('windowBehavior', 'close') : 'close'
+  
+  // If set to hide to tray, don't quit the app
+  if (windowBehavior === 'hide' && tray) {
+    return
   }
 
-  // 保存数据库
-  if (databaseManager) {
-    try {
-      await databaseManager.saveAllData()
-      console.log('Database saved on app quit')
-    } catch (error) {
-      console.error('Error saving database:', error)
-    }
-  }
+  await gracefulShutdown()
 
   if (process.platform !== 'darwin') {
     app.quit()
   }
 })
 
-// 通知所有窗口状态变化
+// Handle second instance (prevent multiple instances)
+const gotTheLock = app.requestSingleInstanceLock()
+
+if (!gotTheLock) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    // Someone tried to run a second instance, focus main window instead
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      mainWindow.focus()
+    }
+  })
+}
+
+// Notify all windows of status changes
 function notifyNodeStatusChange(success, nodeInfo = null, error = null) {
   const allWindows = BrowserWindow.getAllWindows()
   allWindows.forEach(window => {
@@ -202,10 +530,9 @@ function notifyNodeStatusChange(success, nodeInfo = null, error = null) {
   })
 }
 
-// IPC处理程序
+// IPC handlers
 ipcMain.handle('start-p2p-node', async () => {
   try {
-    // 如果节点已经启动，直接返回成功
     if (p2pNode && p2pNode.isStarted) {
       const nodeInfo = p2pNode.getNodeInfo()
       return {
@@ -219,17 +546,12 @@ ipcMain.handle('start-p2p-node', async () => {
       p2pNode = new P2PNode()
       dhtManager = new DHTManager(p2pNode)
 
-      // 初始化数据库管理器
       databaseManager = new DatabaseManager('./data')
       await databaseManager.initialize()
 
-      // 初始化文件管理器
       fileManager = new FileManager(p2pNode, dhtManager, './downloads')
-
-      // 初始化分块管理器
       chunkManager = new ChunkManager(fileManager, databaseManager)
 
-      // 初始化调试器
       if (process.env.NODE_ENV === 'development' && ConnectionDebugger) {
         connectionDebugger = new ConnectionDebugger(p2pNode)
       }
@@ -238,7 +560,6 @@ ipcMain.handle('start-p2p-node', async () => {
     await p2pNode.start()
     await dhtManager.initialize()
 
-    // 启用调试日志（仅在开发模式）
     if (connectionDebugger) {
       connectionDebugger.enableVerboseLogging()
       await connectionDebugger.testLocalConnectivity()
@@ -246,7 +567,6 @@ ipcMain.handle('start-p2p-node', async () => {
 
     const nodeInfo = p2pNode.getNodeInfo()
 
-    // 更新窗口标题，包含peer ID的前8位
     const currentWindow = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
     if (currentWindow && nodeInfo) {
       const shortPeerId = nodeInfo.peerId.slice(-8)
@@ -254,7 +574,6 @@ ipcMain.handle('start-p2p-node', async () => {
       currentWindow.setTitle(`P2P File Sharing - ${shortPeerId} (PID: ${processId})`)
     }
 
-    // 通知状态变化
     notifyNodeStatusChange(true, nodeInfo)
 
     return {
@@ -263,8 +582,6 @@ ipcMain.handle('start-p2p-node', async () => {
     }
   } catch (error) {
     console.error('Error starting P2P node:', error)
-
-    // 通知状态变化
     notifyNodeStatusChange(false, null, error.message)
 
     return {
@@ -285,12 +602,10 @@ ipcMain.handle('stop-p2p-node', async () => {
       connectionDebugger = null
     }
 
-    // 保存数据库
     if (databaseManager) {
       await databaseManager.saveAllData()
     }
 
-    // 重置窗口标题
     const currentWindow = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
     if (currentWindow) {
       const processId = process.pid
@@ -298,7 +613,6 @@ ipcMain.handle('stop-p2p-node', async () => {
       currentWindow.setTitle(`P2P File Sharing - Node ${nodeId} (PID: ${processId}) - STOPPED`)
     }
 
-    // 通知状态变化
     notifyNodeStatusChange(true, null, null)
 
     return { success: true }
@@ -318,7 +632,6 @@ ipcMain.handle('get-node-info', async () => {
 
   const nodeInfo = p2pNode.getNodeInfo()
   if (nodeInfo) {
-    // 添加发现的节点ID列表
     const discoveredPeerIds = p2pNode.getDiscoveredPeers()
     nodeInfo.discoveredPeerIds = discoveredPeerIds
   }
@@ -332,9 +645,8 @@ ipcMain.handle('connect-to-peer', async (event, multiaddr) => {
       throw new Error('P2P node not started')
     }
 
-    // 使用调试器诊断连接（如果可用）
     if (connectionDebugger && process.env.NODE_ENV === 'development') {
-      console.log('🔧 Running connection diagnosis...')
+      console.log('Running connection diagnosis...')
       await connectionDebugger.diagnoseConnection(multiaddr)
     }
 
@@ -365,7 +677,6 @@ ipcMain.handle('publish-file', async (event, fileHash, fileMetadata) => {
     const cid = await dhtManager.publishFile(fileHash, fileMetadata)
     await dhtManager.provideFile(fileHash)
 
-    // 保存文件信息到数据库
     if (databaseManager) {
       await databaseManager.saveFileInfo(fileHash, {
         ...fileMetadata,
@@ -413,13 +724,9 @@ ipcMain.handle('search-files', async (event, query) => {
       throw new Error('DHT manager or Database not initialized')
     }
 
-    // 首先搜索本地数据库
     const localResults = await databaseManager.searchFiles(query)
-
-    // 然后搜索DHT
     const dhtResults = await dhtManager.searchFiles(query)
 
-    // 合并结果并去重
     const allResults = [...localResults, ...dhtResults]
     const uniqueResults = Array.from(
       new Map(allResults.map(item => [item.hash, item])).values()
@@ -443,14 +750,10 @@ ipcMain.handle('get-local-files', async () => {
     return []
   }
 
-  // 从DHT获取本地文件列表
   const dhtFiles = dhtManager.getLocalFiles()
 
-  // 如果有数据库，也从数据库获取
   if (databaseManager) {
     const dbFiles = await databaseManager.getAllFiles()
-
-    // 合并并去重
     const allFiles = [...dhtFiles, ...dbFiles]
     const uniqueFiles = Array.from(
       new Map(allFiles.map(file => [file.hash, file])).values()
@@ -502,7 +805,7 @@ ipcMain.handle('connect-to-discovered-peer', async (event, peerId) => {
   }
 })
 
-// 文件操作相关的IPC处理器
+// File operation IPC handlers
 ipcMain.handle('select-files', async () => {
   try {
     const { dialog } = await import('electron')
@@ -531,7 +834,6 @@ ipcMain.handle('select-files', async () => {
   }
 })
 
-// 实际的文件分享实现
 ipcMain.handle('share-file', async (event, filePath) => {
   try {
     if (!fileManager) {
@@ -540,11 +842,9 @@ ipcMain.handle('share-file', async (event, filePath) => {
 
     console.log(`Sharing file: ${filePath}`)
 
-    // 使用文件管理器分享文件
     const result = await fileManager.shareFile(filePath)
 
     if (result.success) {
-      // 保存到数据库
       if (databaseManager) {
         await databaseManager.saveFileInfo(result.fileHash, {
           ...result.metadata,
@@ -581,53 +881,50 @@ ipcMain.handle('download-file', async (event, fileHash, fileName) => {
       throw new Error('DHT manager not initialized')
     }
     
-    console.log(`=== 开始下载流程 ===`)
-    console.log(`文件名: ${fileName}`)
-    console.log(`文件哈希: ${fileHash}`)
+    console.log(`Starting download process`)
+    console.log(`File name: ${fileName}`)
+    console.log(`File hash: ${fileHash}`)
     
-    // 1. 改进的本地文件检测 - 使用数据库而不是 DHT 本地索引
-    console.log('检查本地文件状态...')
+    // Check local file status using database instead of DHT local index
+    console.log('Checking local file status...')
     
     let isLocalFile = false
     let sourceFilePath = null
     
-    // 方法1: 检查数据库
     if (databaseManager) {
       const dbFileInfo = await databaseManager.getFileInfo(fileHash)
-      console.log('数据库文件信息:', dbFileInfo)
+      console.log('Database file info:', dbFileInfo)
       
       if (dbFileInfo && dbFileInfo.localPath) {
-        console.log('在数据库中找到本地文件路径:', dbFileInfo.localPath)
+        console.log('Found local file path in database:', dbFileInfo.localPath)
         
-        // 验证文件是否真实存在
         try {
           const fs = await import('fs/promises')
           await fs.access(dbFileInfo.localPath)
           isLocalFile = true
           sourceFilePath = dbFileInfo.localPath
-          console.log('确认本地文件存在')
+          console.log('Confirmed local file exists')
         } catch (accessError) {
-          console.log('数据库中的文件路径无效:', accessError.message)
+          console.log('Database file path invalid:', accessError.message)
         }
       }
     }
     
-    // 方法2: 检查 DHT 本地索引（作为备用）
+    // Check DHT local index as backup
     if (!isLocalFile) {
       const dhtLocalFiles = dhtManager.getLocalFiles()
-      console.log('DHT本地文件数量:', dhtLocalFiles.length)
+      console.log('DHT local files count:', dhtLocalFiles.length)
       
       const dhtLocalFile = dhtLocalFiles.find(file => file.hash === fileHash)
       if (dhtLocalFile) {
-        console.log('在DHT本地索引中找到文件')
+        console.log('Found file in DHT local index')
         isLocalFile = true
-        // DHT 索引中可能没有 localPath，需要尝试查找
       }
     }
     
-    // 方法3: 扫描已知目录查找文件（最后的备用方案）
+    // Scan known directories for file (last resort)
     if (!isLocalFile || !sourceFilePath) {
-      console.log('尝试在已知目录中查找文件...')
+      console.log('Trying to find file in known directories...')
       
       const possiblePaths = [
         `./shared/${fileName}`,
@@ -641,43 +938,39 @@ ipcMain.handle('download-file', async (event, fileHash, fileName) => {
           const fs = await import('fs/promises')
           await fs.access(possiblePath)
           
-          // 验证文件哈希是否匹配
           const { createHash } = await import('crypto')
           const fileData = await fs.readFile(possiblePath)
           const calculatedHash = createHash('sha256').update(fileData).digest('hex')
           
           if (calculatedHash === fileHash) {
-            console.log(`在 ${possiblePath} 找到匹配的文件`)
+            console.log(`Found matching file at ${possiblePath}`)
             isLocalFile = true
             sourceFilePath = possiblePath
             break
           }
         } catch (error) {
-          // 文件不存在或哈希不匹配，继续查找
+          // File doesn't exist or hash doesn't match, continue searching
         }
       }
     }
     
-    // 2. 如果是本地文件，直接复制
+    // If local file, copy directly
     if (isLocalFile && sourceFilePath) {
-      console.log('执行本地文件复制...')
+      console.log('Performing local file copy...')
       
       try {
         const fs = await import('fs/promises')
         const path = await import('path')
         
-        // 确保下载目录存在
         const downloadDir = './downloads'
         await fs.mkdir(downloadDir, { recursive: true })
         
         const downloadPath = path.join(downloadDir, fileName)
         
-        // 复制文件
         await fs.copyFile(sourceFilePath, downloadPath)
         
-        console.log(`本地文件复制成功: ${downloadPath}`)
+        console.log(`Local file copy successful: ${downloadPath}`)
         
-        // 保存传输记录
         if (databaseManager) {
           await databaseManager.saveTransferRecord(`local-copy-${fileHash}-${Date.now()}`, {
             type: 'local_copy',
@@ -689,7 +982,6 @@ ipcMain.handle('download-file', async (event, fileHash, fileName) => {
             downloadPath: downloadPath
           })
           
-          // 更新文件信息，确保下载路径被记录
           await databaseManager.saveFileInfo(fileHash, {
             name: fileName,
             hash: fileHash,
@@ -701,50 +993,48 @@ ipcMain.handle('download-file', async (event, fileHash, fileName) => {
         
         return {
           success: true,
-          message: '本地文件复制成功',
+          message: 'Local file copy successful',
           filePath: downloadPath,
           source: 'local'
         }
         
       } catch (copyError) {
-        console.error('本地文件复制失败:', copyError.message)
-        // 如果复制失败，不要继续网络下载，而是返回错误
-        throw new Error(`本地文件复制失败: ${copyError.message}`)
+        console.error('Local file copy failed:', copyError.message)
+        throw new Error(`Local file copy failed: ${copyError.message}`)
       }
     }
     
-    // 3. 如果不是本地文件，检查网络连接状态
+    // Check network connection status
     const dhtStats = await dhtManager.getDHTStats()
-    console.log('DHT状态:', JSON.stringify(dhtStats, null, 2))
+    console.log('DHT status:', JSON.stringify(dhtStats, null, 2))
     
     if (dhtStats.connectedPeers === 0) {
-      throw new Error(`无法下载文件：没有连接到任何其他节点，且本地也未找到该文件。
+      throw new Error(`Cannot download file: No other nodes connected, and file not found locally.
 
-可能的原因：
-1. 这个文件需要从网络下载，但当前没有网络连接
-2. 文件的原始分享者不在线
-3. 文件可能已被移动或删除
+Possible causes:
+1. This file needs to be downloaded from network but no network connection
+2. Original file sharer is offline
+3. File may have been moved or deleted
 
-建议：
-1. 检查网络连接
-2. 等待连接到其他节点
-3. 联系文件分享者确认文件可用性`)
+Suggestions:
+1. Check network connection
+2. Wait for connection to other nodes
+3. Contact file sharer to confirm file availability`)
     }
     
-    // 4. 尝试网络下载
-    console.log('尝试网络下载...')
+    // Try network download
+    console.log('Attempting network download...')
     
-    // 其余网络下载逻辑保持不变...
     let fileInfo = null
     try {
       fileInfo = await dhtManager.findFile(fileHash)
-      console.log('DHT文件信息查找结果:', fileInfo)
+      console.log('DHT file info search result:', fileInfo)
     } catch (dhtError) {
-      console.error('DHT文件查找失败:', dhtError.message)
+      console.error('DHT file search failed:', dhtError.message)
       
       if (databaseManager) {
         fileInfo = await databaseManager.getFileInfo(fileHash)
-        console.log('本地数据库文件信息:', fileInfo)
+        console.log('Local database file info:', fileInfo)
       }
     }
     
@@ -755,10 +1045,10 @@ ipcMain.handle('download-file', async (event, fileHash, fileName) => {
         chunks: 1,
         chunkSize: 64 * 1024
       }
-      console.log('使用默认文件信息')
+      console.log('Using default file info')
     }
     
-    // 查找提供者
+    // Find providers
     let providers = []
     try {
       const providerPromise = dhtManager.findProviders(fileHash)
@@ -767,25 +1057,25 @@ ipcMain.handle('download-file', async (event, fileHash, fileName) => {
       })
       
       providers = await Promise.race([providerPromise, timeoutPromise])
-      console.log(`找到 ${providers.length} 个提供者`)
+      console.log(`Found ${providers.length} providers`)
     } catch (providerError) {
-      console.error('提供者查找失败:', providerError.message)
+      console.error('Provider search failed:', providerError.message)
     }
     
     if (providers.length === 0) {
-      throw new Error(`无法找到文件 "${fileName}" 的提供者。
+      throw new Error(`Cannot find providers for file "${fileName}".
 
-可能的原因：
-1. 提供文件的节点当前离线
-2. 网络连接不稳定
-3. DHT服务异常
-4. 文件还没有完全同步到网络
+Possible causes:
+1. Nodes providing the file are currently offline
+2. Network connection unstable
+3. DHT service exception
+4. File not fully synced to network
 
-建议：请稍后重试，或联系文件分享者确认其节点在线。`)
+Suggestion: Please try again later, or contact file sharer to confirm their node is online.`)
     }
     
-    // 开始网络下载
-    console.log(`开始从 ${providers.length} 个提供者下载...`)
+    // Start network download
+    console.log(`Starting download from ${providers.length} providers...`)
     const result = await fileManager.downloadFile(fileHash, fileName)
     
     if (result.success) {
@@ -806,10 +1096,10 @@ ipcMain.handle('download-file', async (event, fileHash, fileName) => {
         })
       }
       
-      console.log(`网络下载完成: ${result.filePath}`)
+      console.log(`Network download completed: ${result.filePath}`)
       return {
         success: true,
-        message: '网络下载完成',
+        message: 'Network download completed',
         filePath: result.filePath,
         source: 'network'
       }
@@ -818,9 +1108,9 @@ ipcMain.handle('download-file', async (event, fileHash, fileName) => {
     }
     
   } catch (error) {
-    console.error('=== 下载失败 ===')
-    console.error('错误详情:', error.message)
-    console.error('错误堆栈:', error.stack)
+    console.error('Download failed')
+    console.error('Error details:', error.message)
+    console.error('Error stack:', error.stack)
     
     return {
       success: false,
@@ -831,17 +1121,15 @@ ipcMain.handle('download-file', async (event, fileHash, fileName) => {
 
 ipcMain.handle('download-local-file', async (event, fileHash, fileName) => {
   try {
-    console.log(`直接下载本地文件: ${fileName} (${fileHash})`)
+    console.log(`Direct download local file: ${fileName} (${fileHash})`)
 
-    // 检查是否是本地文件
     const localFiles = dhtManager.getLocalFiles()
     const localFile = localFiles.find(file => file.hash === fileHash)
 
     if (!localFile) {
-      throw new Error('这不是本地文件')
+      throw new Error('This is not a local file')
     }
 
-    // 从数据库获取文件路径
     let sourceFilePath = null
     if (databaseManager) {
       const dbFileInfo = await databaseManager.getFileInfo(fileHash)
@@ -849,31 +1137,27 @@ ipcMain.handle('download-local-file', async (event, fileHash, fileName) => {
     }
 
     if (!sourceFilePath) {
-      throw new Error('无法找到本地文件路径')
+      throw new Error('Cannot find local file path')
     }
 
     const fs = await import('fs/promises')
     const path = await import('path')
 
-    // 检查源文件
     try {
       await fs.access(sourceFilePath)
     } catch (accessError) {
-      throw new Error(`源文件不存在: ${sourceFilePath}`)
+      throw new Error(`Source file does not exist: ${sourceFilePath}`)
     }
 
-    // 确保下载目录存在
     const downloadDir = './downloads'
     await fs.mkdir(downloadDir, { recursive: true })
 
     const downloadPath = path.join(downloadDir, fileName)
 
-    // 复制文件
     await fs.copyFile(sourceFilePath, downloadPath)
 
-    console.log(`本地文件复制成功: ${downloadPath}`)
+    console.log(`Local file copy successful: ${downloadPath}`)
 
-    // 保存记录
     if (databaseManager) {
       await databaseManager.saveTransferRecord(`local-copy-${fileHash}-${Date.now()}`, {
         type: 'local_copy',
@@ -886,12 +1170,12 @@ ipcMain.handle('download-local-file', async (event, fileHash, fileName) => {
 
     return {
       success: true,
-      message: '本地文件复制成功',
+      message: 'Local file copy successful',
       filePath: downloadPath
     }
 
   } catch (error) {
-    console.error('本地文件下载失败:', error.message)
+    console.error('Local file download failed:', error.message)
     return {
       success: false,
       error: error.message
@@ -899,7 +1183,7 @@ ipcMain.handle('download-local-file', async (event, fileHash, fileName) => {
   }
 })
 
-// 下载管理相关的IPC处理器
+// Download management IPC handlers
 ipcMain.handle('get-download-status', async (event, downloadId) => {
   try {
     if (!chunkManager) {
@@ -927,7 +1211,6 @@ ipcMain.handle('get-active-downloads', async () => {
   try {
     const downloads = []
 
-    // 从文件管理器获取简单下载
     if (fileManager) {
       const transfers = fileManager.getActiveTransfers()
       downloads.push(...transfers.map(transfer => ({
@@ -937,7 +1220,6 @@ ipcMain.handle('get-active-downloads', async () => {
       })))
     }
 
-    // 从分块管理器获取分块下载
     if (chunkManager) {
       const chunkedDownloads = chunkManager.getAllActiveDownloads()
       downloads.push(...chunkedDownloads.map(download => ({
@@ -1029,7 +1311,7 @@ ipcMain.handle('cancel-download', async (event, downloadId) => {
   }
 })
 
-// 文件验证相关的IPC处理器
+// File validation IPC handlers
 ipcMain.handle('validate-file', async (event, filePath, expectedHashes) => {
   try {
     const { FileValidator } = await import('./src/file-validator.js')
@@ -1051,7 +1333,7 @@ ipcMain.handle('validate-file', async (event, filePath, expectedHashes) => {
   }
 })
 
-// 数据库相关的IPC处理器
+// Database IPC handlers
 ipcMain.handle('get-database-stats', async () => {
   try {
     if (!databaseManager) {
@@ -1169,7 +1451,7 @@ ipcMain.handle('import-data', async () => {
   }
 })
 
-// 调试相关的IPC处理器（仅在开发模式）
+// Debug IPC handlers (development only)
 if (process.env.NODE_ENV === 'development') {
   ipcMain.handle('debug-connection', async (event, multiaddr) => {
     try {
@@ -1213,7 +1495,7 @@ if (process.env.NODE_ENV === 'development') {
   })
 }
 
-// 获取节点状态
+// Get node status
 ipcMain.handle('get-node-status', async () => {
   return {
     isStarted: p2pNode ? p2pNode.isStarted : false,
@@ -1221,7 +1503,7 @@ ipcMain.handle('get-node-status', async () => {
   }
 })
 
-// 获取进程信息
+// Get process information
 ipcMain.handle('get-process-info', () => {
   return {
     pid: process.pid,

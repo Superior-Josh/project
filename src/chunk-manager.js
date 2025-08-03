@@ -3,22 +3,20 @@ import fs from 'fs/promises'
 import path from 'path'
 
 const DEFAULT_CHUNK_SIZE = 256 * 1024 // 256KB
-const MAX_CONCURRENT_CHUNKS = 5 // 同时下载的块数量
-const RETRY_ATTEMPTS = 3 // 重试次数
+const MAX_CONCURRENT_CHUNKS = 5 // Simultaneous chunk downloads
+const RETRY_ATTEMPTS = 3 // Number of retries
 
 export class ChunkManager {
   constructor(fileManager, databaseManager) {
     this.fileManager = fileManager
     this.db = databaseManager
-    this.activeDownloads = new Map() // 活跃的下载任务
-    this.chunkCache = new Map() // 块缓存
-    this.downloadQueue = new Map() // 下载队列
-    
-    // 新增：速度计算相关
-    this.speedCalculator = new Map() // 存储速度计算数据
+    this.activeDownloads = new Map() // Active download tasks
+    this.chunkCache = new Map() // Chunk cache
+    this.downloadQueue = new Map() // Download queue
+    this.speedCalculator = new Map() // Speed calculation data
   }
 
-  // 创建文件的分块信息
+  // Create file chunk information
   async createChunkInfo(filePath, chunkSize = DEFAULT_CHUNK_SIZE) {
     try {
       const fileStats = await fs.stat(filePath)
@@ -34,7 +32,6 @@ export class ChunkManager {
           const end = Math.min(start + chunkSize, fileSize)
           const actualSize = end - start
           
-          // 读取块数据计算哈希
           const buffer = Buffer.alloc(actualSize)
           await file.read(buffer, 0, actualSize, start)
           
@@ -69,12 +66,11 @@ export class ChunkManager {
     }
   }
 
-  // 启动分块下载
+  // Start chunked download
   async startChunkedDownload(fileHash, fileName, providers) {
     try {
       console.log(`Starting chunked download: ${fileName}`)
       
-      // 获取文件元数据
       const fileInfo = await this.db.getFileInfo(fileHash)
       if (!fileInfo) {
         throw new Error('File metadata not found')
@@ -84,14 +80,13 @@ export class ChunkManager {
       const downloadPath = path.join(this.fileManager.downloadDir, fileName)
       const tempDir = path.join(this.fileManager.downloadDir, 'temp', downloadId)
       
-      // 创建临时目录
       await fs.mkdir(tempDir, { recursive: true })
 
       const download = {
         id: downloadId,
         fileHash,
         fileName,
-        fileSize: fileInfo.size || 0, // 添加文件大小
+        fileSize: fileInfo.size || 0,
         downloadPath,
         tempDir,
         totalChunks: fileInfo.chunks || 1,
@@ -102,23 +97,21 @@ export class ChunkManager {
         status: 'downloading',
         progress: 0,
         speed: 0,
-        averageSpeed: 0, // 添加平均速度
-        currentSpeed: 0, // 添加当前速度
-        downloadedBytes: 0, // 添加已下载字节数
+        averageSpeed: 0,
+        currentSpeed: 0,
+        downloadedBytes: 0,
         estimatedTime: 0,
-        chunkSize: fileInfo.chunkSize || DEFAULT_CHUNK_SIZE // 添加块大小
+        chunkSize: fileInfo.chunkSize || DEFAULT_CHUNK_SIZE
       }
 
       this.activeDownloads.set(downloadId, download)
       
-      // 初始化速度计算器
       this.speedCalculator.set(downloadId, {
-        samples: [], // 速度样本
+        samples: [],
         lastUpdate: Date.now(),
         lastBytes: 0
       })
       
-      // 开始下载块
       await this.downloadChunksInParallel(download)
       
       return downloadId
@@ -128,15 +121,13 @@ export class ChunkManager {
     }
   }
 
-  // 并行下载块
+  // Download chunks in parallel
   async downloadChunksInParallel(download) {
     const { totalChunks, providers } = download
     const downloadPromises = []
     
-    // 创建下载队列
     const chunkQueue = Array.from({ length: totalChunks }, (_, i) => i)
     
-    // 启动并发下载工作器
     for (let i = 0; i < Math.min(MAX_CONCURRENT_CHUNKS, providers.length); i++) {
       downloadPromises.push(this.chunkDownloadWorker(download, chunkQueue, providers))
     }
@@ -144,10 +135,7 @@ export class ChunkManager {
     try {
       await Promise.all(downloadPromises)
       
-      // 所有块下载完成，组装文件
       await this.assembleChunkedFile(download)
-      
-      // 清理临时文件
       await this.cleanupTempFiles(download.tempDir)
       
       download.status = 'completed'
@@ -165,7 +153,7 @@ export class ChunkManager {
     }
   }
 
-  // 块下载工作器
+  // Chunk download worker
   async chunkDownloadWorker(download, chunkQueue, providers) {
     while (chunkQueue.length > 0) {
       const chunkIndex = chunkQueue.shift()
@@ -177,7 +165,6 @@ export class ChunkManager {
       while (!downloadSuccess && attempts < RETRY_ATTEMPTS) {
         attempts++
         
-        // 轮询选择提供者
         const provider = providers[chunkIndex % providers.length]
         
         try {
@@ -185,7 +172,6 @@ export class ChunkManager {
           downloadSuccess = true
           download.completedChunks.add(chunkIndex)
           
-          // 更新进度
           this.updateDownloadProgress(download)
           
         } catch (error) {
@@ -196,26 +182,23 @@ export class ChunkManager {
             throw new Error(`Failed to download chunk ${chunkIndex} after ${RETRY_ATTEMPTS} attempts`)
           }
           
-          // 等待后重试
           await new Promise(resolve => setTimeout(resolve, 1000 * attempts))
         }
       }
     }
   }
 
-  // 下载单个块
+  // Download single chunk
   async downloadSingleChunk(download, chunkIndex, provider) {
     const chunkPath = path.join(download.tempDir, `chunk_${chunkIndex}`)
     
-    // 检查块是否已存在
     try {
       await fs.access(chunkPath)
-      return // 块已存在
+      return // Chunk already exists
     } catch {
-      // 块不存在，需要下载
+      // Chunk doesn't exist, need to download
     }
 
-    // 通过文件管理器请求块
     const chunk = await this.fileManager.requestChunk(
       provider.peerId, 
       download.fileHash, 
@@ -226,26 +209,21 @@ export class ChunkManager {
       throw new Error(`Failed to receive chunk ${chunkIndex}`)
     }
 
-    // 验证块
     const isValid = this.fileManager.verifyChunk(chunk)
     if (!isValid) {
       throw new Error(`Invalid chunk ${chunkIndex}`)
     }
 
-    // 保存块到临时文件
     await fs.writeFile(chunkPath, chunk.data)
-    
-    // 更新已下载字节数
     download.downloadedBytes += chunk.data.length
   }
 
-  // 组装分块文件
+  // Assemble chunked file
   async assembleChunkedFile(download) {
     const { tempDir, downloadPath, totalChunks } = download
     
     console.log(`Assembling file: ${download.fileName}`)
     
-    // 创建输出文件
     const outputFile = await fs.open(downloadPath, 'w')
     
     try {
@@ -266,7 +244,7 @@ export class ChunkManager {
     console.log(`File assembled successfully: ${downloadPath}`)
   }
 
-  // 改进的进度更新方法
+  // Update download progress
   updateDownloadProgress(download) {
     const completedCount = download.completedChunks.size
     const totalCount = download.totalChunks
@@ -274,42 +252,37 @@ export class ChunkManager {
     
     download.progress = Math.round(progress * 100) / 100
     
-    // 计算速度
     const speedData = this.speedCalculator.get(download.id)
     if (speedData) {
       const now = Date.now()
-      const timeDiff = (now - speedData.lastUpdate) / 1000 // 秒
+      const timeDiff = (now - speedData.lastUpdate) / 1000
       
-      if (timeDiff >= 1) { // 每秒更新一次速度
+      if (timeDiff >= 1) {
         const bytesDiff = download.downloadedBytes - speedData.lastBytes
-        const currentSpeed = bytesDiff / timeDiff // bytes/second
+        const currentSpeed = bytesDiff / timeDiff
         
-        // 添加速度样本
         speedData.samples.push(currentSpeed)
         if (speedData.samples.length > 10) {
-          speedData.samples.shift() // 保持最近10个样本
+          speedData.samples.shift()
         }
         
-        // 计算平均速度
         const averageSpeed = speedData.samples.reduce((a, b) => a + b, 0) / speedData.samples.length
         
         download.currentSpeed = currentSpeed
         download.averageSpeed = averageSpeed
         
-        // 估算剩余时间
         const remainingBytes = download.fileSize - download.downloadedBytes
         if (averageSpeed > 0 && remainingBytes > 0) {
           download.estimatedTime = Math.round(remainingBytes / averageSpeed)
         }
         
-        // 更新速度计算数据
         speedData.lastUpdate = now
         speedData.lastBytes = download.downloadedBytes
       }
     }
   }
 
-  // 清理临时文件
+  // Cleanup temporary files
   async cleanupTempFiles(tempDir) {
     try {
       await fs.rm(tempDir, { recursive: true, force: true })
@@ -319,7 +292,7 @@ export class ChunkManager {
     }
   }
 
-  // 暂停下载
+  // Pause download
   async pauseDownload(downloadId) {
     const download = this.activeDownloads.get(downloadId)
     if (download) {
@@ -328,23 +301,21 @@ export class ChunkManager {
     }
   }
 
-  // 恢复下载
+  // Resume download
   async resumeDownload(downloadId) {
     const download = this.activeDownloads.get(downloadId)
     if (download && download.status === 'paused') {
       download.status = 'downloading'
-      // 重新启动下载工作器
       await this.downloadChunksInParallel(download)
     }
   }
 
-  // 取消下载
+  // Cancel download
   async cancelDownload(downloadId) {
     const download = this.activeDownloads.get(downloadId)
     if (download) {
       download.status = 'cancelled'
       
-      // 清理临时文件
       await this.cleanupTempFiles(download.tempDir)
       
       this.activeDownloads.delete(downloadId)
@@ -353,12 +324,12 @@ export class ChunkManager {
     }
   }
 
-  // 获取下载状态
+  // Get download status
   getDownloadStatus(downloadId) {
     return this.activeDownloads.get(downloadId)
   }
 
-  // 获取所有活跃下载
+  // Get all active downloads
   getAllActiveDownloads() {
     return Array.from(this.activeDownloads.values()).map(download => ({
       id: download.id,
@@ -379,15 +350,13 @@ export class ChunkManager {
     }))
   }
 
-  // 优化块分配策略
+  // Optimize chunk allocation strategy
   optimizeChunkAllocation(providers, totalChunks) {
     const allocation = new Map()
     
-    // 根据提供者的连接质量分配块
     providers.forEach((provider, index) => {
       const chunksToAssign = []
       
-      // 轮询分配策略
       for (let i = index; i < totalChunks; i += providers.length) {
         chunksToAssign.push(i)
       }
@@ -398,14 +367,13 @@ export class ChunkManager {
     return allocation
   }
 
-  // 处理块重复数据删除
+  // Handle chunk deduplication
   async deduplicateChunks(chunks) {
     const uniqueChunks = new Map()
     const duplicateMap = new Map()
     
     for (const chunk of chunks) {
       if (uniqueChunks.has(chunk.hash)) {
-        // 发现重复块
         const originalIndex = uniqueChunks.get(chunk.hash)
         duplicateMap.set(chunk.index, originalIndex)
       } else {

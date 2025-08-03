@@ -1,4 +1,4 @@
-/* 基础样式 */
+/* Base styles */
 * {
   margin: 0;
   padding: 0;
@@ -18,7 +18,7 @@ body {
   padding: 20px;
 }
 
-/* 头部样式 */
+/* Header styles */
 header {
   background: white;
   padding: 20px;
@@ -41,7 +41,30 @@ header h1 {
   gap: 10px;
 }
 
-/* 按钮样式 - 改进版 */
+.btn-secondary {
+  background: #6c757d;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  min-width: 100px;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #545b62;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+#openSettings {
+  min-width: 80px;
+}
+
+/* Button styles */
 button {
   background: #3498db;
   color: white;
@@ -68,7 +91,6 @@ button:active:not(:disabled) {
   box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
-/* 禁用状态的按钮 */
 button:disabled {
   background: #bdc3c7;
   color: #7f8c8d;
@@ -79,7 +101,6 @@ button:disabled {
   position: relative;
 }
 
-/* 节点启动按钮特殊样式 */
 #startNode {
   background: #27ae60;
 }
@@ -94,7 +115,6 @@ button:disabled {
   border: 1px solid #82c596;
 }
 
-/* 节点停止按钮特殊样式 */
 #stopNode {
   background: #e74c3c;
 }
@@ -109,7 +129,6 @@ button:disabled {
   border: 1px solid #e8a8a8;
 }
 
-/* 加载状态的按钮 */
 button.loading {
   background: #f39c12 !important;
   color: white;
@@ -159,7 +178,7 @@ button.secondary:hover:not(:disabled) {
   background: #7f8c8d;
 }
 
-/* 状态指示器 - 改进版 */
+/* Status indicator */
 .status {
   padding: 8px 14px;
   border-radius: 20px;
@@ -209,7 +228,7 @@ button.secondary:hover:not(:disabled) {
   100% { opacity: 1; }
 }
 
-/* 区块样式 */
+/* Section styles */
 .section {
   background: white;
   margin-bottom: 20px;
@@ -237,7 +256,7 @@ button.secondary:hover:not(:disabled) {
   padding: 20px;
 }
 
-/* 信息面板 */
+/* Info panel */
 .info-panel {
   background: linear-gradient(135deg, #f8f9fa, #e9ecef);
   border-left: 4px solid #3498db;
@@ -268,7 +287,7 @@ button.secondary:hover:not(:disabled) {
   border-left: 3px solid #3498db;
 }
 
-/* 连接面板 */
+/* Connect panel */
 .connect-panel {
   display: flex;
   gap: 10px;
@@ -291,7 +310,7 @@ button.secondary:hover:not(:disabled) {
   transform: translateY(-1px);
 }
 
-/* 文件面板 */
+/* File panel */
 .file-panel {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -331,7 +350,7 @@ button.secondary:hover:not(:disabled) {
   box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
 }
 
-/* 选中文件显示 */
+/* Selected files display */
 .selected-files {
   margin-top: 15px;
   text-align: left;
@@ -361,7 +380,7 @@ button.secondary:hover:not(:disabled) {
   min-width: auto;
 }
 
-/* 发现的节点样式 - 改进版 */
+/* Discovered peers styles */
 .discovered-peers {
   max-height: 300px;
   overflow-y: auto;
@@ -391,7 +410,6 @@ button.secondary:hover:not(:disabled) {
   box-shadow: inset 3px 0 0 #3498db;
 }
 
-/* 引导节点特殊样式 */
 .peer-item.bootstrap-peer {
   background: linear-gradient(135deg, #fff3cd, #ffeaa7);
   border-left: 4px solid #f39c12;
@@ -453,7 +471,7 @@ button.secondary:hover:not(:disabled) {
   letter-spacing: 0.5px;
 }
 
-/* 文件列表 */
+/* File list */
 .file-list {
   max-height: 400px;
   overflow-y: auto;
@@ -501,7 +519,7 @@ button.secondary:hover:not(:disabled) {
   min-width: auto;
 }
 
-/* 下载列表 */
+/* Download list */
 .download-list {
   max-height: 300px;
   overflow-y: auto;
@@ -563,7 +581,7 @@ button.secondary:hover:not(:disabled) {
   min-width: auto;
 }
 
-/* 数据库控制 */
+/* Database controls */
 .database-controls {
   display: flex;
   gap: 10px;
@@ -577,9 +595,7 @@ button.secondary:hover:not(:disabled) {
   min-width: auto;
 }
 
-/* 修复后的消息提示样式 - 支持上下分布 */
-
-/* 消息容器 - 新增 */
+/* Message system */
 .message-container {
   position: fixed;
   top: 20px;
@@ -587,28 +603,26 @@ button.secondary:hover:not(:disabled) {
   z-index: 1000;
   max-width: 350px;
   width: 100%;
-  pointer-events: none; /* 允许点击穿透到下层元素 */
+  pointer-events: none;
 }
 
-/* 修改后的消息样式 */
 .message {
-  position: relative; /* 改为相对定位 */
+  position: relative;
   padding: 14px 20px;
   border-radius: 8px;
   color: white;
   font-weight: 600;
-  margin-bottom: 10px; /* 消息之间的间距 */
+  margin-bottom: 10px;
   max-width: 100%;
   animation: slideInRight 0.3s ease;
   white-space: pre-line;
   box-shadow: 0 4px 12px rgba(0,0,0,0.3);
   border-left: 5px solid rgba(255,255,255,0.5);
-  pointer-events: auto; /* 消息本身可以交互 */
-  cursor: pointer; /* 显示可点击 */
+  pointer-events: auto;
+  cursor: pointer;
   transition: all 0.3s ease;
 }
 
-/* 添加关闭按钮样式 */
 .message::after {
   content: '×';
   position: absolute;
@@ -629,12 +643,10 @@ button.secondary:hover:not(:disabled) {
   box-shadow: 0 6px 16px rgba(0,0,0,0.4);
 }
 
-/* 消失动画 */
 .message.removing {
   animation: slideOutRight 0.3s ease forwards;
 }
 
-/* 入场动画 */
 @keyframes slideInRight {
   from {
     transform: translateX(100%);
@@ -646,7 +658,6 @@ button.secondary:hover:not(:disabled) {
   }
 }
 
-/* 出场动画 */
 @keyframes slideOutRight {
   from {
     transform: translateX(0);
@@ -658,7 +669,6 @@ button.secondary:hover:not(:disabled) {
   }
 }
 
-/* 不同类型消息的颜色保持不变 */
 .message-success {
   background: linear-gradient(135deg, #27ae60, #2ecc71);
 }
@@ -675,41 +685,7 @@ button.secondary:hover:not(:disabled) {
   background: linear-gradient(135deg, #3498db, #2980b9);
 }
 
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .message-container {
-    left: 10px;
-    right: 10px;
-    top: 10px;
-    max-width: none;
-  }
-  
-  .message {
-    font-size: 14px;
-    padding: 12px 16px;
-  }
-  
-  .message::after {
-    top: 6px;
-    right: 10px;
-    font-size: 16px;
-  }
-}
-
-@keyframes slideIn {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-
-
-/* 滚动条样式 */
+/* Scrollbar styles */
 ::-webkit-scrollbar {
   width: 10px;
 }
@@ -729,7 +705,7 @@ button.secondary:hover:not(:disabled) {
   background: linear-gradient(135deg, #a8a8a8, #888);
 }
 
-/* 响应式设计 */
+/* Responsive design */
 @media (max-width: 768px) {
   .container {
     padding: 10px;
@@ -788,10 +764,22 @@ button.secondary:hover:not(:disabled) {
     align-self: flex-end;
   }
   
-  .message {
+  .message-container {
     left: 10px;
     right: 10px;
+    top: 10px;
     max-width: none;
+  }
+  
+  .message {
+    font-size: 14px;
+    padding: 12px 16px;
+  }
+  
+  .message::after {
+    top: 6px;
+    right: 10px;
+    font-size: 16px;
   }
   
   .status {
@@ -799,4 +787,3 @@ button.secondary:hover:not(:disabled) {
     font-size: 10px;
   }
 }
-

@@ -1,95 +1,203 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P2P文件共享系统</title>
+    <title data-i18n="app.title">P2P File Sharing System</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="settings.css">
 </head>
 <body>
-    <div class="container">
+    <!-- Main Interface -->
+    <div id="mainInterface" class="container">
         <header>
-            <h1>P2P文件共享系统</h1>
+            <h1 data-i18n="app.title">P2P File Sharing System</h1>
             <div class="node-controls">
-                <button id="startNode">启动节点</button>
-                <button id="stopNode" disabled>停止节点</button>
-                <span id="nodeStatus" class="status offline">离线</span>
+                <button id="startNode" data-i18n="header.startNode">Start Node</button>
+                <button id="stopNode" disabled data-i18n="header.stopNode">Stop Node</button>
+                <button id="openSettings" class="btn-secondary" data-i18n="header.settings">Settings</button>
+                <span id="nodeStatus" class="status offline" data-i18n="status.offline">Offline</span>
             </div>
         </header>
 
         <main>
             <div class="section">
-                <h2>节点信息</h2>
+                <h2 data-i18n="section.nodeInfo">Node Information</h2>
                 <div id="nodeInfo" class="info-panel">
-                    <p>节点未启动</p>
+                    <p data-i18n="node.notStarted">Node not started</p>
                 </div>
-                <button id="refreshDiscoveredPeers" onclick="refreshDiscoveredPeers()">刷新发现的节点</button>
+                <button id="refreshDiscoveredPeers" onclick="refreshDiscoveredPeers()" data-i18n="node.refreshPeers">Refresh Discovered Peers</button>
             </div>
 
             <div class="section">
-                <h2>连接到节点</h2>
+                <h2 data-i18n="section.connectPeer">Connect to Peer</h2>
                 <div class="connect-panel">
-                    <input type="text" id="peerAddress" placeholder="输入节点地址 (例: /ip4/192.168.1.100/tcp/4001/p2p/12D3K...)">
-                    <button id="connectPeer">连接</button>
+                    <input type="text" id="peerAddress" data-i18n="connect.placeholder" placeholder="Enter peer address (e.g., /ip4/192.168.1.100/tcp/4001/p2p/12D3K...)">
+                    <button id="connectPeer" data-i18n="connect.button">Connect</button>
                 </div>
             </div>
 
             <div class="section">
-                <h2>DHT统计</h2>
+                <h2 data-i18n="section.dhtStats">DHT Statistics</h2>
                 <div id="dhtStats" class="info-panel">
-                    <p>DHT未初始化</p>
+                    <p data-i18n="dht.notInitialized">DHT not initialized</p>
                 </div>
-                <button id="refreshStats">刷新统计</button>
+                <button id="refreshStats" data-i18n="dht.refreshStats">Refresh Stats</button>
             </div>
 
             <div class="section">
-                <h2>文件共享</h2>
+                <h2 data-i18n="section.fileSharing">File Sharing</h2>
                 <div class="file-panel">
                     <div class="upload-area">
-                        <button id="selectFiles">选择文件</button>
-                        <button id="shareSelected" disabled>分享选中文件</button>
+                        <button id="selectFiles" data-i18n="file.selectFiles">Select Files</button>
+                        <button id="shareSelected" disabled data-i18n="file.shareSelected">Share Selected Files</button>
                         <div id="selectedFiles" class="selected-files"></div>
                     </div>
                     
                     <div class="search-area">
-                        <input type="text" id="searchInput" placeholder="搜索文件...">
-                        <button id="searchFiles">搜索</button>
+                        <input type="text" id="searchInput" data-i18n="file.searchPlaceholder" placeholder="Search files...">
+                        <button id="searchFiles" data-i18n="file.search">Search</button>
                     </div>
                 </div>
             </div>
 
             <div class="section">
-                <h2>活跃下载</h2>
+                <h2 data-i18n="section.activeDownloads">Active Downloads</h2>
                 <div id="activeDownloads" class="download-list">
-                    <p>暂无活跃下载</p>
+                    <p data-i18n="download.noActive">No active downloads</p>
                 </div>
-                <button id="refreshDownloads">刷新下载</button>
+                <button id="refreshDownloads" data-i18n="download.refreshDownloads">Refresh Downloads</button>
             </div>
 
             <div class="section">
-                <h2>本地文件</h2>
+                <h2 data-i18n="section.localFiles">Local Files</h2>
                 <div id="localFiles" class="file-list">
-                    <p>暂无文件</p>
+                    <p data-i18n="files.noLocal">No files</p>
                 </div>
             </div>
 
             <div class="section">
-                <h2>搜索结果</h2>
+                <h2 data-i18n="section.searchResults">Search Results</h2>
                 <div id="searchResults" class="file-list">
-                    <p>暂无搜索结果</p>
+                    <p data-i18n="files.noSearchResults">No search results</p>
                 </div>
             </div>
             
             <div class="section">
-                <h2>数据库管理</h2>
+                <h2 data-i18n="section.databaseManagement">Database Management</h2>
                 <div id="databaseStats" class="info-panel">
-                    <p>数据库未初始化</p>
+                    <p data-i18n="db.notInitialized">Database not initialized</p>
                 </div>
                 <div class="database-controls">
-                    <button id="refreshDatabaseStats">刷新统计</button>
-                    <button id="cleanupDatabase">清理数据库</button>
-                    <button id="exportData">导出数据</button>
-                    <button id="importData">导入数据</button>
+                    <button id="refreshDatabaseStats" data-i18n="db.refreshStats">Refresh Stats</button>
+                    <button id="cleanupDatabase" data-i18n="db.cleanup">Cleanup Database</button>
+                    <button id="exportData" data-i18n="db.export">Export Data</button>
+                    <button id="importData" data-i18n="db.import">Import Data</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Settings Interface -->
+    <div id="settingsInterface" class="settings-container" style="display: none;">
+        <header class="settings-header">
+            <div class="header-content">
+                <button class="back-btn" onclick="goBackToMain()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 12H5M12 19l-7-7 7-7"/>
+                    </svg>
+                    <span data-i18n="header.back">Back</span>
+                </button>
+                <h1 data-i18n="settings.title">Settings</h1>
+                <div class="header-spacer"></div>
+            </div>
+        </header>
+
+        <div class="settings-content">
+            <aside class="settings-sidebar">
+                <nav class="settings-nav">
+                    <div class="nav-item active" data-category="download">
+                        <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7,10 12,15 17,10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        <span data-i18n="settings.download">Download & Files</span>
+                    </div>
+                    <div class="nav-item" data-category="window">
+                        <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="2" y="4" width="20" height="16" rx="2"/>
+                            <path d="M10 4v4"/>
+                            <path d="M2 8h20"/>
+                            <path d="M6 4v4"/>
+                        </svg>
+                        <span data-i18n="settings.window">Window & Interface</span>
+                    </div>
+                    <div class="nav-item" data-category="network">
+                        <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM8.5 4.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0z"/>
+                            <path d="M12 2c2.5 0 4 1.5 4 4s-1.5 4-4 4-4-1.5-4-4 1.5-4 4-4z"/>
+                        </svg>
+                        <span data-i18n="settings.network">Network & Connections</span>
+                    </div>
+                    <div class="nav-item" data-category="privacy">
+                        <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        </svg>
+                        <span data-i18n="settings.privacy">Privacy & Security</span>
+                    </div>
+                    <div class="nav-item" data-category="performance">
+                        <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <polyline points="12,6 12,12 16,14"/>
+                        </svg>
+                        <span data-i18n="settings.performance">Performance</span>
+                    </div>
+                    <div class="nav-item" data-category="backup">
+                        <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14,2 14,8 20,8"/>
+                            <line x1="16" y1="13" x2="8" y2="13"/>
+                            <line x1="16" y1="17" x2="8" y2="17"/>
+                            <polyline points="10,9 9,9 8,9"/>
+                        </svg>
+                        <span data-i18n="settings.backup">Backup & Import</span>
+                    </div>
+                </nav>
+            </aside>
+
+            <main class="settings-main">
+                <!-- Settings panels will be dynamically loaded here -->
+                <div id="settingsContent"></div>
+            </main>
+        </div>
+
+        <!-- Settings Actions - moved to bottom right -->
+        <div class="settings-actions">
+            <button class="btn-secondary" onclick="resetAllSettings()" data-i18n="settings.resetAll">Reset All</button>
+            <button class="btn-primary" onclick="saveAllSettings()" data-i18n="settings.saveChanges">Save Changes</button>
+        </div>
+    </div>
+
+    <!-- Toast notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Confirmation dialogs -->
+    <div id="confirmDialog" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h3 id="confirmTitle">Confirm Action</h3>
+            <p id="confirmMessage">Are you sure you want to proceed?</p>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeConfirmDialog()" data-i18n="settings.cancel">Cancel</button>
+                <button class="btn-primary" id="confirmButton" data-i18n="settings.confirm">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="i18n.js"></script>
+    <script src="renderer.js"></script>
+</body>
+</html></button>
                 </div>
             </div>
         </main>

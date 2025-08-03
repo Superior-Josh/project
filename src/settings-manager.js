@@ -1,0 +1,555 @@
+// settings-manager.js
+import fs from 'fs/promises'
+import path from 'path'
+import os from 'os'
+
+export class SettingsManager {
+  constructor(settingsDir = './settings') {
+    this.settingsDir = settingsDir
+    this.settingsFile = path.join(settingsDir, 'app-settings.json')
+    this.settings = new Map()
+    this.initialized = false
+    
+    // Default settings
+    this.defaultSettings = {
+      // File & Download Settings
+      downloadPath: path.join(os.homedir(), 'Downloads', 'P2P-Files'),
+      autoCreateSubfolders: true,
+      maxConcurrentDownloads: 3,
+      chunkSize: 256 * 1024, // 256KB
+      enableResumeDownload: true,
+      
+      // Window & UI Settings
+      windowBehavior: 'minimize', // 'close', 'minimize', 'hide'
+      startMinimized: false,
+      autoStartNode: true,
+      showNotifications: true,
+      theme: 'system', // 'light', 'dark', 'system'
+      language: 'en', // 'en', 'zh'
+      
+      // Network Settings
+      autoConnectToPeers: true,
+      maxConnections: 50,
+      connectionTimeout: 30000,
+      enableUpnp: true,
+      customBootstrapNodes: [],
+      
+      // Privacy & Security
+      enableEncryption: true,
+      shareFileByDefault: false,
+      autoAcceptConnections: true,
+      logLevel: 'info', // 'debug', 'info', 'warn', 'error'
+      
+      // Performance Settings
+      memoryLimit: 512, // MB
+      diskCacheSize: 1024, // MB
+      enableFileValidation: true,
+      cleanupTempFiles: true,
+      
+      // Backup & Sync
+      autoBackupSettings: true,
+      autoBackupDatabase: true,
+      backupInterval: 24, // hours
+      maxBackupFiles: 5
+    }
+  }
+
+  async initialize() {
+    try {
+      await fs.mkdir(this.settingsDir, { recursive: true })
+      await this.loadSettings()
+      this.initialized = true
+      console.log('Settings manager initialized')
+      
+      // Setup auto-save
+      this.setupAutoSave()
+    } catch (error) {
+      console.error('Error initializing settings manager:', error)
+      throw error
+    }
+  }
+
+  async loadSettings() {
+    try {
+      const data = await fs.readFile(this.settingsFile, 'utf8')
+      const loadedSettings = JSON.parse(data)
+      
+      // Merge with defaults (in case new settings were added)
+      this.settings = new Map(Object.entries({
+        ...this.defaultSettings,
+        ...loadedSettings
+      }))
+      
+      console.log('Settings loaded successfully')
+    } catch (error) {
+      // File doesn't exist or invalid, use defaults
+      this.settings = new Map(Object.entries(this.defaultSettings))
+      await this.saveSettings()
+      console.log('Created default settings file')
+    }
+  }
+
+  async saveSettings() {
+    try {
+      const settingsObj = Object.fromEntries(this.settings)
+      await fs.writeFile(this.settingsFile, JSON.stringify(settingsObj, null, 2))
+      console.log('Settings saved successfully')
+    } catch (error) {
+      console.error('Error saving settings:', error)
+      throw error
+    }
+  }
+
+  setupAutoSave() {
+    // Auto-save every 5 minutes
+    setInterval(() => {
+      this.saveSettings().catch(error => {
+        console.error('Auto-save settings failed:', error)
+      })
+    }, 5 * 60 * 1000)
+  }
+
+  // Get setting value
+  get(key, defaultValue = null) {
+    return this.settings.get(key) ?? defaultValue
+  }
+
+  // Set setting value
+  async set(key, value) {
+    this.settings.set(key, value)
+    await this.saveSettings()
+  }
+
+  // Set multiple settings at once
+  async setMultiple(settingsObj) {
+    for (const [key, value] of Object.entries(settingsObj)) {
+      this.settings.set(key, value)
+    }
+    await this.saveSettings()
+  }
+
+  // Get all settings
+  getAll() {
+    return Object.fromEntries(this.settings)
+  }
+
+  // Reset to defaults
+  async resetToDefaults() {
+    this.settings = new Map(Object.entries(this.defaultSettings))
+    await this.saveSettings()
+  }
+
+  // Reset specific category
+  async resetCategory(category) {
+    const categorySettings = this.getSettingsByCategory(category)
+    for (const key of Object.keys(categorySettings)) {
+      if (this.defaultSettings[key] !== undefined) {
+        this.settings.set(key, this.defaultSettings[key])
+      }
+    }
+    await this.saveSettings()
+  }
+
+  // Get settings by category
+  getSettingsByCategory(category) {
+    const categories = {
+      download: ['downloadPath', 'autoCreateSubfolders', 'maxConcurrentDownloads', 'chunkSize', 'enableResumeDownload'],
+      window: ['windowBehavior', 'startMinimized', 'autoStartNode', 'showNotifications', 'theme', 'language'],
+      network: ['autoConnectToPeers', 'maxConnections', 'connectionTimeout', 'enableUpnp', 'customBootstrapNodes'],
+      privacy: ['enableEncryption', 'shareFileByDefault', 'autoAcceptConnections', 'logLevel'],
+      performance: ['memoryLimit', 'diskCacheSize', 'enableFileValidation', 'cleanupTempFiles'],
+      backup: ['autoBackupSettings', 'autoBackupDatabase', 'backupInterval', 'maxBackupFiles']
+    }
+
+    const categoryKeys = categories[category] || []
+    const result = {}
+    
+    for (const key of categoryKeys) {
+      result[key] = this.settings.get(key)
+    }
+    
+    return result
+  }
+
+  // Validate setting value
+  validateSetting(key, value) {
+    const validators = {
+      downloadPath: (val) => typeof val === 'string' && val.length > 0,
+      maxConcurrentDownloads: (val) => Number.isInteger(val) && val >= 1 && val <= 10,
+      chunkSize: (val) => Number.isInteger(val) && val >= 1024 && val <= 10 * 1024 * 1024,
+      windowBehavior: (val) => ['close', 'minimize', 'hide'].includes(val),
+      theme: (val) => ['light', 'dark', 'system'].includes(val),
+      language: (val) => ['en', 'zh'].includes(val),
+      maxConnections: (val) => Number.isInteger(val) && val >= 1 && val <= 200,
+      connectionTimeout: (val) => Number.isInteger(val) && val >= 5000 && val <= 120000,
+      logLevel: (val) => ['debug', 'info', 'warn', 'error'].includes(val),
+      memoryLimit: (val) => Number.isInteger(val) && val >= 128 && val <= 4096,
+      diskCacheSize: (val) => Number.isInteger(val) && val >= 100 && val <= 10240,
+      backupInterval: (val) => Number.isInteger(val) && val >= 1 && val <= 168,
+      maxBackupFiles: (val) => Number.isInteger(val) && val >= 1 && val <= 50
+    }
+
+    const validator = validators[key]
+    if (validator) {
+      return validator(value)
+    }
+    
+    // Default validation for boolean values
+    if (typeof this.defaultSettings[key] === 'boolean') {
+      return typeof value === 'boolean'
+    }
+    
+    return true
+  }
+
+  // Create backup of current settings
+  async createBackup() {
+    try {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+      const backupDir = path.join(this.settingsDir, 'backups')
+      await fs.mkdir(backupDir, { recursive: true })
+      
+      const backupFile = path.join(backupDir, `settings-backup-${timestamp}.json`)
+      const currentSettings = Object.fromEntries(this.settings)
+      
+      await fs.writeFile(backupFile, JSON.stringify(currentSettings, null, 2))
+      
+      // Clean up old backups
+      await this.cleanupOldBackups(backupDir)
+      
+      return backupFile
+    } catch (error) {
+      console.error('Error creating settings backup:', error)
+      throw error
+    }
+  }
+
+  // Restore from backup
+  async restoreFromBackup(backupFile) {
+    try {
+      const data = await fs.readFile(backupFile, 'utf8')
+      const backupSettings = JSON.parse(data)
+      
+      // Validate backup settings
+      for (const [key, value] of Object.entries(backupSettings)) {
+        if (!this.validateSetting(key, value)) {
+          throw new Error(`Invalid setting in backup: ${key}`)
+        }
+      }
+      
+      this.settings = new Map(Object.entries(backupSettings))
+      await this.saveSettings()
+      
+      console.log('Settings restored from backup successfully')
+    } catch (error) {
+      console.error('Error restoring from backup:', error)
+      throw error
+    }
+  }
+
+  // Clean up old backup files
+  async cleanupOldBackups(backupDir) {
+    try {
+      const files = await fs.readdir(backupDir)
+      const backupFiles = files
+        .filter(file => file.startsWith('settings-backup-') && file.endsWith('.json'))
+        .map(file => ({
+          name: file,
+          path: path.join(backupDir, file),
+          time: fs.stat(path.join(backupDir, file)).then(stats => stats.mtime)
+        }))
+      
+      // Wait for all stat operations to complete
+      for (const file of backupFiles) {
+        file.time = await file.time
+      }
+      
+      // Sort by modification time (newest first)
+      backupFiles.sort((a, b) => b.time - a.time)
+      
+      // Keep only the specified number of backups
+      const maxBackups = this.get('maxBackupFiles', 5)
+      if (backupFiles.length > maxBackups) {
+        const filesToDelete = backupFiles.slice(maxBackups)
+        for (const file of filesToDelete) {
+          await fs.unlink(file.path)
+        }
+      }
+    } catch (error) {
+      console.error('Error cleaning up old backups:', error)
+    }
+  }
+
+  // Get available backup files
+  async getAvailableBackups() {
+    try {
+      const backupDir = path.join(this.settingsDir, 'backups')
+      const files = await fs.readdir(backupDir)
+      
+      const backupFiles = []
+      for (const file of files) {
+        if (file.startsWith('settings-backup-') && file.endsWith('.json')) {
+          const filePath = path.join(backupDir, file)
+          const stats = await fs.stat(filePath)
+          backupFiles.push({
+            name: file,
+            path: filePath,
+            created: stats.mtime,
+            size: stats.size
+          })
+        }
+      }
+      
+      // Sort by creation time (newest first)
+      backupFiles.sort((a, b) => b.created - a.created)
+      
+      return backupFiles
+    } catch (error) {
+      console.error('Error getting available backups:', error)
+      return []
+    }
+  }
+
+  // Export settings to file
+  async exportSettings(exportPath) {
+    try {
+      const settings = Object.fromEntries(this.settings)
+      const exportData = {
+        exportedAt: new Date().toISOString(),
+        version: '1.0',
+        settings
+      }
+      
+      await fs.writeFile(exportPath, JSON.stringify(exportData, null, 2))
+      console.log(`Settings exported to: ${exportPath}`)
+    } catch (error) {
+      console.error('Error exporting settings:', error)
+      throw error
+    }
+  }
+
+  // Import settings from file
+  async importSettings(importPath) {
+    try {
+      const data = await fs.readFile(importPath, 'utf8')
+      const importData = JSON.parse(data)
+      
+      if (!importData.settings) {
+        throw new Error('Invalid settings file format')
+      }
+      
+      // Validate imported settings
+      for (const [key, value] of Object.entries(importData.settings)) {
+        if (!this.validateSetting(key, value)) {
+          console.warn(`Skipping invalid setting: ${key}`)
+          delete importData.settings[key]
+        }
+      }
+      
+      // Merge with current settings
+      const mergedSettings = {
+        ...this.getAll(),
+        ...importData.settings
+      }
+      
+      this.settings = new Map(Object.entries(mergedSettings))
+      await this.saveSettings()
+      
+      console.log(`Settings imported from: ${importPath}`)
+    } catch (error) {
+      console.error('Error importing settings:', error)
+      throw error
+    }
+  }
+
+  // Get settings schema for UI generation
+  getSettingsSchema() {
+    return {
+      download: {
+        title: 'Download & Files',
+        icon: 'download',
+        settings: {
+          downloadPath: {
+            type: 'folder',
+            title: 'Download Location',
+            description: 'Where downloaded files will be saved'
+          },
+          autoCreateSubfolders: {
+            type: 'boolean',
+            title: 'Auto Create Subfolders',
+            description: 'Automatically create subfolders for different file types'
+          },
+          maxConcurrentDownloads: {
+            type: 'number',
+            title: 'Max Concurrent Downloads',
+            description: 'Maximum number of files to download simultaneously',
+            min: 1,
+            max: 10
+          },
+          chunkSize: {
+            type: 'select',
+            title: 'Chunk Size',
+            description: 'Size of file chunks for downloading',
+            options: [
+              { value: 64 * 1024, label: '64KB' },
+              { value: 128 * 1024, label: '128KB' },
+              { value: 256 * 1024, label: '256KB' },
+              { value: 512 * 1024, label: '512KB' },
+              { value: 1024 * 1024, label: '1MB' }
+            ]
+          },
+          enableResumeDownload: {
+            type: 'boolean',
+            title: 'Enable Resume Download',
+            description: 'Allow resuming interrupted downloads'
+          }
+        }
+      },
+      window: {
+        title: 'Window & Interface',
+        icon: 'window',
+        settings: {
+          windowBehavior: {
+            type: 'select',
+            title: 'When Closing Window',
+            description: 'What happens when you close the main window',
+            options: [
+              { value: 'close', label: 'Exit Application' },
+              { value: 'minimize', label: 'Minimize to Taskbar' },
+              { value: 'hide', label: 'Hide to System Tray' }
+            ]
+          },
+          startMinimized: {
+            type: 'boolean',
+            title: 'Start Minimized',
+            description: 'Start the application minimized'
+          },
+          autoStartNode: {
+            type: 'boolean',
+            title: 'Auto Start P2P Node',
+            description: 'Automatically start the P2P node when app launches'
+          },
+          showNotifications: {
+            type: 'boolean',
+            title: 'Show Notifications',
+            description: 'Show desktop notifications for downloads and connections'
+          },
+          theme: {
+            type: 'select',
+            title: 'Theme',
+            description: 'Application theme',
+            options: [
+              { value: 'system', label: 'System Default' },
+              { value: 'light', label: 'Light' },
+              { value: 'dark', label: 'Dark' }
+            ]
+          },
+          language: {
+            type: 'select',
+            title: 'Language',
+            description: 'Application language',
+            options: [
+              { value: 'en', label: 'English' },
+              { value: 'zh', label: '中文' }
+            ]
+          }
+        }
+      },
+      network: {
+        title: 'Network & Connections',
+        icon: 'network',
+        settings: {
+          autoConnectToPeers: {
+            type: 'boolean',
+            title: 'Auto Connect to Peers',
+            description: 'Automatically connect to discovered peers'
+          },
+          maxConnections: {
+            type: 'number',
+            title: 'Max Connections',
+            description: 'Maximum number of peer connections',
+            min: 1,
+            max: 200
+          },
+          connectionTimeout: {
+            type: 'number',
+            title: 'Connection Timeout (ms)',
+            description: 'Timeout for peer connections',
+            min: 5000,
+            max: 120000,
+            step: 1000
+          },
+          enableUpnp: {
+            type: 'boolean',
+            title: 'Enable UPnP',
+            description: 'Automatically configure router port forwarding'
+          }
+        }
+      },
+      privacy: {
+        title: 'Privacy & Security',
+        icon: 'shield',
+        settings: {
+          enableEncryption: {
+            type: 'boolean',
+            title: 'Enable Encryption',
+            description: 'Encrypt all P2P communications'
+          },
+          shareFileByDefault: {
+            type: 'boolean',
+            title: 'Share Files by Default',
+            description: 'Automatically share new files with the network'
+          },
+          autoAcceptConnections: {
+            type: 'boolean',
+            title: 'Auto Accept Connections',
+            description: 'Automatically accept incoming peer connections'
+          },
+          logLevel: {
+            type: 'select',
+            title: 'Log Level',
+            description: 'Application logging level',
+            options: [
+              { value: 'error', label: 'Error Only' },
+              { value: 'warn', label: 'Warnings' },
+              { value: 'info', label: 'Information' },
+              { value: 'debug', label: 'Debug (Verbose)' }
+            ]
+          }
+        }
+      },
+      performance: {
+        title: 'Performance',
+        icon: 'gauge',
+        settings: {
+          memoryLimit: {
+            type: 'number',
+            title: 'Memory Limit (MB)',
+            description: 'Maximum memory usage',
+            min: 128,
+            max: 4096,
+            step: 64
+          },
+          diskCacheSize: {
+            type: 'number',
+            title: 'Disk Cache Size (MB)',
+            description: 'Size of disk cache for files',
+            min: 100,
+            max: 10240,
+            step: 100
+          },
+          enableFileValidation: {
+            type: 'boolean',
+            title: 'Enable File Validation',
+            description: 'Verify file integrity after download'
+          },
+          cleanupTempFiles: {
+            type: 'boolean',
+            title: 'Cleanup Temp Files',
+            description: 'Automatically cleanup temporary files'
+          }
+        }
+      }
+    }
+  }
+}

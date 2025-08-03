@@ -1,21 +1,17 @@
-// renderer/renderer.js
+// renderer.js
 
-// 改进的消息显示系统 - 支持上下分布和手动关闭
-
-// 消息管理器
+// Message Manager for UI notifications
 class MessageManager {
   constructor() {
-    this.messages = new Map() // 存储活跃的消息
-    this.messageCount = 0 // 消息计数器
-    this.maxMessages = 5 // 最大显示消息数量
-    this.defaultDuration = 5000 // 默认显示时间（毫秒）
+    this.messages = new Map()
+    this.messageCount = 0
+    this.maxMessages = 5
+    this.defaultDuration = 5000
     
-    // 创建消息容器
     this.createMessageContainer()
   }
   
   createMessageContainer() {
-    // 检查是否已存在容器
     let container = document.getElementById('message-container')
     if (!container) {
       container = document.createElement('div')
@@ -30,19 +26,15 @@ class MessageManager {
     const messageId = ++this.messageCount
     const actualDuration = duration || this.getDurationByType(type)
     
-    // 如果消息太多，移除最旧的
     if (this.messages.size >= this.maxMessages) {
       const oldestId = Math.min(...this.messages.keys())
       this.remove(oldestId)
     }
     
-    // 创建消息元素
     const messageEl = this.createMessageElement(message, type, messageId)
     
-    // 添加到容器
     this.container.appendChild(messageEl)
     
-    // 存储消息信息
     this.messages.set(messageId, {
       element: messageEl,
       timer: null,
@@ -50,7 +42,6 @@ class MessageManager {
       message
     })
     
-    // 设置自动关闭定时器
     if (actualDuration > 0) {
       const timer = setTimeout(() => {
         this.remove(messageId)
@@ -59,7 +50,6 @@ class MessageManager {
       this.messages.get(messageId).timer = timer
     }
     
-    // 添加点击关闭事件
     messageEl.addEventListener('click', () => {
       this.remove(messageId)
     })
@@ -75,11 +65,9 @@ class MessageManager {
     messageEl.setAttribute('data-message-id', messageId)
     messageEl.textContent = message
     
-    // 添加进入动画
     messageEl.style.opacity = '0'
     messageEl.style.transform = 'translateX(100%)'
     
-    // 触发动画
     requestAnimationFrame(() => {
       messageEl.style.opacity = '1'
       messageEl.style.transform = 'translateX(0)'
@@ -94,25 +82,21 @@ class MessageManager {
     
     const { element, timer } = messageInfo
     
-    // 清除定时器
     if (timer) {
       clearTimeout(timer)
     }
     
-    // 添加移除动画
     element.classList.add('removing')
     
-    // 动画完成后移除元素
     setTimeout(() => {
       if (element.parentNode) {
         element.parentNode.removeChild(element)
       }
       this.messages.delete(messageId)
-    }, 300) // 与CSS动画时间匹配
+    }, 300)
   }
   
   clear() {
-    // 清除所有消息
     for (const messageId of this.messages.keys()) {
       this.remove(messageId)
     }
@@ -123,17 +107,14 @@ class MessageManager {
       'success': 4000,
       'info': 5000,
       'warning': 6000,
-      'error': 8000 // 错误消息显示更久
+      'error': 8000
     }
     return durations[type] || this.defaultDuration
   }
   
-  // 更新现有消息（如果存在相同内容）
   updateOrShow(message, type = 'info', duration = null) {
-    // 查找是否有相同内容的消息
     for (const [id, info] of this.messages) {
       if (info.message === message && info.type === type) {
-        // 重置定时器
         if (info.timer) {
           clearTimeout(info.timer)
         }
@@ -145,7 +126,6 @@ class MessageManager {
           }, actualDuration)
         }
         
-        // 添加闪烁效果表示更新
         info.element.style.animation = 'none'
         requestAnimationFrame(() => {
           info.element.style.animation = 'slideInRight 0.3s ease'
@@ -155,20 +135,18 @@ class MessageManager {
       }
     }
     
-    // 如果没找到相同消息，创建新的
     return this.show(message, type, duration)
   }
 }
 
-// 创建全局消息管理器实例
+// Create global message manager instance
 const messageManager = new MessageManager()
 
-// 替换原有的 showMessage 函数
+// Message functions
 function showMessage(message, type = 'info', duration = null) {
   return messageManager.show(message, type, duration)
 }
 
-// 新增的便捷方法
 function showSuccess(message, duration = null) {
   return messageManager.show(message, 'success', duration)
 }
@@ -185,27 +163,23 @@ function showInfo(message, duration = null) {
   return messageManager.show(message, 'info', duration)
 }
 
-// 清除所有消息
 function clearAllMessages() {
   messageManager.clear()
 }
 
-// 显示持久消息（不自动关闭）
 function showPersistent(message, type = 'info') {
   return messageManager.show(message, type, 0)
 }
 
-// 更新或显示消息（避免重复）
 function updateMessage(message, type = 'info', duration = null) {
   return messageManager.updateOrShow(message, type, duration)
 }
 
-// 手动关闭特定消息
 function closeMessage(messageId) {
   messageManager.remove(messageId)
 }
 
-// 为了兼容性，保留原有的函数名
+// Export for compatibility
 window.showMessage = showMessage
 window.showSuccess = showSuccess
 window.showError = showError
@@ -216,26 +190,26 @@ window.showPersistent = showPersistent
 window.updateMessage = updateMessage
 window.closeMessage = closeMessage
 
-// 页面加载时初始化
+// Page load initialization
 document.addEventListener('DOMContentLoaded', () => {
-  // 确保消息管理器已初始化
   if (!messageManager.container) {
     messageManager.createMessageContainer()
   }
   
-  console.log('消息系统已初始化')
+  console.log('Message system initialized')
 })
 
-// 全局状态
+// Global state
 let isNodeStarted = false
 let selectedFiles = []
 let downloadInterval = null
 let isAutoStarting = false
 
-// DOM元素
+// DOM elements
 const elements = {
   startNode: document.getElementById('startNode'),
   stopNode: document.getElementById('stopNode'),
+  openSettings: document.getElementById('openSettings'),
   nodeStatus: document.getElementById('nodeStatus'),
   nodeInfo: document.getElementById('nodeInfo'),
   peerAddress: document.getElementById('peerAddress'),
@@ -258,49 +232,112 @@ const elements = {
   importData: document.getElementById('importData')
 }
 
-// 更新按钮状态的统一函数
+// Initialize DOM elements after page load
+function initializeDOMElements() {
+  // Re-query elements in case they weren't ready before
+  Object.keys(elements).forEach(key => {
+    const element = document.getElementById(key === 'openSettings' ? 'openSettings' : key)
+    if (element) {
+      elements[key] = element
+    }
+  })
+}
+
+// Page load initialization
+document.addEventListener('DOMContentLoaded', () => {
+  if (!messageManager.container) {
+    messageManager.createMessageContainer()
+  }
+  
+  console.log('P2P File Sharing System loaded')
+
+  // Initialize DOM elements
+  initializeDOMElements()
+
+  // Define global functions immediately when page loads
+  window.removeSelectedFile = removeSelectedFile
+  window.pauseDownload = pauseDownload
+  window.resumeDownload = resumeDownload
+  window.cancelDownload = cancelDownload
+  window.connectToDiscoveredPeer = connectToDiscoveredPeer
+  window.refreshDiscoveredPeers = refreshDiscoveredPeers
+  window.goBackToMain = goBackToMain
+
+  // Setup event listeners
+  setupEventListeners()
+
+  updateSelectedFilesDisplay()
+  refreshDatabaseStats()
+
+  // Initialize i18n
+  initializeI18n()
+
+  // Set auto-starting state
+  isAutoStarting = true
+  if (elements.startNode) {
+    elements.startNode.disabled = true
+    elements.startNode.textContent = window.i18n ? window.i18n.t('status.starting') : 'Auto-starting...'
+  }
+  if (elements.stopNode) {
+    elements.stopNode.disabled = true
+  }
+  updateNodeStatus('connecting', window.i18n ? window.i18n.t('status.starting') : 'Starting')
+})
+
+// Setup event listeners
+function setupEventListeners() {
+  if (elements.startNode) elements.startNode.addEventListener('click', startNode)
+  if (elements.stopNode) elements.stopNode.addEventListener('click', stopNode)
+  if (elements.openSettings) elements.openSettings.addEventListener('click', openSettings)
+  if (elements.connectPeer) elements.connectPeer.addEventListener('click', connectToPeer)
+  if (elements.refreshStats) elements.refreshStats.addEventListener('click', refreshStats)
+  if (elements.selectFiles) elements.selectFiles.addEventListener('click', selectFiles)
+  if (elements.shareSelected) elements.shareSelected.addEventListener('click', shareSelectedFiles)
+  if (elements.searchFiles) elements.searchFiles.addEventListener('click', searchFiles)
+  if (elements.refreshDownloads) elements.refreshDownloads.addEventListener('click', refreshDownloads)
+  if (elements.refreshDatabaseStats) elements.refreshDatabaseStats.addEventListener('click', refreshDatabaseStats)
+  if (elements.cleanupDatabase) elements.cleanupDatabase.addEventListener('click', cleanupDatabase)
+  if (elements.exportData) elements.exportData.addEventListener('click', exportData)
+  if (elements.importData) elements.importData.addEventListener('click', importData)
+
+  // Search input enter key
+  if (elements.searchInput) {
+    elements.searchInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        searchFiles()
+      }
+    })
+  }
+}
+
+// Update button states
 function updateButtonStates(nodeStarted) {
   isNodeStarted = nodeStarted
 
   if (nodeStarted) {
-    // 节点已启动状态
-    elements.startNode.disabled = true
-    elements.startNode.textContent = '节点已启动'
-    elements.stopNode.disabled = false
-    elements.stopNode.textContent = '停止节点'
-    updateNodeStatus('online', '在线')
+    if (elements.startNode) {
+      elements.startNode.disabled = true
+      elements.startNode.textContent = window.i18n ? window.i18n.t('header.startNode') : 'Node Started'
+    }
+    if (elements.stopNode) {
+      elements.stopNode.disabled = false
+      elements.stopNode.textContent = window.i18n ? window.i18n.t('header.stopNode') : 'Stop Node'
+    }
+    updateNodeStatus('online', window.i18n ? window.i18n.t('status.online') : 'Online')
   } else {
-    // 节点未启动状态
-    elements.startNode.disabled = false
-    elements.startNode.textContent = '启动节点'
-    elements.stopNode.disabled = true
-    elements.stopNode.textContent = '停止节点'
-    updateNodeStatus('offline', '离线')
+    if (elements.startNode) {
+      elements.startNode.disabled = false
+      elements.startNode.textContent = window.i18n ? window.i18n.t('header.startNode') : 'Start Node'
+    }
+    if (elements.stopNode) {
+      elements.stopNode.disabled = true
+      elements.stopNode.textContent = window.i18n ? window.i18n.t('header.stopNode') : 'Stop Node'
+    }
+    updateNodeStatus('offline', window.i18n ? window.i18n.t('status.offline') : 'Offline')
   }
 }
 
-// 事件监听器
-elements.startNode.addEventListener('click', startNode)
-elements.stopNode.addEventListener('click', stopNode)
-elements.connectPeer.addEventListener('click', connectToPeer)
-elements.refreshStats.addEventListener('click', refreshStats)
-elements.selectFiles.addEventListener('click', selectFiles)
-elements.shareSelected.addEventListener('click', shareSelectedFiles)
-elements.searchFiles.addEventListener('click', searchFiles)
-elements.refreshDownloads.addEventListener('click', refreshDownloads)
-elements.refreshDatabaseStats.addEventListener('click', refreshDatabaseStats)
-elements.cleanupDatabase.addEventListener('click', cleanupDatabase)
-elements.exportData.addEventListener('click', exportData)
-elements.importData.addEventListener('click', importData)
-
-// 搜索输入框回车事件
-elements.searchInput.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') {
-    searchFiles()
-  }
-})
-
-// 监听自动启动事件
+// Listen for auto-start events
 window.electronAPI.onP2PNodeStarted((result) => {
   console.log('Received auto-start result:', result)
 
@@ -309,138 +346,138 @@ window.electronAPI.onP2PNodeStarted((result) => {
   if (result.success) {
     updateButtonStates(true)
     updateNodeInfo(result.nodeInfo)
-
-    // 开始定期刷新统计信息
     startStatsRefresh()
-
-    showMessage('P2P节点自动启动成功', 'success')
+    showMessage('P2P node auto-started successfully', 'success')
   } else {
     updateButtonStates(false)
-    elements.nodeInfo.innerHTML = '<p>自动启动失败</p>'
-    showMessage(`自动启动失败: ${result.error}`, 'error')
+    elements.nodeInfo.innerHTML = '<p>Auto-start failed</p>'
+    showMessage(`Auto-start failed: ${result.error}`, 'error')
   }
 })
 
-// 监听节点状态变化事件
+// Listen for node status change events
 window.electronAPI.onP2PNodeStatusChanged((result) => {
   console.log('Received node status change:', result)
 
   if (result.success && result.nodeInfo) {
-    // 节点启动成功
     updateButtonStates(true)
     updateNodeInfo(result.nodeInfo)
   } else if (result.success && !result.nodeInfo) {
-    // 节点停止成功
     updateButtonStates(false)
-    elements.nodeInfo.innerHTML = '<p>节点已停止</p>'
-    elements.dhtStats.innerHTML = '<p>DHT未运行</p>'
+    elements.nodeInfo.innerHTML = '<p>Node stopped</p>'
+    elements.dhtStats.innerHTML = '<p>DHT not running</p>'
   } else if (!result.success && result.error) {
-    // 操作失败
-    showMessage(`节点操作失败: ${result.error}`, 'error')
+    showMessage(`Node operation failed: ${result.error}`, 'error')
   }
 })
 
-// 启动节点
+// Open settings
+async function openSettings() {
+  try {
+    const result = await window.electronAPI.openSettings()
+    if (result.success) {
+      console.log('Settings window opened')
+    } else {
+      showMessage(`Failed to open settings: ${result.error}`, 'error')
+    }
+  } catch (error) {
+    console.error('Error opening settings:', error)
+    showMessage(`Error opening settings: ${error.message}`, 'error')
+  }
+}
+
+// Start node
 async function startNode() {
   if (isAutoStarting) {
-    showMessage('节点正在自动启动中，请稍候', 'info')
+    showMessage('Node is auto-starting, please wait', 'info')
     return
   }
 
   if (isNodeStarted) {
-    showMessage('节点已经启动', 'info')
+    showMessage('Node already started', 'info')
     return
   }
 
   try {
-    // 设置启动中状态
     elements.startNode.disabled = true
-    elements.startNode.textContent = '启动中...'
-    updateNodeStatus('connecting', '启动中')
+    elements.startNode.textContent = 'Starting...'
+    updateNodeStatus('connecting', 'Starting')
 
     const result = await window.electronAPI.startP2PNode()
 
     if (result.success) {
       updateButtonStates(true)
       updateNodeInfo(result.nodeInfo)
-
-      // 开始定期刷新统计信息
       startStatsRefresh()
-
-      showMessage('P2P节点启动成功', 'success')
+      showMessage('P2P node started successfully', 'success')
     } else {
       updateButtonStates(false)
-      showMessage(`启动失败: ${result.error}`, 'error')
+      showMessage(`Start failed: ${result.error}`, 'error')
     }
   } catch (error) {
     updateButtonStates(false)
-    showMessage(`启动错误: ${error.message}`, 'error')
+    showMessage(`Start error: ${error.message}`, 'error')
   }
 }
 
-// 停止节点
+// Stop node
 async function stopNode() {
   if (!isNodeStarted) {
-    showMessage('节点未启动', 'info')
+    showMessage('Node not started', 'info')
     return
   }
 
   try {
-    // 设置停止中状态
     elements.stopNode.disabled = true
-    elements.stopNode.textContent = '停止中...'
-    updateNodeStatus('connecting', '停止中')
+    elements.stopNode.textContent = 'Stopping...'
+    updateNodeStatus('connecting', 'Stopping')
 
     const result = await window.electronAPI.stopP2PNode()
 
     if (result.success) {
       updateButtonStates(false)
+      elements.nodeInfo.innerHTML = '<p>Node stopped</p>'
+      elements.dhtStats.innerHTML = '<p>DHT not running</p>'
 
-      elements.nodeInfo.innerHTML = '<p>节点已停止</p>'
-      elements.dhtStats.innerHTML = '<p>DHT未运行</p>'
-
-      // 停止统计信息刷新
       if (downloadInterval) {
         clearInterval(downloadInterval)
         downloadInterval = null
       }
 
-      showMessage('P2P节点已停止', 'info')
+      showMessage('P2P node stopped', 'info')
     } else {
-      // 恢复按钮状态
       elements.stopNode.disabled = false
-      elements.stopNode.textContent = '停止节点'
-      updateNodeStatus('online', '在线')
-      showMessage(`停止失败: ${result.error}`, 'error')
+      elements.stopNode.textContent = 'Stop Node'
+      updateNodeStatus('online', 'Online')
+      showMessage(`Stop failed: ${result.error}`, 'error')
     }
   } catch (error) {
-    // 恢复按钮状态
     elements.stopNode.disabled = false
-    elements.stopNode.textContent = '停止节点'
-    updateNodeStatus('online', '在线')
-    showMessage(`停止错误: ${error.message}`, 'error')
+    elements.stopNode.textContent = 'Stop Node'
+    updateNodeStatus('online', 'Online')
+    showMessage(`Stop error: ${error.message}`, 'error')
   }
 }
 
-// 更新节点状态
+// Update node status
 function updateNodeStatus(status, text) {
   elements.nodeStatus.className = `status ${status}`
   elements.nodeStatus.textContent = text
 }
 
-// 更新节点信息
+// Update node information
 function updateNodeInfo(nodeInfo) {
   if (nodeInfo) {
     elements.nodeInfo.innerHTML = `
-      <p><strong>节点ID:</strong> ${nodeInfo.peerId}</p>
-      <p><strong>连接的节点:</strong> ${nodeInfo.connectedPeers}</p>
-      <p><strong>发现的节点:</strong> ${nodeInfo.discoveredPeers || 0}</p>
-      <p><strong>监听地址:</strong></p>
+      <p><strong>Node ID:</strong> ${nodeInfo.peerId}</p>
+      <p><strong>Connected Peers:</strong> ${nodeInfo.connectedPeers}</p>
+      <p><strong>Discovered Peers:</strong> ${nodeInfo.discoveredPeers || 0}</p>
+      <p><strong>Listen Addresses:</strong></p>
       <ul>
         ${nodeInfo.addresses.map(addr => `<li>${addr}</li>`).join('')}
       </ul>
       ${nodeInfo.discoveredPeerIds && nodeInfo.discoveredPeerIds.length > 0 ? `
-        <p><strong>发现的节点列表:</strong></p>
+        <p><strong>Discovered Peer List:</strong></p>
         <div class="discovered-peers">
           ${nodeInfo.discoveredPeerIds.map(peerId => {
       const shortPeerId = peerId
@@ -448,11 +485,11 @@ function updateNodeInfo(nodeInfo) {
       return `
               <div class="peer-item ${isBootstrap ? 'bootstrap-peer' : ''}">
                 <span class="peer-id" title="${peerId}">
-                  ${shortPeerId}${isBootstrap ? ' (引导节点)' : ''}
+                  ${shortPeerId}${isBootstrap ? ' (Bootstrap Node)' : ''}
                 </span>
                 ${!isBootstrap ?
-          `<button class="connect-btn" onclick="connectToDiscoveredPeer('${peerId}')">连接</button>` :
-          `<span class="bootstrap-label">基础设施节点</span>`
+          `<button class="connect-btn" onclick="connectToDiscoveredPeer('${peerId}')">Connect</button>` :
+          `<span class="bootstrap-label">Infrastructure Node</span>`
         }
               </div>
             `
@@ -463,7 +500,7 @@ function updateNodeInfo(nodeInfo) {
   }
 }
 
-// 检查是否是引导节点
+// Check if is bootstrap peer
 function isBootstrapPeerId(peerId) {
   const bootstrapPeerIds = [
     'QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN',
@@ -472,87 +509,76 @@ function isBootstrapPeerId(peerId) {
   return bootstrapPeerIds.includes(peerId)
 }
 
-// 连接到节点
+// Connect to peer
 async function connectToPeer() {
   if (!isNodeStarted) {
-    showMessage('请先启动P2P节点', 'warning')
+    showMessage('Please start P2P node first', 'warning')
     return
   }
 
   const address = elements.peerAddress.value.trim()
   if (!address) {
-    showMessage('请输入节点地址', 'warning')
+    showMessage('Please enter peer address', 'warning')
     return
   }
 
   try {
     elements.connectPeer.disabled = true
-    elements.connectPeer.textContent = '连接中...'
+    elements.connectPeer.textContent = 'Connecting...'
 
     const result = await window.electronAPI.connectToPeer(address)
 
     if (result.success) {
-      showMessage('成功连接到节点', 'success')
+      showMessage('Successfully connected to peer', 'success')
       elements.peerAddress.value = ''
       await refreshStats()
     } else {
-      showMessage(`连接失败: ${result.error}`, 'error')
+      showMessage(`Connection failed: ${result.error}`, 'error')
     }
   } catch (error) {
-    showMessage(`连接错误: ${error.message}`, 'error')
+    showMessage(`Connection error: ${error.message}`, 'error')
   } finally {
     elements.connectPeer.disabled = false
-    elements.connectPeer.textContent = '连接'
+    elements.connectPeer.textContent = 'Connect'
   }
 }
 
-// 刷新统计信息
+// Refresh statistics
 async function refreshStats() {
   if (!isNodeStarted) return
 
   try {
-    // 更新节点信息
     const nodeInfo = await window.electronAPI.getNodeInfo()
     updateNodeInfo(nodeInfo)
 
-    // 更新DHT统计
     const dhtStats = await window.electronAPI.getDHTStats()
     if (dhtStats) {
       elements.dhtStats.innerHTML = `
-        <p><strong>连接的节点:</strong> ${dhtStats.connectedPeers}</p>
-        <p><strong>路由表大小:</strong> ${dhtStats.routingTableSize}</p>
-        <p><strong>本地文件:</strong> ${dhtStats.localFiles}</p>
+        <p><strong>Connected Peers:</strong> ${dhtStats.connectedPeers}</p>
+        <p><strong>Routing Table Size:</strong> ${dhtStats.routingTableSize}</p>
+        <p><strong>Local Files:</strong> ${dhtStats.localFiles}</p>
       `
     }
 
-    // 更新本地文件列表
     await refreshLocalFiles()
-
-    // 更新数据库统计
     await refreshDatabaseStats()
   } catch (error) {
     console.error('Error refreshing stats:', error)
   }
 }
 
-// 开始统计信息刷新
+// Start stats refresh
 function startStatsRefresh() {
-  // 停止之前的刷新定时器
   if (downloadInterval) {
     clearInterval(downloadInterval)
   }
 
-  // 立即刷新一次
   refreshStats()
-
-  // 每30秒刷新一次
   downloadInterval = setInterval(refreshStats, 30000)
-
-  // 每5秒刷新下载状态
   setInterval(refreshDownloads, 5000)
 }
 
-// 选择文件
+// Select files
 async function selectFiles() {
   try {
     const result = await window.electronAPI.selectFiles()
@@ -563,52 +589,52 @@ async function selectFiles() {
       elements.shareSelected.disabled = selectedFiles.length === 0
     }
   } catch (error) {
-    showMessage(`选择文件错误: ${error.message}`, 'error')
+    showMessage(`File selection error: ${error.message}`, 'error')
   }
 }
 
-// 更新选中文件显示
+// Update selected files display
 function updateSelectedFilesDisplay() {
   if (selectedFiles.length === 0) {
-    elements.selectedFiles.innerHTML = '<p>未选择文件</p>'
+    elements.selectedFiles.innerHTML = '<p>No files selected</p>'
   } else {
     const fileList = selectedFiles.map(filePath => {
       const fileName = filePath.split(/[/\\]/).pop()
       return `<div class="selected-file">
         <span>${fileName}</span>
-        <button onclick="removeSelectedFile('${filePath}')">移除</button>
+        <button onclick="removeSelectedFile('${filePath}')">Remove</button>
       </div>`
     }).join('')
 
     elements.selectedFiles.innerHTML = `
-      <p>已选择 ${selectedFiles.length} 个文件:</p>
+      <p>Selected ${selectedFiles.length} files:</p>
       ${fileList}
     `
   }
 }
 
-// 移除选中的文件
+// Remove selected file
 function removeSelectedFile(filePath) {
   selectedFiles = selectedFiles.filter(path => path !== filePath)
   updateSelectedFilesDisplay()
   elements.shareSelected.disabled = selectedFiles.length === 0
 }
 
-// 分享选中的文件
+// Share selected files
 async function shareSelectedFiles() {
   if (selectedFiles.length === 0) {
-    showMessage('请先选择要分享的文件', 'warning')
+    showMessage('Please select files to share first', 'warning')
     return
   }
 
   if (!isNodeStarted) {
-    showMessage('请先启动P2P节点', 'warning')
+    showMessage('Please start P2P node first', 'warning')
     return
   }
 
   try {
     elements.shareSelected.disabled = true
-    elements.shareSelected.textContent = '分享中...'
+    elements.shareSelected.textContent = 'Sharing...'
 
     let successCount = 0
     let errorCount = 0
@@ -630,184 +656,151 @@ async function shareSelectedFiles() {
       }
     }
 
-    // 显示结果
     if (successCount > 0) {
-      showMessage(`成功分享 ${successCount} 个文件`, 'success')
+      showMessage(`Successfully shared ${successCount} files`, 'success')
     }
 
     if (errorCount > 0) {
-      showMessage(`${errorCount} 个文件分享失败:\n${errors.join('\n')}`, 'error')
+      showMessage(`${errorCount} files failed to share:\n${errors.join('\n')}`, 'error')
     }
 
-    // 清空选择
     selectedFiles = []
     updateSelectedFilesDisplay()
-
-    // 刷新本地文件列表
     await refreshLocalFiles()
 
   } catch (error) {
-    showMessage(`分享错误: ${error.message}`, 'error')
+    showMessage(`Share error: ${error.message}`, 'error')
   } finally {
     elements.shareSelected.disabled = selectedFiles.length === 0
-    elements.shareSelected.textContent = '分享选中文件'
+    elements.shareSelected.textContent = 'Share Selected Files'
   }
 }
 
-// 搜索文件
+// Search files
 async function searchFiles() {
   const query = elements.searchInput.value.trim()
   if (!query) {
-    showMessage('请输入搜索关键词', 'warning')
+    showMessage('Please enter search keywords', 'warning')
     return
   }
 
   if (!isNodeStarted) {
-    showMessage('请先启动P2P节点', 'warning')
+    showMessage('Please start P2P node first', 'warning')
     return
   }
 
   try {
     elements.searchFiles.disabled = true
-    elements.searchFiles.textContent = '搜索中...'
+    elements.searchFiles.textContent = 'Searching...'
 
     const result = await window.electronAPI.searchFiles(query)
 
     if (result.success) {
       displaySearchResults(result.results)
     } else {
-      showMessage(`搜索失败: ${result.error}`, 'error')
+      showMessage(`Search failed: ${result.error}`, 'error')
     }
   } catch (error) {
-    showMessage(`搜索错误: ${error.message}`, 'error')
+    showMessage(`Search error: ${error.message}`, 'error')
   } finally {
     elements.searchFiles.disabled = false
-    elements.searchFiles.textContent = '搜索'
+    elements.searchFiles.textContent = 'Search'
   }
 }
 
-// 显示搜索结果
+// Display search results
 function displaySearchResults(results) {
   if (results.length === 0) {
-    elements.searchResults.innerHTML = '<p>未找到匹配的文件</p>'
+    elements.searchResults.innerHTML = '<p>No matching files found</p>'
   } else {
     const resultList = results.map(file => `
       <div class="file-item">
         <div class="file-info">
           <h4>${file.name}</h4>
-          <p>大小: ${formatFileSize(file.size)}</p>
-          <p>哈希: ${file.hash}</p>
-          <p>提供者: ${file.provider || '未知'}</p>
-          <p>时间: ${new Date(file.timestamp || file.savedAt || Date.now()).toLocaleString()}</p>
+          <p>Size: ${formatFileSize(file.size)}</p>
+          <p>Hash: ${file.hash}</p>
+          <p>Provider: ${file.provider || 'Unknown'}</p>
+          <p>Time: ${new Date(file.timestamp || file.savedAt || Date.now()).toLocaleString()}</p>
         </div>
         <div class="file-actions">
-          <button onclick="window.downloadFile('${file.hash}', '${file.name}')">下载</button>
+          <button onclick="window.downloadFile('${file.hash}', '${file.name}')">Download</button>
         </div>
       </div>
     `).join('')
 
     elements.searchResults.innerHTML = `
-      <p>找到 ${results.length} 个文件:</p>
+      <p>Found ${results.length} files:</p>
       ${resultList}
     `
   }
 }
 
-// 下载文件 - 修复并确保为全局函数
-// window.downloadFile = async function(fileHash, fileName) {
-//   console.log('Download button clicked:', { fileHash, fileName })
-  
-//   if (!isNodeStarted) {
-//     showMessage('请先启动P2P节点', 'warning')
-//     return
-//   }
-
-//   try {
-//     showMessage(`正在查找文件: ${fileName}`, 'info')
-    
-//     const result = await window.electronAPI.downloadFile(fileHash, fileName)
-
-//     if (result.success) {
-//       showMessage(`开始下载: ${fileName}`, 'success')
-//       // 立即刷新下载列表
-//       await refreshDownloads()
-//     } else {
-//       showMessage(`下载失败: ${result.error}`, 'error')
-//     }
-//   } catch (error) {
-//     console.error('Download error:', error)
-//     showMessage(`下载错误: ${error.message}`, 'error')
-//   }
-// }
-
+// Download file
 window.downloadFile = async function(fileHash, fileName) {
   console.log('Download button clicked:', { fileHash, fileName })
   
   if (!isNodeStarted) {
-    showMessage('请先启动P2P节点', 'warning')
+    showMessage('Please start P2P node first', 'warning')
     return
   }
 
   try {
-    // 首先检查是否是本地文件
     const localFiles = await window.electronAPI.getLocalFiles()
     const isLocalFile = localFiles.some(file => file.hash === fileHash)
     
     if (isLocalFile) {
-      console.log('检测到本地文件，尝试直接复制')
-      showMessage(`正在复制本地文件: ${fileName}`, 'info')
+      console.log('Detected local file, trying direct copy')
+      showMessage(`Copying local file: ${fileName}`, 'info')
       
-      // 尝试本地文件复制
       const localResult = await window.electronAPI.downloadLocalFile(fileHash, fileName)
       
       if (localResult.success) {
-        showMessage(`本地文件复制成功: ${fileName}`, 'success')
+        showMessage(`Local file copy successful: ${fileName}`, 'success')
         await refreshDownloads()
         return
       } else {
-        console.log('本地文件复制失败，尝试网络下载:', localResult.error)
-        showMessage(`本地复制失败，尝试网络下载: ${fileName}`, 'warning')
+        console.log('Local file copy failed, trying network download:', localResult.error)
+        showMessage(`Local copy failed, trying network download: ${fileName}`, 'warning')
       }
     }
     
-    // 网络下载
-    showMessage(`正在查找文件: ${fileName}`, 'info')
+    showMessage(`Looking for file: ${fileName}`, 'info')
     
     const result = await window.electronAPI.downloadFile(fileHash, fileName)
 
     if (result.success) {
-      showMessage(`开始下载: ${fileName}`, 'success')
+      showMessage(`Download started: ${fileName}`, 'success')
       await refreshDownloads()
     } else {
-      showMessage(`下载失败: ${result.error}`, 'error')
+      showMessage(`Download failed: ${result.error}`, 'error')
     }
   } catch (error) {
     console.error('Download error:', error)
-    showMessage(`下载错误: ${error.message}`, 'error')
+    showMessage(`Download error: ${error.message}`, 'error')
   }
 }
 
-// 刷新本地文件
+// Refresh local files
 async function refreshLocalFiles() {
   try {
     const files = await window.electronAPI.getLocalFiles()
 
     if (files.length === 0) {
-      elements.localFiles.innerHTML = '<p>暂无本地文件</p>'
+      elements.localFiles.innerHTML = '<p>No local files</p>'
     } else {
       const fileList = files.map(file => `
         <div class="file-item">
           <div class="file-info">
             <h4>${file.name}</h4>
-            <p>大小: ${formatFileSize(file.size)}</p>
-            <p>哈希: ${file.hash}</p>
-            <p>分享时间: ${new Date(file.sharedAt || file.timestamp || file.savedAt).toLocaleString()}</p>
+            <p>Size: ${formatFileSize(file.size)}</p>
+            <p>Hash: ${file.hash}</p>
+            <p>Shared Time: ${new Date(file.sharedAt || file.timestamp || file.savedAt).toLocaleString()}</p>
           </div>
         </div>
       `).join('')
 
       elements.localFiles.innerHTML = `
-        <p>本地文件 (${files.length}):</p>
+        <p>Local Files (${files.length}):</p>
         ${fileList}
       `
     }
@@ -816,33 +809,33 @@ async function refreshLocalFiles() {
   }
 }
 
-// 刷新下载状态
+// Refresh download status
 async function refreshDownloads() {
   try {
     const downloads = await window.electronAPI.getActiveDownloads()
 
     if (downloads.length === 0) {
-      elements.activeDownloads.innerHTML = '<p>暂无活跃下载</p>'
+      elements.activeDownloads.innerHTML = '<p>No active downloads</p>'
     } else {
       const downloadList = downloads.map(download => `
         <div class="download-item">
           <div class="download-info">
             <h4>${download.fileName}</h4>
-            <p>状态: ${getStatusText(download.status)}</p>
-            <p>进度: ${download.progress?.toFixed(1) || 0}%</p>
+            <p>Status: ${getStatusText(download.status)}</p>
+            <p>Progress: ${download.progress?.toFixed(1) || 0}%</p>
             <div class="progress-bar">
               <div class="progress-fill" style="width: ${download.progress || 0}%"></div>
             </div>
-            <p>已下载: ${download.downloadedChunks || 0} / ${download.totalChunks || 0} 块</p>
-            ${download.estimatedTime ? `<p>预计剩余: ${formatTime(download.estimatedTime)}</p>` : ''}
+            <p>Downloaded: ${download.downloadedChunks || 0} / ${download.totalChunks || 0} chunks</p>
+            ${download.estimatedTime ? `<p>Estimated Remaining: ${formatTime(download.estimatedTime)}</p>` : ''}
           </div>
           <div class="download-actions">
             ${download.status === 'downloading' ?
-          `<button onclick="pauseDownload('${download.id || download.fileHash}')">暂停</button>` :
+          `<button onclick="pauseDownload('${download.id || download.fileHash}')">Pause</button>` :
           download.status === 'paused' ?
-            `<button onclick="resumeDownload('${download.id || download.fileHash}')">恢复</button>` : ''
+            `<button onclick="resumeDownload('${download.id || download.fileHash}')">Resume</button>` : ''
         }
-            <button onclick="cancelDownload('${download.id || download.fileHash}')">取消</button>
+            <button onclick="cancelDownload('${download.id || download.fileHash}')">Cancel</button>
           </div>
         </div>
       `).join('')
@@ -854,196 +847,193 @@ async function refreshDownloads() {
   }
 }
 
-// 暂停下载
+// Pause download
 async function pauseDownload(downloadId) {
   try {
     const result = await window.electronAPI.pauseDownload(downloadId)
     if (result.success) {
-      showMessage('下载已暂停', 'info')
+      showMessage('Download paused', 'info')
       await refreshDownloads()
     } else {
-      showMessage(`暂停失败: ${result.error}`, 'error')
+      showMessage(`Pause failed: ${result.error}`, 'error')
     }
   } catch (error) {
-    showMessage(`暂停错误: ${error.message}`, 'error')
+    showMessage(`Pause error: ${error.message}`, 'error')
   }
 }
 
-// 恢复下载
+// Resume download
 async function resumeDownload(downloadId) {
   try {
     const result = await window.electronAPI.resumeDownload(downloadId)
     if (result.success) {
-      showMessage('下载已恢复', 'info')
+      showMessage('Download resumed', 'info')
       await refreshDownloads()
     } else {
-      showMessage(`恢复失败: ${result.error}`, 'error')
+      showMessage(`Resume failed: ${result.error}`, 'error')
     }
   } catch (error) {
-    showMessage(`恢复错误: ${error.message}`, 'error')
+    showMessage(`Resume error: ${error.message}`, 'error')
   }
 }
 
-// 取消下载
+// Cancel download
 async function cancelDownload(downloadId) {
-  if (confirm('确定要取消这个下载吗？')) {
+  if (confirm('Are you sure you want to cancel this download?')) {
     try {
       const result = await window.electronAPI.cancelDownload(downloadId)
       if (result.success) {
-        showMessage('下载已取消', 'info')
+        showMessage('Download cancelled', 'info')
         await refreshDownloads()
       } else {
-        showMessage(`取消失败: ${result.error}`, 'error')
+        showMessage(`Cancel failed: ${result.error}`, 'error')
       }
     } catch (error) {
-      showMessage(`取消错误: ${error.message}`, 'error')
+      showMessage(`Cancel error: ${error.message}`, 'error')
     }
   }
 }
 
-// 连接到发现的节点 - 改进版本
+// Connect to discovered peer
 async function connectToDiscoveredPeer(peerId) {
   try {
-    // 检查是否是引导节点
     if (isBootstrapPeerId(peerId)) {
-      showMessage('无法连接到引导节点。引导节点是基础设施节点，用于网络发现，不支持直接连接。请尝试连接其他发现的节点。', 'warning')
+      showMessage('Cannot connect to bootstrap node. Bootstrap nodes are infrastructure nodes used for network discovery, direct connection not supported. Please try connecting to other discovered peers.', 'warning')
       return
     }
 
     const result = await window.electronAPI.connectToDiscoveredPeer(peerId)
 
     if (result.success) {
-      showMessage(`成功连接到节点: ${peerId.slice(-8)}`, 'success')
+      showMessage(`Successfully connected to peer: ${peerId.slice(-8)}`, 'success')
       await refreshStats()
     } else {
-      // 提供更友好的错误信息
       let errorMessage = result.error
       if (errorMessage.includes('bootstrap node')) {
-        errorMessage = '无法连接到引导节点。请尝试连接其他发现的节点。'
+        errorMessage = 'Cannot connect to bootstrap node. Please try connecting to other discovered peers.'
       } else if (errorMessage.includes('offline or unreachable')) {
-        errorMessage = '节点离线或不可达。请尝试连接其他节点。'
+        errorMessage = 'Peer offline or unreachable. Please try connecting to other peers.'
       }
-      showMessage(`连接失败: ${errorMessage}`, 'error')
+      showMessage(`Connection failed: ${errorMessage}`, 'error')
     }
   } catch (error) {
-    showMessage(`连接错误: ${error.message}`, 'error')
+    showMessage(`Connection error: ${error.message}`, 'error')
   }
 }
 
-// 刷新发现的节点列表
+// Refresh discovered peers
 async function refreshDiscoveredPeers() {
   try {
     const result = await window.electronAPI.getDiscoveredPeers()
 
     if (result.success) {
-      // 更新节点信息显示
       await refreshStats()
-      showMessage(`刷新完成，发现 ${result.peers.length} 个节点`, 'info')
+      showMessage(`Refresh completed, discovered ${result.peers.length} peers`, 'info')
     } else {
-      showMessage(`刷新失败: ${result.error}`, 'error')
+      showMessage(`Refresh failed: ${result.error}`, 'error')
     }
   } catch (error) {
-    showMessage(`刷新错误: ${error.message}`, 'error')
+    showMessage(`Refresh error: ${error.message}`, 'error')
   }
 }
 
-// 刷新数据库统计
+// Refresh database stats
 async function refreshDatabaseStats() {
   try {
     const stats = await window.electronAPI.getDatabaseStats()
 
     if (stats) {
       elements.databaseStats.innerHTML = `
-        <p><strong>节点记录:</strong> ${stats.nodes}</p>
-        <p><strong>文件记录:</strong> ${stats.files}</p>
-        <p><strong>对等节点:</strong> ${stats.peers}</p>
-        <p><strong>传输记录:</strong> ${stats.transfers}</p>
-        <p><strong>配置项:</strong> ${stats.config}</p>
-        <p><strong>状态:</strong> ${stats.initialized ? '已初始化' : '未初始化'}</p>
+        <p><strong>Node Records:</strong> ${stats.nodes}</p>
+        <p><strong>File Records:</strong> ${stats.files}</p>
+        <p><strong>Peer Records:</strong> ${stats.peers}</p>
+        <p><strong>Transfer Records:</strong> ${stats.transfers}</p>
+        <p><strong>Config Items:</strong> ${stats.config}</p>
+        <p><strong>Status:</strong> ${stats.initialized ? 'Initialized' : 'Not Initialized'}</p>
       `
     } else {
-      elements.databaseStats.innerHTML = '<p>数据库未初始化</p>'
+      elements.databaseStats.innerHTML = '<p>Database not initialized</p>'
     }
   } catch (error) {
     console.error('Error refreshing database stats:', error)
   }
 }
 
-// 清理数据库
+// Cleanup database
 async function cleanupDatabase() {
-  if (confirm('确定要清理旧的数据库记录吗？这将删除30天前的记录。')) {
+  if (confirm('Are you sure you want to cleanup old database records? This will delete records older than 30 days.')) {
     try {
       elements.cleanupDatabase.disabled = true
-      elements.cleanupDatabase.textContent = '清理中...'
+      elements.cleanupDatabase.textContent = 'Cleaning...'
 
       const result = await window.electronAPI.cleanupDatabase()
 
       if (result.success) {
-        showMessage('数据库清理完成', 'success')
+        showMessage('Database cleanup completed', 'success')
         await refreshDatabaseStats()
       } else {
-        showMessage(`清理失败: ${result.error}`, 'error')
+        showMessage(`Cleanup failed: ${result.error}`, 'error')
       }
     } catch (error) {
-      showMessage(`清理错误: ${error.message}`, 'error')
+      showMessage(`Cleanup error: ${error.message}`, 'error')
     } finally {
       elements.cleanupDatabase.disabled = false
-      elements.cleanupDatabase.textContent = '清理数据库'
+      elements.cleanupDatabase.textContent = 'Cleanup Database'
     }
   }
 }
 
-// 导出数据
+// Export data
 async function exportData() {
   try {
     elements.exportData.disabled = true
-    elements.exportData.textContent = '导出中...'
+    elements.exportData.textContent = 'Exporting...'
 
     const result = await window.electronAPI.exportData()
 
     if (result.success && !result.cancelled) {
-      showMessage(`数据已导出到: ${result.filePath}`, 'success')
+      showMessage(`Data exported to: ${result.filePath}`, 'success')
     } else if (result.cancelled) {
-      showMessage('导出已取消', 'info')
+      showMessage('Export cancelled', 'info')
     } else {
-      showMessage(`导出失败: ${result.error}`, 'error')
+      showMessage(`Export failed: ${result.error}`, 'error')
     }
   } catch (error) {
-    showMessage(`导出错误: ${error.message}`, 'error')
+    showMessage(`Export error: ${error.message}`, 'error')
   } finally {
     elements.exportData.disabled = false
-    elements.exportData.textContent = '导出数据'
+    elements.exportData.textContent = 'Export Data'
   }
 }
 
-// 导入数据
+// Import data
 async function importData() {
-  if (confirm('导入数据将覆盖当前的数据库内容，确定要继续吗？')) {
+  if (confirm('Importing data will overwrite current database content, are you sure you want to continue?')) {
     try {
       elements.importData.disabled = true
-      elements.importData.textContent = '导入中...'
+      elements.importData.textContent = 'Importing...'
 
       const result = await window.electronAPI.importData()
 
       if (result.success && !result.cancelled) {
-        showMessage(`数据已从 ${result.filePath} 导入`, 'success')
+        showMessage(`Data imported from ${result.filePath}`, 'success')
         await refreshDatabaseStats()
         await refreshLocalFiles()
       } else if (result.cancelled) {
-        showMessage('导入已取消', 'info')
+        showMessage('Import cancelled', 'info')
       } else {
-        showMessage(`导入失败: ${result.error}`, 'error')
+        showMessage(`Import failed: ${result.error}`, 'error')
       }
     } catch (error) {
-      showMessage(`导入错误: ${error.message}`, 'error')
+      showMessage(`Import error: ${error.message}`, 'error')
     } finally {
       elements.importData.disabled = false
-      elements.importData.textContent = '导入数据'
+      elements.importData.textContent = 'Import Data'
     }
   }
 }
 
-// 工具函数
+// Utility functions
 function formatFileSize(bytes) {
   if (bytes === 0) return '0 B'
   const k = 1024
@@ -1053,42 +1043,424 @@ function formatFileSize(bytes) {
 }
 
 function formatTime(seconds) {
-  if (seconds < 60) return `${seconds}秒`
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}分${seconds % 60}秒`
-  return `${Math.floor(seconds / 3600)}时${Math.floor((seconds % 3600) / 60)}分`
+  if (seconds < 60) return `${seconds}s`
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m${seconds % 60}s`
+  return `${Math.floor(seconds / 3600)}h${Math.floor((seconds % 3600) / 60)}m`
 }
 
 function getStatusText(status) {
   const statusMap = {
-    'downloading': '下载中',
-    'paused': '已暂停',
-    'completed': '已完成',
-    'failed': '失败',
-    'cancelled': '已取消'
+    'downloading': 'Downloading',
+    'paused': 'Paused',
+    'completed': 'Completed',
+    'failed': 'Failed',
+    'cancelled': 'Cancelled'
   }
   return statusMap[status] || status
 }
 
-// 页面加载完成后的初始化
+// Page load initialization
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('P2P文件共享系统已加载')
+  if (!messageManager.container) {
+    messageManager.createMessageContainer()
+  }
+  
+  console.log('Message system initialized')
 
-  // 立即定义全局函数，确保它们在页面加载时就可用
-  window.removeSelectedFile = removeSelectedFile
-  window.pauseDownload = pauseDownload
-  window.resumeDownload = resumeDownload
-  window.cancelDownload = cancelDownload
-  window.connectToDiscoveredPeer = connectToDiscoveredPeer
-  window.refreshDiscoveredPeers = refreshDiscoveredPeers
-
-  // 初始化显示
-  updateSelectedFilesDisplay()
-  refreshDatabaseStats()
-
-  // 设置自动启动状态
-  isAutoStarting = true
-  elements.startNode.disabled = true
-  elements.startNode.textContent = '自动启动中...'
-  elements.stopNode.disabled = true
-  updateNodeStatus('connecting', '启动中')
+  // Initialize i18n
+  initializeI18n()
 })
+
+// Initialize internationalization
+async function initializeI18n() {
+  try {
+    // Get language setting from electron
+    const settings = await window.electronAPI.getSettings()
+    const language = settings.language || 'en'
+    
+    // Set language
+    window.i18n.setLanguage(language)
+    
+    console.log('I18n initialized with language:', language)
+  } catch (error) {
+    console.error('Error initializing i18n:', error)
+    // Default to English if error
+    window.i18n.setLanguage('en')
+  }
+}
+
+// Switch between main and settings interface
+function showSettings() {
+  document.getElementById('mainInterface').style.display = 'none'
+  document.getElementById('settingsInterface').style.display = 'flex'
+  
+  // Load settings content
+  loadSettingsContent()
+}
+
+function goBackToMain() {
+  // Check for unsaved changes
+  if (typeof hasUnsavedChanges !== 'undefined' && hasUnsavedChanges) {
+    if (typeof showConfirmDialog === 'function') {
+      showConfirmDialog(
+        window.i18n.t('confirm.unsavedChanges'),
+        window.i18n.t('confirm.unsavedChanges'),
+        () => {
+          hideSettings()
+        }
+      )
+    } else {
+      if (confirm(window.i18n.t('confirm.unsavedChanges'))) {
+        hideSettings()
+      }
+    }
+  } else {
+    hideSettings()
+  }
+}
+
+function hideSettings() {
+  document.getElementById('settingsInterface').style.display = 'none'
+  document.getElementById('mainInterface').style.display = 'block'
+  
+  // Reset unsaved changes flag
+  if (typeof hasUnsavedChanges !== 'undefined') {
+    window.hasUnsavedChanges = false
+  }
+}
+
+// Load settings content dynamically
+async function loadSettingsContent() {
+  const settingsContent = document.getElementById('settingsContent')
+  
+  // Create settings panels HTML
+  settingsContent.innerHTML = `
+    <!-- Download & Files Settings -->
+    <div class="settings-panel active" id="download-panel">
+      <div class="panel-header">
+        <h2 data-i18n="settings.download">Download & Files</h2>
+        <p data-i18n="settings.download.desc">Configure file download and storage settings</p>
+      </div>
+      <div class="settings-group">
+        <div class="setting-item">
+          <label for="downloadPath" data-i18n="settings.downloadPath">Download Location</label>
+          <div class="setting-control">
+            <input type="text" id="downloadPath" readonly>
+            <button onclick="selectDownloadPath()" data-i18n="settings.downloadPath.browse">Browse</button>
+          </div>
+          <p class="setting-description" data-i18n="settings.downloadPath.desc">Where downloaded files will be saved</p>
+        </div>
+        <div class="setting-item">
+          <label>
+            <input type="checkbox" id="autoCreateSubfolders">
+            <span data-i18n="settings.autoCreateSubfolders">Auto Create Subfolders</span>
+          </label>
+          <p class="setting-description" data-i18n="settings.autoCreateSubfolders.desc">Automatically create subfolders for different file types</p>
+        </div>
+        <div class="setting-item">
+          <label for="maxConcurrentDownloads" data-i18n="settings.maxConcurrentDownloads">Max Concurrent Downloads</label>
+          <div class="setting-control">
+            <input type="range" id="maxConcurrentDownloads" min="1" max="10" step="1">
+            <span class="range-value">3</span>
+          </div>
+          <p class="setting-description" data-i18n="settings.maxConcurrentDownloads.desc">Maximum number of files to download simultaneously</p>
+        </div>
+        <div class="setting-item">
+          <label for="chunkSize" data-i18n="settings.chunkSize">Chunk Size</label>
+          <div class="setting-control">
+            <select id="chunkSize">
+              <option value="65536">64KB</option>
+              <option value="131072">128KB</option>
+              <option value="262144">256KB</option>
+              <option value="524288">512KB</option>
+              <option value="1048576">1MB</option>
+            </select>
+          </div>
+          <p class="setting-description" data-i18n="settings.chunkSize.desc">Size of file chunks for downloading</p>
+        </div>
+        <div class="setting-item">
+          <label>
+            <input type="checkbox" id="enableResumeDownload">
+            <span data-i18n="settings.enableResumeDownload">Enable Resume Download</span>
+          </label>
+          <p class="setting-description" data-i18n="settings.enableResumeDownload.desc">Allow resuming interrupted downloads</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Window & Interface Settings -->
+    <div class="settings-panel" id="window-panel">
+      <div class="panel-header">
+        <h2 data-i18n="settings.window">Window & Interface</h2>
+        <p data-i18n="settings.window.desc">Customize application appearance and behavior</p>
+      </div>
+      <div class="settings-group">
+        <div class="setting-item">
+          <label for="windowBehavior" data-i18n="settings.windowBehavior">When Closing Window</label>
+          <div class="setting-control">
+            <select id="windowBehavior">
+              <option value="close">Exit Application</option>
+              <option value="hide">Hide to System Tray</option>
+            </select>
+          </div>
+          <p class="setting-description" data-i18n="settings.windowBehavior.desc">What happens when you close the main window</p>
+        </div>
+        <div class="setting-item">
+          <label>
+            <input type="checkbox" id="startMinimized">
+            <span data-i18n="settings.startMinimized">Start Minimized</span>
+          </label>
+          <p class="setting-description" data-i18n="settings.startMinimized.desc">Start the application minimized</p>
+        </div>
+        <div class="setting-item">
+          <label>
+            <input type="checkbox" id="autoStartNode">
+            <span data-i18n="settings.autoStartNode">Auto Start P2P Node</span>
+          </label>
+          <p class="setting-description" data-i18n="settings.autoStartNode.desc">Automatically start the P2P node when app launches</p>
+        </div>
+        <div class="setting-item">
+          <label>
+            <input type="checkbox" id="showNotifications">
+            <span data-i18n="settings.showNotifications">Show Notifications</span>
+          </label>
+          <p class="setting-description" data-i18n="settings.showNotifications.desc">Show desktop notifications for downloads and connections</p>
+        </div>
+        <div class="setting-item">
+          <label for="theme" data-i18n="settings.theme">Theme</label>
+          <div class="setting-control">
+            <select id="theme">
+              <option value="system">System Default</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </div>
+          <p class="setting-description" data-i18n="settings.theme.desc">Application theme</p>
+        </div>
+        <div class="setting-item">
+          <label for="language" data-i18n="settings.language">Language</label>
+          <div class="setting-control">
+            <select id="language" onchange="handleLanguageChange(this.value)">
+              <option value="en">English</option>
+              <option value="zh">中文</option>
+            </select>
+          </div>
+          <p class="setting-description" data-i18n="settings.language.desc">Application language</p>
+        </div>
+      </div>
+    </div>
+  `
+  
+  // Update i18n after loading content
+  window.i18n.updatePageText()
+  
+  // Setup settings functionality
+  setupSettingsNavigation()
+  await loadSettings()
+}
+
+// Handle language change
+function handleLanguageChange(language) {
+  window.i18n.setLanguage(language)
+  
+  // Update all text immediately
+  setTimeout(() => {
+    window.i18n.updatePageText()
+  }, 100)
+  
+  // Mark as unsaved change
+  if (typeof markUnsaved === 'function') {
+    markUnsaved()
+  }
+}
+
+// Settings functionality for in-app settings
+let hasUnsavedChanges = false
+let currentSettings = {}
+
+// Settings functions
+async function loadSettings() {
+  try {
+    const settings = await window.electronAPI.getSettings()
+    currentSettings = settings
+    populateSettingsForm(settings)
+  } catch (error) {
+    console.error('Error loading settings:', error)
+    showMessage('Failed to load settings', 'error')
+  }
+}
+
+function populateSettingsForm(settings) {
+  // Download settings
+  const downloadPath = document.getElementById('downloadPath')
+  if (downloadPath) downloadPath.value = settings.downloadPath || ''
+  
+  const autoCreateSubfolders = document.getElementById('autoCreateSubfolders')
+  if (autoCreateSubfolders) autoCreateSubfolders.checked = settings.autoCreateSubfolders || false
+  
+  const maxConcurrentDownloads = document.getElementById('maxConcurrentDownloads')
+  if (maxConcurrentDownloads) maxConcurrentDownloads.value = settings.maxConcurrentDownloads || 3
+  
+  const chunkSize = document.getElementById('chunkSize')
+  if (chunkSize) chunkSize.value = settings.chunkSize || 262144
+  
+  const enableResumeDownload = document.getElementById('enableResumeDownload')
+  if (enableResumeDownload) enableResumeDownload.checked = settings.enableResumeDownload !== false
+  
+  // Window settings
+  const windowBehavior = document.getElementById('windowBehavior')
+  if (windowBehavior) windowBehavior.value = settings.windowBehavior || 'close'
+  
+  const startMinimized = document.getElementById('startMinimized')
+  if (startMinimized) startMinimized.checked = settings.startMinimized || false
+  
+  const autoStartNode = document.getElementById('autoStartNode')
+  if (autoStartNode) autoStartNode.checked = settings.autoStartNode !== false
+  
+  const showNotifications = document.getElementById('showNotifications')
+  if (showNotifications) showNotifications.checked = settings.showNotifications !== false
+  
+  const theme = document.getElementById('theme')
+  if (theme) theme.value = settings.theme || 'system'
+  
+  const language = document.getElementById('language')
+  if (language) language.value = settings.language || 'en'
+}
+
+function setupSettingsNavigation() {
+  const navItems = document.querySelectorAll('#settingsInterface .nav-item')
+  const panels = document.querySelectorAll('#settingsInterface .settings-panel')
+  
+  navItems.forEach(item => {
+    item.addEventListener('click', () => {
+      const category = item.dataset.category
+      
+      // Update navigation
+      navItems.forEach(nav => nav.classList.remove('active'))
+      item.classList.add('active')
+      
+      // Update panels
+      panels.forEach(panel => panel.classList.remove('active'))
+      const targetPanel = document.getElementById(`${category}-panel`)
+      if (targetPanel) {
+        targetPanel.classList.add('active')
+      }
+    })
+  })
+  
+  // Setup event listeners for form elements
+  const inputs = document.querySelectorAll('#settingsInterface input, #settingsInterface select')
+  inputs.forEach(input => {
+    input.addEventListener('change', () => {
+      hasUnsavedChanges = true
+      const saveButton = document.querySelector('#settingsInterface .btn-primary')
+      if (saveButton && !saveButton.textContent.includes('*')) {
+        saveButton.textContent = window.i18n ? window.i18n.t('settings.saveChanges') + ' *' : 'Save Changes *'
+      }
+    })
+  })
+}
+
+async function saveAllSettings() {
+  try {
+    const settings = collectSettingsFromForm()
+    
+    await window.electronAPI.saveSettings(settings)
+    
+    hasUnsavedChanges = false
+    const saveButton = document.querySelector('#settingsInterface .btn-primary')
+    if (saveButton) {
+      saveButton.textContent = window.i18n ? window.i18n.t('settings.saveChanges') : 'Save Changes'
+    }
+    
+    showMessage(window.i18n ? window.i18n.t('message.settingsSaved') : 'Settings saved successfully', 'success')
+    
+    // Apply language change if needed
+    if (settings.language !== currentSettings.language) {
+      window.i18n.setLanguage(settings.language)
+    }
+    
+    currentSettings = settings
+  } catch (error) {
+    console.error('Error saving settings:', error)
+    showMessage(window.i18n ? window.i18n.t('message.settingsFailed') : 'Failed to save settings', 'error')
+  }
+}
+
+function collectSettingsFromForm() {
+  return {
+    downloadPath: document.getElementById('downloadPath')?.value || '',
+    autoCreateSubfolders: document.getElementById('autoCreateSubfolders')?.checked || false,
+    maxConcurrentDownloads: parseInt(document.getElementById('maxConcurrentDownloads')?.value) || 3,
+    chunkSize: parseInt(document.getElementById('chunkSize')?.value) || 262144,
+    enableResumeDownload: document.getElementById('enableResumeDownload')?.checked !== false,
+    windowBehavior: document.getElementById('windowBehavior')?.value || 'close',
+    startMinimized: document.getElementById('startMinimized')?.checked || false,
+    autoStartNode: document.getElementById('autoStartNode')?.checked !== false,
+    showNotifications: document.getElementById('showNotifications')?.checked !== false,
+    theme: document.getElementById('theme')?.value || 'system',
+    language: document.getElementById('language')?.value || 'en'
+  }
+}
+
+async function resetAllSettings() {
+  if (confirm(window.i18n ? window.i18n.t('confirm.resetSettings') : 'This will reset all settings to their default values. This action cannot be undone.')) {
+    try {
+      await window.electronAPI.resetSettings()
+      await loadSettings()
+      hasUnsavedChanges = false
+      const saveButton = document.querySelector('#settingsInterface .btn-primary')
+      if (saveButton) {
+        saveButton.textContent = window.i18n ? window.i18n.t('settings.saveChanges') : 'Save Changes'
+      }
+      showMessage(window.i18n ? window.i18n.t('message.settingsReset') : 'All settings reset to defaults', 'success')
+    } catch (error) {
+      console.error('Error resetting settings:', error)
+      showMessage('Failed to reset settings', 'error')
+    }
+  }
+}
+
+async function selectDownloadPath() {
+  try {
+    const result = await window.electronAPI.selectFolder('Select Download Location')
+    if (result && result.success && !result.cancelled && result.filePaths.length > 0) {
+      const downloadPath = document.getElementById('downloadPath')
+      if (downloadPath) {
+        downloadPath.value = result.filePaths[0]
+        hasUnsavedChanges = true
+        const saveButton = document.querySelector('#settingsInterface .btn-primary')
+        if (saveButton && !saveButton.textContent.includes('*')) {
+          saveButton.textContent = window.i18n ? window.i18n.t('settings.saveChanges') + ' *' : 'Save Changes *'
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error selecting download path:', error)
+    showMessage('Failed to select folder', 'error')
+  }
+}
+
+// Simplified confirmation dialog
+function showConfirmDialog(title, message, onConfirm) {
+  if (confirm(message)) {
+    onConfirm()
+  }
+}
+
+// Make settings functions global
+window.saveAllSettings = saveAllSettings
+window.resetAllSettings = resetAllSettings
+window.selectDownloadPath = selectDownloadPath
+window.hasUnsavedChanges = false
+
+// Open settings - modified to show in same window
+async function openSettings() {
+  try {
+    showSettings()
+    console.log('Settings interface shown')
+  } catch (error) {
+    console.error('Error opening settings:', error)
+    showMessage(window.i18n ? window.i18n.t('message.settingsFailed') : 'Failed to open settings', 'error')
+  }
+}
