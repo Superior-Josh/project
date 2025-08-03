@@ -13,6 +13,9 @@ export class ChunkManager {
     this.activeDownloads = new Map() // 活跃的下载任务
     this.chunkCache = new Map() // 块缓存
     this.downloadQueue = new Map() // 下载队列
+    
+    // 新增：速度计算相关
+    this.speedCalculator = new Map() // 存储速度计算数据
   }
 
   // 创建文件的分块信息
@@ -88,6 +91,7 @@ export class ChunkManager {
         id: downloadId,
         fileHash,
         fileName,
+        fileSize: fileInfo.size || 0, // 添加文件大小
         downloadPath,
         tempDir,
         totalChunks: fileInfo.chunks || 1,
@@ -98,10 +102,21 @@ export class ChunkManager {
         status: 'downloading',
         progress: 0,
         speed: 0,
-        estimatedTime: 0
+        averageSpeed: 0, // 添加平均速度
+        currentSpeed: 0, // 添加当前速度
+        downloadedBytes: 0, // 添加已下载字节数
+        estimatedTime: 0,
+        chunkSize: fileInfo.chunkSize || DEFAULT_CHUNK_SIZE // 添加块大小
       }
 
       this.activeDownloads.set(downloadId, download)
+      
+      // 初始化速度计算器
+      this.speedCalculator.set(downloadId, {
+        samples: [], // 速度样本
+        lastUpdate: Date.now(),
+        lastBytes: 0
+      })
       
       // 开始下载块
       await this.downloadChunksInParallel(download)
@@ -146,6 +161,7 @@ export class ChunkManager {
       throw error
     } finally {
       this.activeDownloads.delete(download.id)
+      this.speedCalculator.delete(download.id)
     }
   }
 
@@ -218,6 +234,9 @@ export class ChunkManager {
 
     // 保存块到临时文件
     await fs.writeFile(chunkPath, chunk.data)
+    
+    // 更新已下载字节数
+    download.downloadedBytes += chunk.data.length
   }
 
   // 组装分块文件
@@ -247,7 +266,7 @@ export class ChunkManager {
     console.log(`File assembled successfully: ${downloadPath}`)
   }
 
-  // 更新下载进度
+  // 改进的进度更新方法
   updateDownloadProgress(download) {
     const completedCount = download.completedChunks.size
     const totalCount = download.totalChunks
@@ -255,16 +274,37 @@ export class ChunkManager {
     
     download.progress = Math.round(progress * 100) / 100
     
-    // 计算下载速度
-    const elapsedTime = (Date.now() - download.startTime) / 1000 // 秒
-    if (elapsedTime > 0) {
-      const chunksPerSecond = completedCount / elapsedTime
-      download.speed = chunksPerSecond
+    // 计算速度
+    const speedData = this.speedCalculator.get(download.id)
+    if (speedData) {
+      const now = Date.now()
+      const timeDiff = (now - speedData.lastUpdate) / 1000 // 秒
       
-      // 估算剩余时间
-      const remainingChunks = totalCount - completedCount
-      if (chunksPerSecond > 0) {
-        download.estimatedTime = Math.round(remainingChunks / chunksPerSecond)
+      if (timeDiff >= 1) { // 每秒更新一次速度
+        const bytesDiff = download.downloadedBytes - speedData.lastBytes
+        const currentSpeed = bytesDiff / timeDiff // bytes/second
+        
+        // 添加速度样本
+        speedData.samples.push(currentSpeed)
+        if (speedData.samples.length > 10) {
+          speedData.samples.shift() // 保持最近10个样本
+        }
+        
+        // 计算平均速度
+        const averageSpeed = speedData.samples.reduce((a, b) => a + b, 0) / speedData.samples.length
+        
+        download.currentSpeed = currentSpeed
+        download.averageSpeed = averageSpeed
+        
+        // 估算剩余时间
+        const remainingBytes = download.fileSize - download.downloadedBytes
+        if (averageSpeed > 0 && remainingBytes > 0) {
+          download.estimatedTime = Math.round(remainingBytes / averageSpeed)
+        }
+        
+        // 更新速度计算数据
+        speedData.lastUpdate = now
+        speedData.lastBytes = download.downloadedBytes
       }
     }
   }
@@ -308,6 +348,7 @@ export class ChunkManager {
       await this.cleanupTempFiles(download.tempDir)
       
       this.activeDownloads.delete(downloadId)
+      this.speedCalculator.delete(downloadId)
       console.log(`Download cancelled: ${download.fileName}`)
     }
   }
@@ -319,7 +360,23 @@ export class ChunkManager {
 
   // 获取所有活跃下载
   getAllActiveDownloads() {
-    return Array.from(this.activeDownloads.values())
+    return Array.from(this.activeDownloads.values()).map(download => ({
+      id: download.id,
+      fileName: download.fileName,
+      fileHash: download.fileHash,
+      fileSize: download.fileSize,
+      progress: download.progress,
+      status: download.status,
+      currentSpeed: download.currentSpeed || 0,
+      averageSpeed: download.averageSpeed || 0,
+      downloadedBytes: download.downloadedBytes || 0,
+      totalChunks: download.totalChunks,
+      completedChunks: download.completedChunks.size,
+      failedChunks: download.failedChunks.size,
+      estimatedTime: download.estimatedTime || 0,
+      elapsedTime: Math.floor((Date.now() - download.startTime) / 1000),
+      providers: download.providers.length
+    }))
   }
 
   // 优化块分配策略
