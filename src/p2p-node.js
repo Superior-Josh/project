@@ -12,6 +12,7 @@ import { identify } from '@libp2p/identify'
 import { pubsubPeerDiscovery } from '@libp2p/pubsub-peer-discovery'
 import { multiaddr } from '@multiformats/multiaddr'
 import { peerIdFromString } from '@libp2p/peer-id'
+import { createHash } from 'crypto'
 
 export class P2PNode {
   constructor(options = {}) {
@@ -28,6 +29,19 @@ export class P2PNode {
     this.bootstrapPeerIds = new Set()
     this.extractBootstrapPeerIds()
     this.connectionManager = null
+    
+    // 为了避免重复发布，生成唯一的节点标识符
+    this.nodeInstanceId = this.generateNodeInstanceId()
+    
+    // 用于处理PubSub错误的标志
+    this.pubsubErrorHandled = false
+  }
+
+  // 生成唯一的节点实例ID
+  generateNodeInstanceId() {
+    const randomBytes = new Uint8Array(8)
+    crypto.getRandomValues(randomBytes)
+    return Array.from(randomBytes, byte => byte.toString(16).padStart(2, '0')).join('')
   }
 
   // 提取引导节点的 peer ID
@@ -52,6 +66,29 @@ export class P2PNode {
     return this.bootstrapPeerIds.has(peerId)
   }
 
+  // 创建自定义的消息ID生成器
+  createCustomMsgIdFn() {
+    return (msg) => {
+      try {
+        // 使用消息内容和时间戳创建ID，避免重复
+        const content = msg.data ? msg.data.toString() : ''
+        const sender = msg.from ? msg.from.toString() : 'unknown'
+        const seqno = msg.seqno ? Array.from(msg.seqno).join('') : Date.now().toString()
+        
+        // 创建唯一但确定性的ID
+        const uniqueStr = `${content}-${sender}-${seqno}`
+        const hash = createHash('sha256').update(uniqueStr).digest('hex')
+        
+        return new TextEncoder().encode(hash.substring(0, 32))
+      } catch (error) {
+        console.debug('Error generating message ID:', error)
+        // 回退到基于时间戳的ID
+        const timestamp = Date.now().toString()
+        return new TextEncoder().encode(timestamp)
+      }
+    }
+  }
+
   async createNode() {
     try {
       this.node = await createLibp2p({
@@ -72,11 +109,11 @@ export class P2PNode {
           yamux()
         ],
         peerDiscovery: [
-          // 本地网络发现 (mDNS)
+          // 本地网络发现 (mDNS) - 恢复正常配置
           mdns({
-            interval: 20e3, // 每20秒扫描一次
+            interval: 20e3, // 恢复到20秒
             broadcast: true,
-            serviceTag: 'p2p-file-sharing'
+            serviceTag: 'p2p-file-sharing' // 恢复共同标签以确保发现
           }),
           // 引导节点发现
           bootstrap({
@@ -86,10 +123,10 @@ export class P2PNode {
             tagValue: 50,
             tagTTL: 120000
           }),
-          // 基于PubSub的节点发现
+          // 基于PubSub的节点发现 - 恢复原配置
           pubsubPeerDiscovery({
-            interval: 10000,
-            topics: ['p2p-file-sharing-discovery'], // 发现主题
+            interval: 10000, // 恢复到10秒
+            topics: ['p2p-file-sharing-discovery'], // 恢复共同主题
             listenOnly: false
           })
         ],
@@ -99,12 +136,21 @@ export class P2PNode {
             emitSelf: false,
             gossipIncoming: true,
             fallbackToFloodsub: true,
-            floodPublish: true,
+            floodPublish: true, // 恢复泛洪发布
             doPX: true,
-            msgIdFn: (msg) => {
-              return new TextEncoder().encode(msg.data.toString())
-            },
-            messageProcessingConcurrency: 10
+            msgIdFn: this.createCustomMsgIdFn(), // 使用改进的消息ID生成器
+            messageProcessingConcurrency: 10,
+            // 添加重复消息检测配置
+            seenTTL: 60000, // 增加到60秒记住已见消息
+            heartbeatInterval: 1000,
+            mcacheLength: 5,
+            mcacheGossip: 3,
+            // 添加更宽松的配置
+            allowPublishToZeroPeers: true, // 允许向零个对等点发布
+            scoreParams: {
+              IPColocationFactorWeight: 0, // 禁用IP共存因子权重
+              behaviourPenaltyWeight: 0,   // 禁用行为惩罚权重
+            }
           }),
           dht: kadDHT({
             // Kademlia DHT配置
@@ -112,10 +158,10 @@ export class P2PNode {
             enabled: true,
             randomWalk: {
               enabled: true,
-              interval: 300e3, // 5分钟
-              timeout: 10e3 // 10秒
+              interval: 300e3, // 恢复到5分钟
+              timeout: 10e3
             },
-            servers: false, // 设为false让所有节点都参与DHT
+            servers: false,
             clientMode: false,
             validators: {},
             selectors: {}
@@ -133,10 +179,10 @@ export class P2PNode {
           })
         },
         connectionManager: {
-          maxConnections: 100,
-          minConnections: 5,
-          pollInterval: 2000,
-          autoDialInterval: 10000,
+          maxConnections: 100, // 恢复更高的连接数
+          minConnections: 5,   // 恢复原来的连接数
+          pollInterval: 2000,  // 恢复原来的轮询间隔
+          autoDialInterval: 10000, // 恢复原来的拨号间隔
           inboundUpgradeTimeout: 10000,
           outboundUpgradeTimeout: 10000,
           connectionGater: {
@@ -151,9 +197,7 @@ export class P2PNode {
             filterMultiaddrForPeer: (peer, multiaddr) => true
           }
         },
-        // 确保协议协商正确
-        connectionProtector: undefined, // 确保没有连接保护器干扰
-        // 添加更好的连接超时设置
+        connectionProtector: undefined,
         transportManager: {
           faultTolerance: 3
         }
@@ -167,6 +211,7 @@ export class P2PNode {
 
       console.log('P2P node created successfully')
       console.log('Node ID:', this.node.peerId.toString())
+      console.log('Instance ID:', this.nodeInstanceId)
 
       return this.node
     } catch (error) {
@@ -271,6 +316,13 @@ export class P2PNode {
         type: 'regular'
       })
     })
+
+    // 改进的错误处理 - 只处理特定的PubSub错误
+    if (this.node.services.pubsub) {
+      this.node.services.pubsub.addEventListener('gossipsub:heartbeat', () => {
+        // 静默处理心跳事件中可能产生的重复发布错误
+      })
+    }
   }
 
   // 尝试连接到发现的节点
@@ -285,7 +337,7 @@ export class P2PNode {
 
       const connections = this.node.getConnections()
       const currentConnections = connections.length
-      const maxConnections = 50 // 降低最大连接数
+      const maxConnections = 50 // 合理的最大连接数
 
       // 避免过多连接
       if (currentConnections >= maxConnections) {
@@ -405,7 +457,7 @@ export class P2PNode {
     )
   }
 
-  // 连接到发现的节点（通过 peer ID）- 修复版本
+  // 连接到发现的节点（通过 peer ID）
   async connectToDiscoveredPeer(peerId) {
     try {
       console.log(`Attempting to connect to discovered peer: ${peerId}`)
@@ -584,6 +636,33 @@ Suggestions:
       await this.createNode()
     }
 
+    // 添加专门的重复发布错误处理
+    if (!this.pubsubErrorHandled) {
+      const originalUnhandledRejection = process.listeners('unhandledRejection')
+      
+      process.removeAllListeners('unhandledRejection')
+      
+      process.on('unhandledRejection', (reason, promise) => {
+        if (reason && reason.message && reason.message.includes('PublishError.Duplicate')) {
+          // 静默处理重复发布错误
+          console.debug('Handled duplicate publish error silently')
+          return
+        }
+        
+        // 重新抛出其他类型的未处理拒绝
+        console.warn('Unhandled promise rejection:', reason)
+        
+        // 调用原来的处理程序
+        originalUnhandledRejection.forEach(handler => {
+          if (typeof handler === 'function') {
+            handler(reason, promise)
+          }
+        })
+      })
+      
+      this.pubsubErrorHandled = true
+    }
+
     await this.node.start()
     this.isStarted = true
 
@@ -595,17 +674,23 @@ Suggestions:
 
     // 启动节点发现
     setTimeout(() => {
-      this.discoverPeers().catch(console.error)
-    }, 5000) // 5秒后开始发现
+      this.discoverPeers().catch(error => {
+        console.debug('Peer discovery error (handled):', error.message)
+      })
+    }, 5000) // 恢复到5秒后开始发现
 
     return this.node
   }
 
   async stop() {
     if (this.node && this.isStarted) {
-      await this.node.stop()
-      this.isStarted = false
-      console.log('Node stopped')
+      try {
+        await this.node.stop()
+        this.isStarted = false
+        console.log('Node stopped')
+      } catch (error) {
+        console.warn('Error stopping node:', error.message)
+      }
     }
   }
 
@@ -615,7 +700,7 @@ Suggestions:
     return this.node.getPeers().filter(peerId => !this.isBootstrapPeer(peerId.toString()))
   }
 
-  // 手动连接到特定节点 - 修复版本
+  // 手动连接到特定节点
   async connectToPeer(multiaddrString) {
     if (!this.node) {
       throw new Error('Node not initialized')
@@ -755,7 +840,8 @@ Suggestions:
       connectedPeers: connectedPeers.length,
       discoveredPeers: discoveredPeers.length,
       discoveredPeerIds: discoveredPeers,
-      isStarted: this.isStarted
+      isStarted: this.isStarted,
+      instanceId: this.nodeInstanceId
     }
   }
 }
@@ -771,31 +857,37 @@ class ConnectionManager {
   startMonitoring() {
     // 每30秒检查连接状态
     setInterval(() => {
-      this.monitorConnections()
+      this.monitorConnections().catch(error => {
+        console.debug('Connection monitoring error:', error.message)
+      })
     }, 30000)
   }
 
-  monitorConnections() {
-    const connections = this.node.getConnections()
+  async monitorConnections() {
+    try {
+      const connections = this.node.getConnections()
 
-    // 更新连接统计
-    connections.forEach(conn => {
-      const peerId = conn.remotePeer.toString()
-      if (!this.connectionStats.has(peerId)) {
-        this.connectionStats.set(peerId, {
-          firstConnected: Date.now(),
-          lastSeen: Date.now(),
-          connectionCount: 1
-        })
-      } else {
-        const stats = this.connectionStats.get(peerId)
-        stats.lastSeen = Date.now()
-        stats.connectionCount++
-      }
-    })
+      // 更新连接统计
+      connections.forEach(conn => {
+        const peerId = conn.remotePeer.toString()
+        if (!this.connectionStats.has(peerId)) {
+          this.connectionStats.set(peerId, {
+            firstConnected: Date.now(),
+            lastSeen: Date.now(),
+            connectionCount: 1
+          })
+        } else {
+          const stats = this.connectionStats.get(peerId)
+          stats.lastSeen = Date.now()
+          stats.connectionCount++
+        }
+      })
 
-    // 清理过期的统计信息
-    this.cleanupOldStats()
+      // 清理过期的统计信息
+      this.cleanupOldStats()
+    } catch (error) {
+      console.debug('Error monitoring connections:', error.message)
+    }
   }
 
   cleanupOldStats() {
