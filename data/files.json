@@ -10,5 +10,14 @@
     "localPath": "C:\\Data\\Downloads\\魂一神族罪人录(2025-5-30 10-28-12 6757).doc",
     "savedAt": 1754161028557,
     "updatedAt": 1754161028557
+  },
+  "a9e13d5e74d39b0ebfdbad4705dc4ddf2ff54a559119a8dba5318bac5e7d769c": {
+    "name": "index.html",
+    "hash": "a9e13d5e74d39b0ebfdbad4705dc4ddf2ff54a559119a8dba5318bac5e7d769c",
+    "localPath": "C:\\Users\\Josh\\code\\electron-app\\renderer\\index.html",
+    "downloadPath": "downloads\\index.html",
+    "downloadedAt": 1754181953461,
+    "savedAt": 1754181953461,
+    "updatedAt": 1754181953461
   }
 }

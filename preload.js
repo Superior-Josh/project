@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   pauseDownload: (downloadId) => ipcRenderer.invoke('pause-download', downloadId),
   resumeDownload: (downloadId) => ipcRenderer.invoke('resume-download', downloadId),
   cancelDownload: (downloadId) => ipcRenderer.invoke('cancel-download', downloadId),
+  downloadLocalFile: (fileHash, fileName) => ipcRenderer.invoke('download-local-file', fileHash, fileName),
   
   // 文件验证
   validateFile: (filePath, expectedHashes) => ipcRenderer.invoke('validate-file', filePath, expectedHashes),

@@ -1,5 +1,231 @@
 // renderer/renderer.js
 
+// 改进的消息显示系统 - 支持上下分布和手动关闭
+
+// 消息管理器
+class MessageManager {
+  constructor() {
+    this.messages = new Map() // 存储活跃的消息
+    this.messageCount = 0 // 消息计数器
+    this.maxMessages = 5 // 最大显示消息数量
+    this.defaultDuration = 5000 // 默认显示时间（毫秒）
+    
+    // 创建消息容器
+    this.createMessageContainer()
+  }
+  
+  createMessageContainer() {
+    // 检查是否已存在容器
+    let container = document.getElementById('message-container')
+    if (!container) {
+      container = document.createElement('div')
+      container.id = 'message-container'
+      container.className = 'message-container'
+      document.body.appendChild(container)
+    }
+    this.container = container
+  }
+  
+  show(message, type = 'info', duration = null) {
+    const messageId = ++this.messageCount
+    const actualDuration = duration || this.getDurationByType(type)
+    
+    // 如果消息太多，移除最旧的
+    if (this.messages.size >= this.maxMessages) {
+      const oldestId = Math.min(...this.messages.keys())
+      this.remove(oldestId)
+    }
+    
+    // 创建消息元素
+    const messageEl = this.createMessageElement(message, type, messageId)
+    
+    // 添加到容器
+    this.container.appendChild(messageEl)
+    
+    // 存储消息信息
+    this.messages.set(messageId, {
+      element: messageEl,
+      timer: null,
+      type,
+      message
+    })
+    
+    // 设置自动关闭定时器
+    if (actualDuration > 0) {
+      const timer = setTimeout(() => {
+        this.remove(messageId)
+      }, actualDuration)
+      
+      this.messages.get(messageId).timer = timer
+    }
+    
+    // 添加点击关闭事件
+    messageEl.addEventListener('click', () => {
+      this.remove(messageId)
+    })
+    
+    console.log(`[${type.toUpperCase()}] ${message}`)
+    
+    return messageId
+  }
+  
+  createMessageElement(message, type, messageId) {
+    const messageEl = document.createElement('div')
+    messageEl.className = `message message-${type}`
+    messageEl.setAttribute('data-message-id', messageId)
+    messageEl.textContent = message
+    
+    // 添加进入动画
+    messageEl.style.opacity = '0'
+    messageEl.style.transform = 'translateX(100%)'
+    
+    // 触发动画
+    requestAnimationFrame(() => {
+      messageEl.style.opacity = '1'
+      messageEl.style.transform = 'translateX(0)'
+    })
+    
+    return messageEl
+  }
+  
+  remove(messageId) {
+    const messageInfo = this.messages.get(messageId)
+    if (!messageInfo) return
+    
+    const { element, timer } = messageInfo
+    
+    // 清除定时器
+    if (timer) {
+      clearTimeout(timer)
+    }
+    
+    // 添加移除动画
+    element.classList.add('removing')
+    
+    // 动画完成后移除元素
+    setTimeout(() => {
+      if (element.parentNode) {
+        element.parentNode.removeChild(element)
+      }
+      this.messages.delete(messageId)
+    }, 300) // 与CSS动画时间匹配
+  }
+  
+  clear() {
+    // 清除所有消息
+    for (const messageId of this.messages.keys()) {
+      this.remove(messageId)
+    }
+  }
+  
+  getDurationByType(type) {
+    const durations = {
+      'success': 4000,
+      'info': 5000,
+      'warning': 6000,
+      'error': 8000 // 错误消息显示更久
+    }
+    return durations[type] || this.defaultDuration
+  }
+  
+  // 更新现有消息（如果存在相同内容）
+  updateOrShow(message, type = 'info', duration = null) {
+    // 查找是否有相同内容的消息
+    for (const [id, info] of this.messages) {
+      if (info.message === message && info.type === type) {
+        // 重置定时器
+        if (info.timer) {
+          clearTimeout(info.timer)
+        }
+        
+        const actualDuration = duration || this.getDurationByType(type)
+        if (actualDuration > 0) {
+          info.timer = setTimeout(() => {
+            this.remove(id)
+          }, actualDuration)
+        }
+        
+        // 添加闪烁效果表示更新
+        info.element.style.animation = 'none'
+        requestAnimationFrame(() => {
+          info.element.style.animation = 'slideInRight 0.3s ease'
+        })
+        
+        return id
+      }
+    }
+    
+    // 如果没找到相同消息，创建新的
+    return this.show(message, type, duration)
+  }
+}
+
+// 创建全局消息管理器实例
+const messageManager = new MessageManager()
+
+// 替换原有的 showMessage 函数
+function showMessage(message, type = 'info', duration = null) {
+  return messageManager.show(message, type, duration)
+}
+
+// 新增的便捷方法
+function showSuccess(message, duration = null) {
+  return messageManager.show(message, 'success', duration)
+}
+
+function showError(message, duration = null) {
+  return messageManager.show(message, 'error', duration)
+}
+
+function showWarning(message, duration = null) {
+  return messageManager.show(message, 'warning', duration)
+}
+
+function showInfo(message, duration = null) {
+  return messageManager.show(message, 'info', duration)
+}
+
+// 清除所有消息
+function clearAllMessages() {
+  messageManager.clear()
+}
+
+// 显示持久消息（不自动关闭）
+function showPersistent(message, type = 'info') {
+  return messageManager.show(message, type, 0)
+}
+
+// 更新或显示消息（避免重复）
+function updateMessage(message, type = 'info', duration = null) {
+  return messageManager.updateOrShow(message, type, duration)
+}
+
+// 手动关闭特定消息
+function closeMessage(messageId) {
+  messageManager.remove(messageId)
+}
+
+// 为了兼容性，保留原有的函数名
+window.showMessage = showMessage
+window.showSuccess = showSuccess
+window.showError = showError
+window.showWarning = showWarning
+window.showInfo = showInfo
+window.clearAllMessages = clearAllMessages
+window.showPersistent = showPersistent
+window.updateMessage = updateMessage
+window.closeMessage = closeMessage
+
+// 页面加载时初始化
+document.addEventListener('DOMContentLoaded', () => {
+  // 确保消息管理器已初始化
+  if (!messageManager.container) {
+    messageManager.createMessageContainer()
+  }
+  
+  console.log('消息系统已初始化')
+})
+
 // 全局状态
 let isNodeStarted = false
 let selectedFiles = []
@@ -488,6 +714,32 @@ function displaySearchResults(results) {
 }
 
 // 下载文件 - 修复并确保为全局函数
+// window.downloadFile = async function(fileHash, fileName) {
+//   console.log('Download button clicked:', { fileHash, fileName })
+  
+//   if (!isNodeStarted) {
+//     showMessage('请先启动P2P节点', 'warning')
+//     return
+//   }
+
+//   try {
+//     showMessage(`正在查找文件: ${fileName}`, 'info')
+    
+//     const result = await window.electronAPI.downloadFile(fileHash, fileName)
+
+//     if (result.success) {
+//       showMessage(`开始下载: ${fileName}`, 'success')
+//       // 立即刷新下载列表
+//       await refreshDownloads()
+//     } else {
+//       showMessage(`下载失败: ${result.error}`, 'error')
+//     }
+//   } catch (error) {
+//     console.error('Download error:', error)
+//     showMessage(`下载错误: ${error.message}`, 'error')
+//   }
+// }
+
 window.downloadFile = async function(fileHash, fileName) {
   console.log('Download button clicked:', { fileHash, fileName })
   
@@ -497,13 +749,34 @@ window.downloadFile = async function(fileHash, fileName) {
   }
 
   try {
+    // 首先检查是否是本地文件
+    const localFiles = await window.electronAPI.getLocalFiles()
+    const isLocalFile = localFiles.some(file => file.hash === fileHash)
+    
+    if (isLocalFile) {
+      console.log('检测到本地文件，尝试直接复制')
+      showMessage(`正在复制本地文件: ${fileName}`, 'info')
+      
+      // 尝试本地文件复制
+      const localResult = await window.electronAPI.downloadLocalFile(fileHash, fileName)
+      
+      if (localResult.success) {
+        showMessage(`本地文件复制成功: ${fileName}`, 'success')
+        await refreshDownloads()
+        return
+      } else {
+        console.log('本地文件复制失败，尝试网络下载:', localResult.error)
+        showMessage(`本地复制失败，尝试网络下载: ${fileName}`, 'warning')
+      }
+    }
+    
+    // 网络下载
     showMessage(`正在查找文件: ${fileName}`, 'info')
     
     const result = await window.electronAPI.downloadFile(fileHash, fileName)
 
     if (result.success) {
       showMessage(`开始下载: ${fileName}`, 'success')
-      // 立即刷新下载列表
       await refreshDownloads()
     } else {
       showMessage(`下载失败: ${result.error}`, 'error')
@@ -794,25 +1067,6 @@ function getStatusText(status) {
     'cancelled': '已取消'
   }
   return statusMap[status] || status
-}
-
-function showMessage(message, type = 'info') {
-  // 创建消息元素
-  const messageEl = document.createElement('div')
-  messageEl.className = `message message-${type}`
-  messageEl.textContent = message
-
-  // 添加到页面
-  document.body.appendChild(messageEl)
-
-  // 3秒后自动消失
-  setTimeout(() => {
-    if (messageEl.parentNode) {
-      messageEl.parentNode.removeChild(messageEl)
-    }
-  }, 3000)
-
-  console.log(`[${type.toUpperCase()}] ${message}`)
 }
 
 // 页面加载完成后的初始化

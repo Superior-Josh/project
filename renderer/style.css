@@ -577,24 +577,65 @@ button.secondary:hover:not(:disabled) {
   min-width: auto;
 }
 
-/* 消息提示 - 改进版 */
-.message {
+/* 修复后的消息提示样式 - 支持上下分布 */
+
+/* 消息容器 - 新增 */
+.message-container {
   position: fixed;
   top: 20px;
   right: 20px;
+  z-index: 1000;
+  max-width: 350px;
+  width: 100%;
+  pointer-events: none; /* 允许点击穿透到下层元素 */
+}
+
+/* 修改后的消息样式 */
+.message {
+  position: relative; /* 改为相对定位 */
   padding: 14px 20px;
   border-radius: 8px;
   color: white;
   font-weight: 600;
-  z-index: 1000;
-  max-width: 350px;
-  animation: slideIn 0.3s ease;
+  margin-bottom: 10px; /* 消息之间的间距 */
+  max-width: 100%;
+  animation: slideInRight 0.3s ease;
   white-space: pre-line;
   box-shadow: 0 4px 12px rgba(0,0,0,0.3);
   border-left: 5px solid rgba(255,255,255,0.5);
+  pointer-events: auto; /* 消息本身可以交互 */
+  cursor: pointer; /* 显示可点击 */
+  transition: all 0.3s ease;
 }
 
-@keyframes slideIn {
+/* 添加关闭按钮样式 */
+.message::after {
+  content: '×';
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  font-size: 18px;
+  font-weight: bold;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.message:hover::after {
+  opacity: 1;
+}
+
+.message:hover {
+  transform: translateX(-5px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+}
+
+/* 消失动画 */
+.message.removing {
+  animation: slideOutRight 0.3s ease forwards;
+}
+
+/* 入场动画 */
+@keyframes slideInRight {
   from {
     transform: translateX(100%);
     opacity: 0;
@@ -605,6 +646,19 @@ button.secondary:hover:not(:disabled) {
   }
 }
 
+/* 出场动画 */
+@keyframes slideOutRight {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+/* 不同类型消息的颜色保持不变 */
 .message-success {
   background: linear-gradient(135deg, #27ae60, #2ecc71);
 }
@@ -620,6 +674,40 @@ button.secondary:hover:not(:disabled) {
 .message-info {
   background: linear-gradient(135deg, #3498db, #2980b9);
 }
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .message-container {
+    left: 10px;
+    right: 10px;
+    top: 10px;
+    max-width: none;
+  }
+  
+  .message {
+    font-size: 14px;
+    padding: 12px 16px;
+  }
+  
+  .message::after {
+    top: 6px;
+    right: 10px;
+    font-size: 16px;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+
 
 /* 滚动条样式 */
 ::-webkit-scrollbar {
@@ -711,3 +799,4 @@ button.secondary:hover:not(:disabled) {
     font-size: 10px;
   }
 }
+

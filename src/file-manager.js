@@ -132,170 +132,373 @@ export class FileManager {
   }
 
   // 下载文件
+  // async downloadFile(fileHash, fileName) {
+  //   try {
+  //     console.log(`Starting download for file: ${fileName} (${fileHash})`)
+      
+  //     // 查找文件提供者
+  //     const providers = await this.dhtManager.findProviders(fileHash)
+  //     if (providers.length === 0) {
+  //       throw new Error('No providers found for this file')
+  //     }
+
+  //     // 获取文件元数据
+  //     const fileInfo = await this.dhtManager.findFile(fileHash)
+  //     if (!fileInfo) {
+  //       throw new Error('File metadata not found in DHT')
+  //     }
+
+  //     const downloadPath = path.join(this.downloadDir, fileName)
+  //     const transfer = {
+  //       fileHash,
+  //       fileName,
+  //       downloadPath,
+  //       totalChunks: fileInfo.chunks || 1,
+  //       downloadedChunks: 0,
+  //       chunks: new Map(),
+  //       providers,
+  //       startTime: Date.now()
+  //     }
+
+  //     this.activeTransfers.set(fileHash, transfer)
+
+  //     // 从多个提供者下载块
+  //     await this.downloadFromProviders(transfer)
+
+  //     // 组装文件
+  //     await this.assembleFile(transfer)
+
+  //     this.activeTransfers.delete(fileHash)
+  //     console.log(`Download completed: ${fileName}`)
+      
+  //     return {
+  //       success: true,
+  //       filePath: downloadPath
+  //     }
+  //   } catch (error) {
+  //     console.error('Error downloading file:', error)
+  //     this.activeTransfers.delete(fileHash)
+  //     return {
+  //       success: false,
+  //       error: error.message
+  //     }
+  //   }
+  // }
   async downloadFile(fileHash, fileName) {
-    try {
-      console.log(`Starting download for file: ${fileName} (${fileHash})`)
-      
-      // 查找文件提供者
-      const providers = await this.dhtManager.findProviders(fileHash)
-      if (providers.length === 0) {
-        throw new Error('No providers found for this file')
-      }
+  try {
+    console.log(`Starting download for file: ${fileName} (${fileHash})`)
+    
+    // Find file providers
+    const providers = await this.dhtManager.findProviders(fileHash)
+    if (providers.length === 0) {
+      throw new Error('No providers found for this file')
+    }
 
-      // 获取文件元数据
-      const fileInfo = await this.dhtManager.findFile(fileHash)
-      if (!fileInfo) {
-        throw new Error('File metadata not found in DHT')
-      }
+    // Get file metadata
+    const fileInfo = await this.dhtManager.findFile(fileHash)
+    if (!fileInfo) {
+      console.log('No file metadata found, proceeding with basic info')
+    }
 
-      const downloadPath = path.join(this.downloadDir, fileName)
-      const transfer = {
-        fileHash,
-        fileName,
-        downloadPath,
-        totalChunks: fileInfo.chunks || 1,
-        downloadedChunks: 0,
-        chunks: new Map(),
-        providers,
-        startTime: Date.now()
-      }
+    const downloadPath = path.join(this.downloadDir, fileName)
+    const transfer = {
+      fileHash,
+      fileName,
+      downloadPath,
+      totalChunks: fileInfo?.chunks || 1,
+      downloadedChunks: 0,
+      chunks: new Map(),
+      providers,
+      startTime: Date.now()
+    }
 
-      this.activeTransfers.set(fileHash, transfer)
+    this.activeTransfers.set(fileHash, transfer)
 
-      // 从多个提供者下载块
-      await this.downloadFromProviders(transfer)
+    console.log(`Download transfer created for: ${fileName}`)
+    console.log(`Total chunks expected: ${transfer.totalChunks}`)
+    console.log(`Using ${providers.length} providers`)
 
-      // 组装文件
-      await this.assembleFile(transfer)
+    // Download from multiple providers
+    await this.downloadFromProviders(transfer)
 
-      this.activeTransfers.delete(fileHash)
-      console.log(`Download completed: ${fileName}`)
-      
-      return {
-        success: true,
-        filePath: downloadPath
-      }
-    } catch (error) {
-      console.error('Error downloading file:', error)
-      this.activeTransfers.delete(fileHash)
-      return {
-        success: false,
-        error: error.message
-      }
+    // Assemble file
+    await this.assembleFile(transfer)
+
+    this.activeTransfers.delete(fileHash)
+    console.log(`Download completed successfully: ${fileName}`)
+    
+    return {
+      success: true,
+      filePath: downloadPath
+    }
+  } catch (error) {
+    console.error('Download error:', error.message)
+    console.error('Download error stack:', error.stack)
+    this.activeTransfers.delete(fileHash)
+    return {
+      success: false,
+      error: error.message
     }
   }
+}
 
   // 从提供者下载块
-  async downloadFromProviders(transfer) {
-    const { fileHash, providers, totalChunks } = transfer
+  // async downloadFromProviders(transfer) {
+  //   const { fileHash, providers, totalChunks } = transfer
     
-    for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
-      let chunkDownloaded = false
+  //   for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+  //     let chunkDownloaded = false
       
-      // 尝试从不同的提供者下载这个块
-      for (const provider of providers) {
-        try {
-          const chunk = await this.requestChunk(provider.peerId, fileHash, chunkIndex)
-          if (chunk && this.verifyChunk(chunk)) {
-            transfer.chunks.set(chunkIndex, chunk)
-            transfer.downloadedChunks++
-            chunkDownloaded = true
-            break
-          }
-        } catch (error) {
-          console.error(`Failed to download chunk ${chunkIndex} from ${provider.peerId}:`, error)
+  //     // 尝试从不同的提供者下载这个块
+  //     for (const provider of providers) {
+  //       try {
+  //         const chunk = await this.requestChunk(provider.peerId, fileHash, chunkIndex)
+  //         if (chunk && this.verifyChunk(chunk)) {
+  //           transfer.chunks.set(chunkIndex, chunk)
+  //           transfer.downloadedChunks++
+  //           chunkDownloaded = true
+  //           break
+  //         }
+  //       } catch (error) {
+  //         console.error(`Failed to download chunk ${chunkIndex} from ${provider.peerId}:`, error)
+  //       }
+  //     }
+      
+  //     if (!chunkDownloaded) {
+  //       throw new Error(`Failed to download chunk ${chunkIndex}`)
+  //     }
+  //   }
+  // }
+async downloadFromProviders(transfer) {
+  const { fileHash, providers, totalChunks } = transfer
+  
+  console.log(`Starting download from providers for ${totalChunks} chunks`)
+  
+  for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+    let chunkDownloaded = false
+    let lastError = null
+    
+    console.log(`Downloading chunk ${chunkIndex + 1}/${totalChunks}`)
+    
+    // Try different providers for this chunk
+    for (const provider of providers) {
+      try {
+        console.log(`Requesting chunk ${chunkIndex} from provider: ${provider.peerId}`)
+        const chunk = await this.requestChunk(provider.peerId, fileHash, chunkIndex)
+        
+        if (chunk && this.verifyChunk(chunk)) {
+          transfer.chunks.set(chunkIndex, chunk)
+          transfer.downloadedChunks++
+          chunkDownloaded = true
+          console.log(`Successfully downloaded chunk ${chunkIndex} from ${provider.peerId}`)
+          break
+        } else {
+          console.log(`Invalid chunk ${chunkIndex} from ${provider.peerId}`)
         }
-      }
-      
-      if (!chunkDownloaded) {
-        throw new Error(`Failed to download chunk ${chunkIndex}`)
+      } catch (error) {
+        console.error(`Failed to download chunk ${chunkIndex} from ${provider.peerId}:`, error.message)
+        lastError = error
       }
     }
+    
+    if (!chunkDownloaded) {
+      throw new Error(`Failed to download chunk ${chunkIndex}. Last error: ${lastError?.message || 'Unknown error'}`)
+    }
   }
+  
+  console.log(`All ${totalChunks} chunks downloaded successfully`)
+}
 
   // 请求特定块
-  async requestChunk(peerId, fileHash, chunkIndex) {
-    try {
-      // 确保节点已启动
-      if (!this.p2pNode.node) {
-        throw new Error('P2P node not initialized')
-      }
+  // async requestChunk(peerId, fileHash, chunkIndex) {
+  //   try {
+  //     // 确保节点已启动
+  //     if (!this.p2pNode.node) {
+  //       throw new Error('P2P node not initialized')
+  //     }
 
-      const stream = await this.p2pNode.node.dialProtocol(peerId, PROTOCOL_ID)
+  //     const stream = await this.p2pNode.node.dialProtocol(peerId, PROTOCOL_ID)
       
-      const request = {
-        type: 'CHUNK_REQUEST',
-        fileHash,
-        chunkIndex
-      }
+  //     const request = {
+  //       type: 'CHUNK_REQUEST',
+  //       fileHash,
+  //       chunkIndex
+  //     }
 
-      // 发送请求
-      const requestData = JSON.stringify(request)
-      const requestBuffer = Buffer.from(requestData)
+  //     // 发送请求
+  //     const requestData = JSON.stringify(request)
+  //     const requestBuffer = Buffer.from(requestData)
       
-      // 发送长度和数据
-      const lengthBuffer = Buffer.allocUnsafe(4)
-      lengthBuffer.writeUInt32BE(requestBuffer.length, 0)
+  //     // 发送长度和数据
+  //     const lengthBuffer = Buffer.allocUnsafe(4)
+  //     lengthBuffer.writeUInt32BE(requestBuffer.length, 0)
       
-      stream.sink(async function* () {
-        yield lengthBuffer
-        yield requestBuffer
-      }())
+  //     stream.sink(async function* () {
+  //       yield lengthBuffer
+  //       yield requestBuffer
+  //     }())
 
-      // 接收响应
-      return new Promise((resolve, reject) => {
-        let responseData = []
-        let expectedLength = null
-        let receivedLength = 0
+  //     // 接收响应
+  //     return new Promise((resolve, reject) => {
+  //       let responseData = []
+  //       let expectedLength = null
+  //       let receivedLength = 0
 
-        const processData = async () => {
-          try {
-            for await (const chunk of stream.source) {
-              responseData.push(chunk)
-              receivedLength += chunk.length
+  //       const processData = async () => {
+  //         try {
+  //           for await (const chunk of stream.source) {
+  //             responseData.push(chunk)
+  //             receivedLength += chunk.length
 
-              // 如果还没有读取长度信息
-              if (expectedLength === null && receivedLength >= 4) {
-                const allData = Buffer.concat(responseData)
-                expectedLength = allData.readUInt32BE(0)
-                responseData = [allData.slice(4)]
-                receivedLength -= 4
-              }
+  //             // 如果还没有读取长度信息
+  //             if (expectedLength === null && receivedLength >= 4) {
+  //               const allData = Buffer.concat(responseData)
+  //               expectedLength = allData.readUInt32BE(0)
+  //               responseData = [allData.slice(4)]
+  //               receivedLength -= 4
+  //             }
 
-              // 如果已经接收到完整数据
-              if (expectedLength !== null && receivedLength >= expectedLength) {
-                const responseBuffer = Buffer.concat(responseData).slice(0, expectedLength)
-                const response = JSON.parse(responseBuffer.toString())
+  //             // 如果已经接收到完整数据
+  //             if (expectedLength !== null && receivedLength >= expectedLength) {
+  //               const responseBuffer = Buffer.concat(responseData).slice(0, expectedLength)
+  //               const response = JSON.parse(responseBuffer.toString())
                 
-                if (response.success) {
-                  resolve({
-                    index: chunkIndex,
-                    data: Buffer.from(response.data, 'base64'),
-                    hash: response.hash
-                  })
-                } else {
-                  reject(new Error(response.error))
-                }
-                break
-              }
-            }
-          } catch (error) {
-            reject(error)
-          }
-        }
+  //               if (response.success) {
+  //                 resolve({
+  //                   index: chunkIndex,
+  //                   data: Buffer.from(response.data, 'base64'),
+  //                   hash: response.hash
+  //                 })
+  //               } else {
+  //                 reject(new Error(response.error))
+  //               }
+  //               break
+  //             }
+  //           }
+  //         } catch (error) {
+  //           reject(error)
+  //         }
+  //       }
 
-        processData()
+  //       processData()
 
-        // 设置超时
-        setTimeout(() => {
-          reject(new Error('Chunk request timeout'))
-        }, 30000) // 30秒超时
-      })
-    } catch (error) {
-      console.error('Error requesting chunk:', error)
-      throw error
+  //       // 设置超时
+  //       setTimeout(() => {
+  //         reject(new Error('Chunk request timeout'))
+  //       }, 30000) // 30秒超时
+  //     })
+  //   } catch (error) {
+  //     console.error('Error requesting chunk:', error)
+  //     throw error
+  //   }
+  // }
+  async requestChunk(peerId, fileHash, chunkIndex) {
+  try {
+    console.log(`Requesting chunk ${chunkIndex} for file ${fileHash} from peer ${peerId}`)
+    
+    // Ensure node is started
+    if (!this.p2pNode.node) {
+      throw new Error('P2P node not initialized')
     }
+
+    console.log(`Dialing protocol ${PROTOCOL_ID} to peer ${peerId}`)
+    const stream = await this.p2pNode.node.dialProtocol(peerId, PROTOCOL_ID)
+    
+    const request = {
+      type: 'CHUNK_REQUEST',
+      fileHash,
+      chunkIndex
+    }
+
+    console.log(`Sending chunk request:`, request)
+
+    // Send request
+    const requestData = JSON.stringify(request)
+    const requestBuffer = Buffer.from(requestData)
+    
+    // Send length and data
+    const lengthBuffer = Buffer.allocUnsafe(4)
+    lengthBuffer.writeUInt32BE(requestBuffer.length, 0)
+    
+    await stream.sink(async function* () {
+      yield lengthBuffer
+      yield requestBuffer
+    }())
+
+    console.log(`Request sent, waiting for response...`)
+
+    // Receive response
+    return new Promise((resolve, reject) => {
+      let responseData = []
+      let expectedLength = null
+      let receivedLength = 0
+      let timeoutId
+
+      const cleanup = () => {
+        if (timeoutId) {
+          clearTimeout(timeoutId)
+          timeoutId = null
+        }
+      }
+
+      const processData = async () => {
+        try {
+          for await (const chunk of stream.source) {
+            responseData.push(chunk)
+            receivedLength += chunk.length
+
+            // If we haven't read length info yet
+            if (expectedLength === null && receivedLength >= 4) {
+              const allData = Buffer.concat(responseData)
+              expectedLength = allData.readUInt32BE(0)
+              responseData = [allData.slice(4)]
+              receivedLength -= 4
+              console.log(`Expected response length: ${expectedLength} bytes`)
+            }
+
+            // If we have received complete data
+            if (expectedLength !== null && receivedLength >= expectedLength) {
+              cleanup()
+              const responseBuffer = Buffer.concat(responseData).slice(0, expectedLength)
+              const response = JSON.parse(responseBuffer.toString())
+              
+              console.log(`Received response for chunk ${chunkIndex}:`, {
+                success: response.success,
+                hasData: !!response.data,
+                error: response.error
+              })
+              
+              if (response.success) {
+                resolve({
+                  index: chunkIndex,
+                  data: Buffer.from(response.data, 'base64'),
+                  hash: response.hash
+                })
+              } else {
+                reject(new Error(response.error))
+              }
+              break
+            }
+          }
+        } catch (error) {
+          cleanup()
+          reject(error)
+        }
+      }
+
+      processData()
+
+      // Set timeout
+      timeoutId = setTimeout(() => {
+        cleanup()
+        reject(new Error(`Chunk request timeout for chunk ${chunkIndex}`))
+      }, 30000) // 30 second timeout
+    })
+  } catch (error) {
+    console.error(`Error requesting chunk ${chunkIndex}:`, error.message)
+    throw error
   }
+}
 
   // 处理传入的文件请求
   async handleIncomingFileRequest(stream, connection) {
@@ -403,22 +606,46 @@ export class FileManager {
   }
 
   // 组装文件
-  async assembleFile(transfer) {
-    const { downloadPath, chunks, totalChunks } = transfer
+  // async assembleFile(transfer) {
+  //   const { downloadPath, chunks, totalChunks } = transfer
     
-    // 按索引排序块
-    const sortedChunks = Array.from(chunks.entries())
-      .sort(([a], [b]) => a - b)
-      .map(([, chunk]) => chunk)
+  //   // 按索引排序块
+  //   const sortedChunks = Array.from(chunks.entries())
+  //     .sort(([a], [b]) => a - b)
+  //     .map(([, chunk]) => chunk)
 
-    if (sortedChunks.length !== totalChunks) {
-      throw new Error('Missing chunks, cannot assemble file')
-    }
+  //   if (sortedChunks.length !== totalChunks) {
+  //     throw new Error('Missing chunks, cannot assemble file')
+  //   }
 
-    // 写入文件
-    const fileBuffer = Buffer.concat(sortedChunks.map(chunk => chunk.data))
-    await fs.writeFile(downloadPath, fileBuffer)
+  //   // 写入文件
+  //   const fileBuffer = Buffer.concat(sortedChunks.map(chunk => chunk.data))
+  //   await fs.writeFile(downloadPath, fileBuffer)
+  // }
+async assembleFile(transfer) {
+  const { downloadPath, chunks, totalChunks } = transfer
+  
+  console.log(`Assembling file: ${transfer.fileName}`)
+  console.log(`Total chunks to assemble: ${totalChunks}`)
+  
+  // Sort chunks by index
+  const sortedChunks = Array.from(chunks.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([, chunk]) => chunk)
+
+  if (sortedChunks.length !== totalChunks) {
+    throw new Error(`Missing chunks, cannot assemble file. Expected: ${totalChunks}, Got: ${sortedChunks.length}`)
   }
+
+  console.log(`All chunks present, writing to file: ${downloadPath}`)
+
+  // Write file
+  const fileBuffer = Buffer.concat(sortedChunks.map(chunk => chunk.data))
+  await fs.writeFile(downloadPath, fileBuffer)
+  
+  console.log(`File assembly completed: ${downloadPath}`)
+  console.log(`Final file size: ${fileBuffer.length} bytes`)
+}
 
   // 获取MIME类型
   getMimeType(fileName) {
