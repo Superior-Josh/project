@@ -127,28 +127,6 @@
 </div>
 
 <script>
-// Enhanced settings JavaScript with full i18n support
-
-// Handle language change with immediate UI update
-function handleLanguageChange(language) {
-  if (window.i18n) {
-    const oldLanguage = window.i18n.getCurrentLanguage()
-    window.i18n.setLanguage(language)
-    
-    // Update all text immediately
-    setTimeout(() => {
-      window.i18n.updatePageText()
-      updateAllRangeValues() // Re-update range values with new language
-    }, 100)
-  }
-  
-  // Mark as unsaved change
-  if (typeof markUnsaved === 'function') {
-    markUnsaved()
-  }
-  
-  console.log(`Language changed to: ${language}`)
-}
 
 // Enhanced range value update with localization
 function updateRangeValue(event) {
@@ -500,7 +478,6 @@ async function importSettings() {
 }
 
 // Make functions available globally
-window.handleLanguageChange = handleLanguageChange
 window.updateRangeValue = updateRangeValue
 window.createBackup = createBackup
 window.showBackupList = showBackupList
@@ -614,16 +591,6 @@ window.importSettings = importSettings
       <p class="setting-description" data-i18n="settings.theme.desc">Application theme</p>
     </div>
     
-    <div class="setting-item">
-      <label for="language" data-i18n="settings.language">Language</label>
-      <div class="setting-control">
-        <select id="language" onchange="handleLanguageChange(this.value)">
-          <option value="en" data-i18n="settings.language.en">English</option>
-          <option value="zh" data-i18n="settings.language.zh">中文</option>
-        </select>
-      </div>
-      <p class="setting-description" data-i18n="settings.language.desc">Application language</p>
-    </div>
   </div>
 </div>
 

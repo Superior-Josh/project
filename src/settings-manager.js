@@ -25,7 +25,6 @@ export class SettingsManager {
       autoStartNode: true,
       showNotifications: true,
       theme: 'system', // 'light', 'dark', 'system'
-      language: this.detectSystemLanguage(), // Auto-detect system language
       
       // Network Settings
       autoConnectToPeers: true,
@@ -54,40 +53,6 @@ export class SettingsManager {
     }
   }
 
-  // Detect system language
-  detectSystemLanguage() {
-    try {
-      // In Node.js environment, use process.env
-      const envLang = process.env.LANG || process.env.LANGUAGE || process.env.LC_ALL || process.env.LC_MESSAGES
-      
-      if (envLang) {
-        // Extract language code from locale (e.g., 'zh_CN.UTF-8' -> 'zh')
-        const langCode = envLang.split('_')[0].split('.')[0].toLowerCase()
-        
-        // Map common language codes
-        const supportedLanguages = ['en', 'zh']
-        if (supportedLanguages.includes(langCode)) {
-          return langCode
-        }
-      }
-      
-      // Check system locale on different platforms
-      if (process.platform === 'win32') {
-        // Windows specific detection could be added here
-        return 'en' // Default to English for now
-      } else if (process.platform === 'darwin') {
-        // macOS specific detection could be added here
-        return 'en' // Default to English for now
-      }
-      
-      // Default fallback
-      return 'en'
-    } catch (error) {
-      console.warn('Failed to detect system language:', error)
-      return 'en'
-    }
-  }
-
   async initialize() {
     try {
       await fs.mkdir(this.settingsDir, { recursive: true })
@@ -97,9 +62,6 @@ export class SettingsManager {
       
       // Setup auto-save
       this.setupAutoSave()
-      
-      // Apply language setting immediately after initialization
-      this.applyLanguageSetting()
     } catch (error) {
       console.error('Error initializing settings manager:', error)
       throw error
@@ -144,16 +106,6 @@ export class SettingsManager {
         console.error('Auto-save settings failed:', error)
       })
     }, 5 * 60 * 1000)
-  }
-
-  // Apply language setting to i18n system
-  applyLanguageSetting() {
-    const language = this.get('language', 'en')
-    
-    // Apply to global i18n if available
-    if (typeof window !== 'undefined' && window.i18n) {
-      window.i18n.setLanguage(language)
-    }
   }
 
   // Get setting value
@@ -204,13 +156,6 @@ export class SettingsManager {
   // Handle special settings that need immediate application
   async handleSpecialSetting(key, newValue, oldValue) {
     switch (key) {
-      case 'language':
-        if (newValue !== oldValue) {
-          this.applyLanguageSetting()
-          console.log(`Language changed from '${oldValue}' to '${newValue}'`)
-        }
-        break
-        
       case 'theme':
         if (newValue !== oldValue) {
           this.applyThemeSetting(newValue)
@@ -267,15 +212,7 @@ export class SettingsManager {
 
   // Reset to defaults
   async resetToDefaults() {
-    const oldLanguage = this.get('language')
     this.settings = new Map(Object.entries(this.defaultSettings))
-    
-    // Apply language setting if it changed
-    const newLanguage = this.get('language')
-    if (oldLanguage !== newLanguage) {
-      this.applyLanguageSetting()
-    }
-    
     await this.saveSettings()
   }
 
@@ -294,7 +231,7 @@ export class SettingsManager {
   getSettingsByCategory(category) {
     const categories = {
       download: ['downloadPath', 'autoCreateSubfolders', 'maxConcurrentDownloads', 'chunkSize', 'enableResumeDownload'],
-      window: ['windowBehavior', 'startMinimized', 'autoStartNode', 'showNotifications', 'theme', 'language'],
+      window: ['windowBehavior', 'startMinimized', 'autoStartNode', 'showNotifications', 'theme'],
       network: ['autoConnectToPeers', 'maxConnections', 'connectionTimeout', 'enableUpnp', 'customBootstrapNodes'],
       privacy: ['enableEncryption', 'shareFileByDefault', 'autoAcceptConnections', 'logLevel'],
       performance: ['memoryLimit', 'diskCacheSize', 'enableFileValidation', 'cleanupTempFiles'],
@@ -319,7 +256,6 @@ export class SettingsManager {
       chunkSize: (val) => Number.isInteger(val) && val >= 1024 && val <= 10 * 1024 * 1024,
       windowBehavior: (val) => ['close', 'minimize', 'hide'].includes(val),
       theme: (val) => ['light', 'dark', 'system'].includes(val),
-      language: (val) => ['en', 'zh'].includes(val),
       maxConnections: (val) => Number.isInteger(val) && val >= 1 && val <= 200,
       connectionTimeout: (val) => Number.isInteger(val) && val >= 5 && val <= 120,
       logLevel: (val) => ['debug', 'info', 'warn', 'error'].includes(val),
@@ -390,17 +326,10 @@ export class SettingsManager {
         }
       }
       
-      const oldLanguage = this.get('language')
       this.settings = new Map(Object.entries({
         ...this.defaultSettings,
         ...backupSettings
       }))
-      
-      // Apply language setting if it changed
-      const newLanguage = this.get('language')
-      if (oldLanguage !== newLanguage) {
-        this.applyLanguageSetting()
-      }
       
       await this.saveSettings()
       
@@ -547,19 +476,12 @@ export class SettingsManager {
       }
       
       // Merge with current settings
-      const oldLanguage = this.get('language')
       const mergedSettings = {
         ...this.getAll(),
         ...validSettings
       }
       
       this.settings = new Map(Object.entries(mergedSettings))
-      
-      // Apply language setting if it changed
-      const newLanguage = this.get('language')
-      if (oldLanguage !== newLanguage) {
-        this.applyLanguageSetting()
-      }
       
       await this.saveSettings()
       
@@ -658,12 +580,6 @@ export class SettingsManager {
               { value: 'dark', label: t('settings.theme.dark') }
             ]
           },
-          language: {
-            type: 'select',
-            title: t('settings.language'),
-            description: t('settings.language.desc'),
-            options: this.getLanguageOptions()
-          }
         }
       },
       network: {
@@ -805,16 +721,6 @@ export class SettingsManager {
     }
   }
 
-  // Get language options for UI
-  getLanguageOptions() {
-    const t = (typeof window !== 'undefined' && window.t) ? window.t : (key) => key
-    
-    return [
-      { value: 'en', label: t('settings.language.en') },
-      { value: 'zh', label: t('settings.language.zh') }
-    ]
-  }
-
   // Get setting metadata for validation and UI hints
   getSettingMetadata(key) {
     const metadata = {
@@ -865,11 +771,6 @@ export class SettingsManager {
         enum: ['light', 'dark', 'system'],
         category: 'window'
       },
-      language: {
-        type: 'string',
-        enum: ['en', 'zh'],
-        category: 'window'
-      }
     }
     
     return metadata[key] || { type: 'unknown' }

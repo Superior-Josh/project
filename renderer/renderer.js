@@ -1,140 +1,6 @@
 // renderer.js
 
-async function initializeI18n() {
-  try {
-    console.log('Initializing i18n system...')
-
-    // Get language setting from electron
-    const settings = await window.electronAPI.getSettings()
-    const language = settings.language || 'en'
-
-    // Set language in i18n system
-    if (window.i18n) {
-      window.i18n.setLanguage(language)
-      console.log('I18n initialized with language:', language)
-
-      // Set up language change listener
-      window.i18n.onLanguageChange((newLang, oldLang) => {
-        console.log(`Language changed from ${oldLang} to ${newLang}`)
-        // Update any dynamic content that might need refreshing
-        updateAllDynamicContent()
-      })
-    } else {
-      console.error('I18n system not available')
-    }
-  } catch (error) {
-    console.error('Error initializing i18n:', error)
-    // Default to English if error
-    if (window.i18n) {
-      window.i18n.setLanguage('en')
-    }
-  }
-}
-
-// Enhanced message functions with i18n support
-function showLocalizedMessage(messageKey, params = {}, type = 'info', duration = null) {
-  const message = window.t ? window.t(messageKey, params) : messageKey
-  return messageManager.show(message, type, duration)
-}
-
-function showLocalizedSuccess(messageKey, params = {}, duration = null) {
-  return showLocalizedMessage(messageKey, params, 'success', duration)
-}
-
-function showLocalizedError(messageKey, params = {}, duration = null) {
-  return showLocalizedMessage(messageKey, params, 'error', duration)
-}
-
-function showLocalizedWarning(messageKey, params = {}, duration = null) {
-  return showLocalizedMessage(messageKey, params, 'warning', duration)
-}
-
-// Enhanced utility functions with i18n support
-function formatFileSize(bytes) {
-  if (window.formatFileSize) {
-    return window.formatFileSize(bytes)
-  }
-
-  // Fallback formatting
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-}
-
-function formatTime(seconds) {
-  if (window.formatTime) {
-    return window.formatTime(seconds)
-  }
-
-  // Fallback formatting
-  if (seconds < 60) return `${seconds}s`
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m${seconds % 60}s`
-  return `${Math.floor(seconds / 3600)}h${Math.floor((seconds % 3600) / 60)}m`
-}
-
-function formatRelativeTime(timestamp) {
-  if (window.formatRelativeTime) {
-    return window.formatRelativeTime(timestamp)
-  }
-
-  // Fallback formatting
-  const now = Date.now()
-  const diff = now - timestamp
-  const seconds = Math.floor(diff / 1000)
-
-  if (seconds < 60) return 'Just now'
-  if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`
-  return `${Math.floor(seconds / 86400)} days ago`
-}
-
-// Get localized status text
-function getLocalizedStatusText(status) {
-  if (!window.t) {
-    const statusMap = {
-      'downloading': 'Downloading',
-      'paused': 'Paused',
-      'completed': 'Completed',
-      'failed': 'Failed',
-      'cancelled': 'Cancelled'
-    }
-    return statusMap[status] || status
-  }
-
-  return window.t(`download.${status}`)
-}
-
-// Update all dynamic content after language change
-function updateAllDynamicContent() {
-  // Update file displays
-  refreshLocalFiles()
-  refreshDownloads()
-  refreshDatabaseStats()
-  updateSelectedFilesDisplay()
-
-  // Update any search results
-  if (elements.searchResults && elements.searchResults.children.length > 0) {
-    // Re-trigger search if there are results
-    const searchQuery = elements.searchInput ? elements.searchInput.value.trim() : ''
-    if (searchQuery) {
-      searchFiles()
-    }
-  }
-
-  // Update status displays
-  if (isNodeStarted) {
-    updateNodeStatus('online', 'status.online')
-  } else {
-    updateNodeStatus('offline', 'status.offline')
-  }
-
-  console.log('All dynamic content updated for language change')
-}
-
 // Message Manager for UI notifications
-
 class MessageManager {
   constructor() {
     this.messages = new Map()
@@ -324,15 +190,6 @@ window.showPersistent = showPersistent
 window.updateMessage = updateMessage
 window.closeMessage = closeMessage
 
-// Page load initialization
-document.addEventListener('DOMContentLoaded', () => {
-  if (!messageManager.container) {
-    messageManager.createMessageContainer()
-  }
-
-  console.log('Message system initialized')
-})
-
 // Global state
 let isNodeStarted = false
 let selectedFiles = []
@@ -403,19 +260,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   updateSelectedFilesDisplay()
   refreshDatabaseStats()
 
-  // Initialize i18n system FIRST - 这是新增的重要步骤
-  await initializeI18n()
-
-  // Set auto-starting state with localized text
+  // Set auto-starting state
   isAutoStarting = true
   if (elements.startNode) {
     elements.startNode.disabled = true
-    elements.startNode.textContent = window.t ? window.t('status.starting') : 'Auto-starting...'
+    elements.startNode.textContent = 'Auto-starting...'
   }
   if (elements.stopNode) {
     elements.stopNode.disabled = true
   }
-  updateNodeStatus('connecting', 'status.starting')
+  updateNodeStatus('connecting')
 })
 
 // Setup event listeners
@@ -451,23 +305,23 @@ function updateButtonStates(nodeStarted) {
   if (nodeStarted) {
     if (elements.startNode) {
       elements.startNode.disabled = true
-      elements.startNode.textContent = window.t ? window.t('header.startNode') : 'Start Node'
+      elements.startNode.textContent = 'Start Node'
     }
     if (elements.stopNode) {
       elements.stopNode.disabled = false
-      elements.stopNode.textContent = window.t ? window.t('header.stopNode') : 'Stop Node'
+      elements.stopNode.textContent = 'Stop Node'
     }
-    updateNodeStatus('online', 'status.online')
+    updateNodeStatus('online')
   } else {
     if (elements.startNode) {
       elements.startNode.disabled = false
-      elements.startNode.textContent = window.t ? window.t('header.startNode') : 'Start Node'
+      elements.startNode.textContent = 'Start Node'
     }
     if (elements.stopNode) {
       elements.stopNode.disabled = true
-      elements.stopNode.textContent = window.t ? window.t('header.stopNode') : 'Stop Node'
+      elements.stopNode.textContent = 'Stop Node'
     }
-    updateNodeStatus('offline', 'status.offline')
+    updateNodeStatus('offline')
   }
 }
 
@@ -523,19 +377,19 @@ async function openSettings() {
 // Start node
 async function startNode() {
   if (isAutoStarting) {
-    showLocalizedWarning('message.nodeStarting')
+    showWarning('Node is auto-starting, please wait')
     return
   }
 
   if (isNodeStarted) {
-    showLocalizedMessage('message.nodeAlreadyStarted')
+    showMessage('Node already started')
     return
   }
 
   try {
     elements.startNode.disabled = true
-    elements.startNode.textContent = window.t ? window.t('status.starting') : 'Starting...'
-    updateNodeStatus('connecting', 'status.starting')
+    elements.startNode.textContent = 'Starting...'
+    updateNodeStatus('connecting')
 
     const result = await window.electronAPI.startP2PNode()
 
@@ -543,93 +397,79 @@ async function startNode() {
       updateButtonStates(true)
       updateNodeInfo(result.nodeInfo)
       startStatsRefresh()
-      showLocalizedSuccess('message.nodeStartSuccess')
+      showSuccess('P2P node started successfully')
     } else {
       updateButtonStates(false)
-      showLocalizedError('message.nodeStartFailed', { error: result.error })
+      showError(`Failed to start P2P node: ${result.error}`)
     }
   } catch (error) {
     updateButtonStates(false)
-    showLocalizedError('message.nodeStartFailed', { error: error.message })
+    showError(`Failed to start P2P node: ${error.message}`)
   }
 }
 
 // Stop node
 async function stopNode() {
   if (!isNodeStarted) {
-    showLocalizedMessage('error.nodeNotStarted')
+    showMessage('Please start P2P node first')
     return
   }
 
   try {
     elements.stopNode.disabled = true
-    elements.stopNode.textContent = window.t ? window.t('status.stopping') : 'Stopping...'
-    updateNodeStatus('connecting', 'status.stopping')
+    elements.stopNode.textContent = 'Stopping...'
+    updateNodeStatus('connecting')
 
     const result = await window.electronAPI.stopP2PNode()
 
     if (result.success) {
       updateButtonStates(false)
-      elements.nodeInfo.innerHTML = `<p>${window.t ? window.t('node.notStarted') : 'Node stopped'}</p>`
-      elements.dhtStats.innerHTML = `<p>${window.t ? window.t('dht.notRunning') : 'DHT not running'}</p>`
+      elements.nodeInfo.innerHTML = '<p>Node stopped</p>'
+      elements.dhtStats.innerHTML = '<p>DHT not running</p>'
 
       if (downloadInterval) {
         clearInterval(downloadInterval)
         downloadInterval = null
       }
 
-      showLocalizedSuccess('message.nodeStopSuccess')
+      showSuccess('P2P node stopped')
     } else {
       elements.stopNode.disabled = false
-      elements.stopNode.textContent = window.t ? window.t('header.stopNode') : 'Stop Node'
-      updateNodeStatus('online', 'status.online')
-      showLocalizedError('message.nodeStopFailed', { error: result.error })
+      elements.stopNode.textContent = 'Stop Node'
+      updateNodeStatus('online')
+      showError(`Failed to stop P2P node: ${result.error}`)
     }
   } catch (error) {
     elements.stopNode.disabled = false
-    elements.stopNode.textContent = window.t ? window.t('header.stopNode') : 'Stop Node'
-    updateNodeStatus('online', 'status.online')
-    showLocalizedError('message.nodeStopFailed', { error: error.message })
+    elements.stopNode.textContent = 'Stop Node'
+    updateNodeStatus('online')
+    showError(`Failed to stop P2P node: ${error.message}`)
   }
 }
 
 // Update node status
-function updateNodeStatus(status, textKey = null) {
+function updateNodeStatus(status) {
   if (elements.nodeStatus) {
     elements.nodeStatus.className = `status ${status}`
 
-    if (textKey && window.t) {
-      elements.nodeStatus.textContent = window.t(textKey)
-    } else {
-      // Fallback text
-      const statusTexts = {
-        'online': 'Online',
-        'offline': 'Offline',
-        'connecting': 'Starting',
-        'stopping': 'Stopping'
-      }
-      elements.nodeStatus.textContent = statusTexts[status] || status
+    // Use fixed status texts
+    const statusTexts = {
+      'online': 'Online',
+      'offline': 'Offline',
+      'connecting': 'Starting'
     }
+    elements.nodeStatus.textContent = statusTexts[status] || status
   }
 }
 
 // Update node information
 function updateNodeInfo(nodeInfo) {
   if (nodeInfo) {
-    // 获取翻译文本
-    const labels = {
-      nodeId: window.t ? window.t('node.nodeId') : 'Node ID',
-      connectedPeers: window.t ? window.t('node.connectedPeers') : 'Connected Peers',
-      discoveredPeers: window.t ? window.t('node.discoveredPeers') : 'Discovered Peers',
-      listenAddresses: window.t ? window.t('node.listenAddresses') : 'Listen Addresses',
-      connect: window.t ? window.t('node.connect') : 'Connect'
-    }
-
     elements.nodeInfo.innerHTML = `
-      <p><strong>${labels.nodeId}:</strong> ${nodeInfo.peerId}</p>
-      <p><strong>${labels.connectedPeers}:</strong> ${nodeInfo.connectedPeers}</p>
-      <p><strong>${labels.discoveredPeers}:</strong> ${nodeInfo.discoveredPeers || 0}</p>
-      <p><strong>${labels.listenAddresses}:</strong></p>
+      <p><strong>Node ID:</strong> ${nodeInfo.peerId}</p>
+      <p><strong>Connected Peers:</strong> ${nodeInfo.connectedPeers}</p>
+      <p><strong>Discovered Peers:</strong> ${nodeInfo.discoveredPeers || 0}</p>
+      <p><strong>Listen Addresses:</strong></p>
       <ul>
         ${nodeInfo.addresses.map(addr => `<li>${addr}</li>`).join('')}
       </ul>
@@ -649,34 +489,34 @@ function isBootstrapPeerId(peerId) {
 // Connect to peer
 async function connectToPeer() {
   if (!isNodeStarted) {
-    showLocalizedWarning('error.nodeNotStarted')
+    showWarning('Please start P2P node first')
     return
   }
 
   const address = elements.peerAddress.value.trim()
   if (!address) {
-    showLocalizedWarning('error.invalidAddress')
+    showWarning('Please enter a valid peer address')
     return
   }
 
   try {
     elements.connectPeer.disabled = true
-    elements.connectPeer.textContent = window.t ? window.t('status.connecting') : 'Connecting...'
+    elements.connectPeer.textContent = 'Connecting...'
 
     const result = await window.electronAPI.connectToPeer(address)
 
     if (result.success) {
-      showLocalizedSuccess('message.connectSuccess')
+      showSuccess('Successfully connected to peer')
       elements.peerAddress.value = ''
       await refreshStats()
     } else {
-      showLocalizedError('message.connectFailed', { error: result.error })
+      showError(`Connection failed: ${result.error}`)
     }
   } catch (error) {
-    showLocalizedError('message.connectFailed', { error: error.message })
+    showError(`Connection failed: ${error.message}`)
   } finally {
     elements.connectPeer.disabled = false
-    elements.connectPeer.textContent = window.t ? window.t('connect.button') : 'Connect'
+    elements.connectPeer.textContent = 'Connect'
   }
 }
 
@@ -690,17 +530,13 @@ async function refreshStats() {
 
     const dhtStats = await window.electronAPI.getDHTStats()
     if (dhtStats && elements.dhtStats) {
-      const connectedPeersLabel = window.t ? window.t('dht.connectedPeers') : 'Connected Peers'
-      const routingTableSizeLabel = window.t ? window.t('dht.routingTableSize') : 'Routing Table Size'
-      const localFilesLabel = window.t ? window.t('dht.localFiles') : 'Local Files'
       elements.dhtStats.innerHTML = `
-    <p><strong>${connectedPeersLabel}:</strong> ${dhtStats.connectedPeers}</p>
-    <p><strong>${routingTableSizeLabel}:</strong> ${dhtStats.routingTableSize}</p>
-    <p><strong>${localFilesLabel}:</strong> ${dhtStats.localFiles}</p>
-  `
+        <p><strong>Connected Peers:</strong> ${dhtStats.connectedPeers}</p>
+        <p><strong>Routing Table Size:</strong> ${dhtStats.routingTableSize}</p>
+        <p><strong>Local Files:</strong> ${dhtStats.localFiles}</p>
+      `
     } else if (elements.dhtStats) {
-      const notInitText = window.t ? window.t('dht.notInitialized') : 'DHT not initialized'
-      elements.dhtStats.innerHTML = `<p>${notInitText}</p>`
+      elements.dhtStats.innerHTML = '<p>DHT not initialized</p>'
     }
 
     await refreshLocalFiles()
@@ -741,19 +577,15 @@ function updateSelectedFilesDisplay() {
   if (!elements.selectedFiles) return;
 
   if (selectedFiles.length === 0) {
-    const noFilesText = window.t ? window.t('file.noFilesSelected') : 'No files selected'
-    elements.selectedFiles.innerHTML = `<p>${noFilesText}</p>`
+    elements.selectedFiles.innerHTML = '<p>No files selected</p>'
   } else {
-    const selectedText = window.t ?
-      window.t('file.selectedFiles', { count: selectedFiles.length }) :
-      `Selected ${selectedFiles.length} files:`
-    const removeText = window.t ? window.t('file.remove') : 'Remove'
+    const selectedText = `Selected ${selectedFiles.length} files:`
 
     const fileList = selectedFiles.map(filePath => {
       const fileName = filePath.split(/[/\\]/).pop()
       return `<div class="selected-file">
         <span>${fileName}</span>
-        <button onclick="removeSelectedFile('${filePath}')">${removeText}</button>
+        <button onclick="removeSelectedFile('${filePath}')">Remove</button>
       </div>`
     }).join('')
 
@@ -937,28 +769,19 @@ async function refreshLocalFiles() {
     const files = await window.electronAPI.getLocalFiles()
 
     if (files.length === 0) {
-      const noLocalText = window.t ? window.t('files.noLocal') : 'No local files'
       if (elements.localFiles) {
-        elements.localFiles.innerHTML = `<p>${noLocalText}</p>`
+        elements.localFiles.innerHTML = '<p>No local files</p>'
       }
     } else {
-      const localCountText = window.t ?
-        window.t('files.localCount', { count: files.length }) :
-        `Local Files (${files.length}):`
-
-      const labels = {
-        size: window.t ? window.t('file.size') : 'Size',
-        hash: window.t ? window.t('file.hash') : 'Hash',
-        sharedTime: window.t ? window.t('file.sharedTime') : 'Shared Time'
-      }
+      const localCountText = `Local Files (${files.length}):`
 
       const fileList = files.map(file => `
         <div class="file-item">
           <div class="file-info">
             <h4>${file.name}</h4>
-            <p>${labels.size}: ${formatFileSize(file.size)}</p>
-            <p>${labels.hash}: ${file.hash}</p>
-            <p>${labels.sharedTime}: ${formatRelativeTime(file.sharedAt || file.timestamp || file.savedAt)}</p>
+            <p>Size: ${formatFileSize(file.size)}</p>
+            <p>Hash: ${file.hash}</p>
+            <p>Shared Time: ${formatRelativeTime(file.sharedAt || file.timestamp || file.savedAt)}</p>
           </div>
         </div>
       `).join('')
@@ -981,40 +804,28 @@ async function refreshDownloads() {
     const downloads = await window.electronAPI.getActiveDownloads()
 
     if (downloads.length === 0) {
-      const noActiveText = window.t ? window.t('download.noActive') : 'No active downloads'
       if (elements.activeDownloads) {
-        elements.activeDownloads.innerHTML = `<p>${noActiveText}</p>`
+        elements.activeDownloads.innerHTML = '<p>No active downloads</p>'
       }
     } else {
-      // 获取翻译标签
-      const labels = {
-        status: window.t ? window.t('download.status') : 'Status',
-        progress: window.t ? window.t('download.progress') : 'Progress',
-        downloaded: window.t ? window.t('download.downloaded') : 'Downloaded',
-        chunks: window.t ? window.t('download.chunks') : 'chunks',
-        pause: window.t ? window.t('download.pause') : 'Pause',
-        resume: window.t ? window.t('download.resume') : 'Resume',
-        cancel: window.t ? window.t('download.cancel') : 'Cancel'
-      }
-
       const downloadList = downloads.map(download => `
         <div class="download-item">
           <div class="download-info">
             <h4>${download.fileName}</h4>
-            <p>${labels.status}: ${getLocalizedStatusText(download.status)}</p>
-            <p>${labels.progress}: ${download.progress?.toFixed(1) || 0}%</p>
+            <p>Status: ${getStatusText(download.status)}</p>
+            <p>Progress: ${download.progress?.toFixed(1) || 0}%</p>
             <div class="progress-bar">
               <div class="progress-fill" style="width: ${download.progress || 0}%"></div>
             </div>
-            <p>${labels.downloaded}: ${download.downloadedChunks || 0} / ${download.totalChunks || 0} ${labels.chunks}</p>
+            <p>Downloaded: ${download.downloadedChunks || 0} / ${download.totalChunks || 0} chunks</p>
           </div>
           <div class="download-actions">
             ${download.status === 'downloading' ?
-          `<button onclick="pauseDownload('${download.id || download.fileHash}')">${labels.pause}</button>` :
+          `<button onclick="pauseDownload('${download.id || download.fileHash}')">Pause</button>` :
           download.status === 'paused' ?
-            `<button onclick="resumeDownload('${download.id || download.fileHash}')">${labels.resume}</button>` : ''
+            `<button onclick="resumeDownload('${download.id || download.fileHash}')">Resume</button>` : ''
         }
-            <button onclick="cancelDownload('${download.id || download.fileHash}')">${labels.cancel}</button>
+            <button onclick="cancelDownload('${download.id || download.fileHash}')">Cancel</button>
           </div>
         </div>
       `).join('')
@@ -1124,29 +935,16 @@ async function refreshDatabaseStats() {
     const stats = await window.electronAPI.getDatabaseStats()
 
     if (stats) {
-      // 获取翻译文本
-      const labels = {
-        nodeRecords: window.t ? window.t('db.nodeRecords') : 'Node Records',
-        fileRecords: window.t ? window.t('db.fileRecords') : 'File Records',
-        peerRecords: window.t ? window.t('db.peerRecords') : 'Peer Records',
-        transferRecords: window.t ? window.t('db.transferRecords') : 'Transfer Records',
-        configItems: window.t ? window.t('db.configItems') : 'Config Items',
-        status: window.t ? window.t('db.status') : 'Status',
-        initialized: window.t ? window.t('db.initialized') : 'Initialized',
-        notInit: window.t ? window.t('db.notInit') : 'Not Initialized'
-      }
-
       elements.databaseStats.innerHTML = `
-        <p><strong>${labels.nodeRecords}:</strong> ${stats.nodes}</p>
-        <p><strong>${labels.fileRecords}:</strong> ${stats.files}</p>
-        <p><strong>${labels.peerRecords}:</strong> ${stats.peers}</p>
-        <p><strong>${labels.transferRecords}:</strong> ${stats.transfers}</p>
-        <p><strong>${labels.configItems}:</strong> ${stats.config}</p>
-        <p><strong>${labels.status}:</strong> ${stats.initialized ? labels.initialized : labels.notInit}</p>
+        <p><strong>Node Records:</strong> ${stats.nodes}</p>
+        <p><strong>File Records:</strong> ${stats.files}</p>
+        <p><strong>Peer Records:</strong> ${stats.peers}</p>
+        <p><strong>Transfer Records:</strong> ${stats.transfers}</p>
+        <p><strong>Config Items:</strong> ${stats.config}</p>
+        <p><strong>Status:</strong> ${stats.initialized ? 'Initialized' : 'Not Initialized'}</p>
       `
     } else {
-      const notInitText = window.t ? window.t('db.notInitialized') : 'Database not initialized'
-      elements.databaseStats.innerHTML = `<p>${notInitText}</p>`
+      elements.databaseStats.innerHTML = '<p>Database not initialized</p>'
     }
   } catch (error) {
     console.error('Error refreshing database stats:', error)
@@ -1242,6 +1040,17 @@ function formatTime(seconds) {
   return `${Math.floor(seconds / 3600)}h${Math.floor((seconds % 3600) / 60)}m`
 }
 
+function formatRelativeTime(timestamp) {
+  const now = Date.now()
+  const diff = now - timestamp
+  const seconds = Math.floor(diff / 1000)
+
+  if (seconds < 60) return 'Just now'
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`
+  return `${Math.floor(seconds / 86400)} days ago`
+}
+
 function getStatusText(status) {
   const statusMap = {
     'downloading': 'Downloading',
@@ -1251,36 +1060,6 @@ function getStatusText(status) {
     'cancelled': 'Cancelled'
   }
   return statusMap[status] || status
-}
-
-// Page load initialization
-document.addEventListener('DOMContentLoaded', () => {
-  if (!messageManager.container) {
-    messageManager.createMessageContainer()
-  }
-
-  console.log('Message system initialized')
-
-  // Initialize i18n
-  initializeI18n()
-})
-
-// Initialize internationalization
-async function initializeI18n() {
-  try {
-    // Get language setting from electron
-    const settings = await window.electronAPI.getSettings()
-    const language = settings.language || 'en'
-
-    // Set language
-    window.i18n.setLanguage(language)
-
-    console.log('I18n initialized with language:', language)
-  } catch (error) {
-    console.error('Error initializing i18n:', error)
-    // Default to English if error
-    window.i18n.setLanguage('en')
-  }
 }
 
 // Switch between main and settings interface
@@ -1295,18 +1074,8 @@ function showSettings() {
 function goBackToMain() {
   // Check for unsaved changes
   if (typeof hasUnsavedChanges !== 'undefined' && hasUnsavedChanges) {
-    if (typeof showConfirmDialog === 'function') {
-      showConfirmDialog(
-        window.i18n.t('confirm.unsavedChanges'),
-        window.i18n.t('confirm.unsavedChanges'),
-        () => {
-          hideSettings()
-        }
-      )
-    } else {
-      if (confirm(window.i18n.t('confirm.unsavedChanges'))) {
-        hideSettings()
-      }
+    if (confirm('You have unsaved changes. Are you sure you want to close without saving?')) {
+      hideSettings()
     }
   } else {
     hideSettings()
@@ -1332,30 +1101,12 @@ async function loadSettingsContent() {
     const html = await fetch('settings.html').then(res => res.text())
     settingsContent.innerHTML = html
 
-    // Update i18n after loading content
-    window.i18n.updatePageText()
-
     // Setup settings functionality
     setupSettingsNavigation()
     await loadSettings()
   } catch (error) {
     console.error('Error loading settings content:', error)
     settingsContent.innerHTML = '<p>Failed to load settings</p>'
-  }
-}
-
-// Handle language change
-function handleLanguageChange(language) {
-  window.i18n.setLanguage(language)
-
-  // Update all text immediately
-  setTimeout(() => {
-    window.i18n.updatePageText()
-  }, 100)
-
-  // Mark as unsaved change
-  if (typeof markUnsaved === 'function') {
-    markUnsaved()
   }
 }
 
@@ -1407,9 +1158,6 @@ function populateSettingsForm(settings) {
 
   const theme = document.getElementById('theme')
   if (theme) theme.value = settings.theme || 'system'
-
-  const language = document.getElementById('language')
-  if (language) language.value = settings.language || 'en'
 }
 
 function setupSettingsNavigation() {
@@ -1421,14 +1169,14 @@ function setupSettingsNavigation() {
   console.log('Found nav items:', navItems.length)
   console.log('Found panels:', panels.length)
 
-  // 移除旧的事件监听器并重新绑定
+  // Remove old event listeners and rebind
   navItems.forEach((item, index) => {
-    // 克隆节点以移除旧的事件监听器
+    // Clone node to remove old event listeners
     const newItem = item.cloneNode(true)
     item.parentNode.replaceChild(newItem, item)
   })
 
-  // 重新获取导航项
+  // Re-query navigation items
   const newNavItems = document.querySelectorAll('#settingsInterface .nav-item')
 
   newNavItems.forEach((item) => {
@@ -1441,11 +1189,11 @@ function setupSettingsNavigation() {
         return
       }
 
-      // 更新导航状态
+      // Update navigation state
       newNavItems.forEach(nav => nav.classList.remove('active'))
       item.classList.add('active')
 
-      // 更新面板显示
+      // Update panel display
       panels.forEach(panel => panel.classList.remove('active'))
       const targetPanel = document.getElementById(`${category}-panel`)
       if (targetPanel) {
@@ -1457,22 +1205,22 @@ function setupSettingsNavigation() {
     })
   })
 
-  // 设置表单事件监听器
+  // Setup form event listeners
   setupFormEventListeners()
 }
 
-// 设置表单事件监听器
+// Setup form event listeners
 function setupFormEventListeners() {
   console.log('Setting up form event listeners...')
 
-  // Range输入
+  // Range inputs
   const rangeInputs = document.querySelectorAll('#settingsInterface input[type="range"]')
   rangeInputs.forEach(input => {
     input.addEventListener('input', updateRangeValue)
     input.addEventListener('change', markUnsaved)
   })
 
-  // 其他输入
+  // Other inputs
   const inputs = document.querySelectorAll('#settingsInterface input, #settingsInterface select')
   inputs.forEach(input => {
     if (input.type !== 'range') {
@@ -1480,18 +1228,18 @@ function setupFormEventListeners() {
     }
   })
 
-  // 更新所有range值显示
+  // Update all range value displays
   updateAllRangeValues()
 }
 
-// 更新range值显示
+// Update range value display
 function updateRangeValue(event) {
   const input = event.target
   const valueSpan = input.parentNode.querySelector('.range-value')
   if (valueSpan) {
     let value = input.value
 
-    // 格式化特定值
+    // Format specific values
     if (input.id === 'connectionTimeout') {
       value = `${value}s`
     } else if (input.id === 'memoryLimit' || input.id === 'diskCacheSize') {
@@ -1505,7 +1253,7 @@ function updateRangeValue(event) {
   markUnsaved()
 }
 
-// 更新所有range值
+// Update all range values
 function updateAllRangeValues() {
   const rangeInputs = document.querySelectorAll('#settingsInterface input[type="range"]')
   rangeInputs.forEach(input => {
@@ -1513,14 +1261,14 @@ function updateAllRangeValues() {
   })
 }
 
-// 标记为未保存
+// Mark as unsaved
 function markUnsaved() {
   hasUnsavedChanges = true
   window.hasUnsavedChanges = true
 
   const saveButton = document.querySelector('#settingsInterface .btn-primary')
   if (saveButton && !saveButton.textContent.includes('*')) {
-    saveButton.textContent = (window.i18n ? window.i18n.t('settings.saveChanges') : 'Save Changes') + ' *'
+    saveButton.textContent = 'Save Changes *'
   }
 }
 
@@ -1534,40 +1282,28 @@ async function saveAllSettings() {
     const result = await window.electronAPI.saveSettings(settings)
     console.log('Save result:', result)
 
-    // 检查保存结果 - 修复重复消息问题
+    // Check save result - fix duplicate message issue
     if (result && result.success === false) {
       throw new Error(result.error || 'Settings save failed')
     }
 
-    // 保存成功
+    // Save successful
     hasUnsavedChanges = false
     window.hasUnsavedChanges = false
 
     const saveButton = document.querySelector('#settingsInterface .btn-primary')
     if (saveButton) {
-      saveButton.textContent = window.i18n ? window.i18n.t('settings.saveChanges') : 'Save Changes'
+      saveButton.textContent = 'Save Changes'
     }
 
-    showMessage(window.i18n ? window.i18n.t('message.settingsSaved') : 'Settings saved successfully', 'success')
-
-    // 应用语言更改
-    if (settings.language !== currentSettings.language) {
-      if (window.i18n) {
-        window.i18n.setLanguage(settings.language)
-      }
-    }
+    showMessage('Settings saved successfully', 'success')
 
     currentSettings = settings
     console.log('Settings saved successfully')
 
   } catch (error) {
     console.error('Error saving settings:', error)
-    showMessage(
-      window.i18n ?
-        window.i18n.t('message.settingsFailed') :
-        `Failed to save settings: ${error.message}`,
-      'error'
-    )
+    showMessage(`Failed to save settings: ${error.message}`, 'error')
   }
 }
 
@@ -1583,14 +1319,11 @@ function collectSettingsFromForm() {
     autoStartNode: document.getElementById('autoStartNode')?.checked !== false,
     showNotifications: document.getElementById('showNotifications')?.checked !== false,
     theme: document.getElementById('theme')?.value || 'system',
-    language: document.getElementById('language')?.value || 'en'
   }
 }
 
 async function resetAllSettings() {
-  const confirmMessage = window.i18n ?
-    window.i18n.t('confirm.resetSettings') :
-    'This will reset all settings to their default values. This action cannot be undone.'
+  const confirmMessage = 'This will reset all settings to their default values. This action cannot be undone.'
 
   if (confirm(confirmMessage)) {
     try {
@@ -1610,10 +1343,10 @@ async function resetAllSettings() {
 
       const saveButton = document.querySelector('#settingsInterface .btn-primary')
       if (saveButton) {
-        saveButton.textContent = window.i18n ? window.i18n.t('settings.saveChanges') : 'Save Changes'
+        saveButton.textContent = 'Save Changes'
       }
 
-      showMessage(window.i18n ? window.i18n.t('message.settingsReset') : 'All settings reset to defaults', 'success')
+      showMessage('All settings reset to defaults', 'success')
 
     } catch (error) {
       console.error('Error resetting settings:', error)
@@ -1632,7 +1365,7 @@ async function selectDownloadPath() {
         hasUnsavedChanges = true
         const saveButton = document.querySelector('#settingsInterface .btn-primary')
         if (saveButton && !saveButton.textContent.includes('*')) {
-          saveButton.textContent = window.i18n ? window.i18n.t('settings.saveChanges') + ' *' : 'Save Changes *'
+          saveButton.textContent = 'Save Changes *'
         }
       }
     }
@@ -1662,56 +1395,11 @@ async function openSettings() {
     console.log('Settings interface shown')
   } catch (error) {
     console.error('Error opening settings:', error)
-    showMessage(window.i18n ? window.i18n.t('message.settingsFailed') : 'Failed to open settings', 'error')
+    showMessage('Failed to open settings', 'error')
   }
 }
 
-// 确保函数全局可用
-window.handleLanguageChange = handleLanguageChange
+// Make functions globally available
 window.updateRangeValue = updateRangeValue
 window.updateAllRangeValues = updateAllRangeValues
 window.markUnsaved = markUnsaved
-
-const additionalTranslations = {
-  en: {
-    'message.nodeStarting': 'Node is auto-starting, please wait',
-    'message.nodeAlreadyStarted': 'Node already started',
-    'message.copyingLocal': 'Copying local file: {fileName}',
-    'message.localCopySuccess': 'Local file copy successful: {fileName}',
-    'message.localCopyFailed': 'Local copy failed, trying network download: {fileName}',
-    'message.searchingFile': 'Looking for file: {fileName}',
-    'message.exportCancelled': 'Export cancelled',
-    'message.importCancelled': 'Import cancelled',
-    'error.cleanupFailed': 'Database cleanup failed: {error}',
-    'error.exportFailed': 'Export failed: {error}',
-    'error.importFailed': 'Import failed: {error}'
-  },
-  zh: {
-    'message.nodeStarting': '节点正在自动启动，请稍候',
-    'message.nodeAlreadyStarted': '节点已经启动',
-    'message.copyingLocal': '正在复制本地文件: {fileName}',
-    'message.localCopySuccess': '本地文件复制成功: {fileName}',
-    'message.localCopyFailed': '本地复制失败，尝试网络下载: {fileName}',
-    'message.searchingFile': '正在查找文件: {fileName}',
-    'message.exportCancelled': '导出已取消',
-    'message.importCancelled': '导入已取消',
-    'error.cleanupFailed': '数据库清理失败: {error}',
-    'error.exportFailed': '导出失败: {error}',
-    'error.importFailed': '导入失败: {error}'
-  }
-}
-
-// Add additional translations when i18n is available
-if (window.i18n) {
-  Object.keys(additionalTranslations).forEach(lang => {
-    window.i18n.addTranslations(lang, additionalTranslations[lang])
-  })
-}
-
-// Export enhanced functions for global use
-window.showLocalizedMessage = showLocalizedMessage
-window.showLocalizedSuccess = showLocalizedSuccess
-window.showLocalizedError = showLocalizedError
-window.showLocalizedWarning = showLocalizedWarning
-window.updateAllDynamicContent = updateAllDynamicContent
-window.getLocalizedStatusText = getLocalizedStatusText
