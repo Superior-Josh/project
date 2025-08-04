@@ -47,7 +47,7 @@ export class FileManager {
       this.p2pNode.node.handle(PROTOCOL_ID, ({ stream, connection }) => {
         this.handleIncomingFileRequest(stream, connection)
       })
-      // console.log('File transfer protocol registered')
+      console.log('File transfer protocol registered')
     } catch (error) {
       console.error('Error registering protocol handler:', error)
     }

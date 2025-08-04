@@ -55,7 +55,7 @@ export class SettingsManager {
       await fs.mkdir(this.settingsDir, { recursive: true })
       await this.loadSettings()
       this.initialized = true
-      // console.log('Settings manager initialized')
+      console.log('Settings manager initialized')
       
       // Setup auto-save
       this.setupAutoSave()
@@ -76,7 +76,7 @@ export class SettingsManager {
         ...loadedSettings
       }))
       
-      // console.log('Settings loaded successfully')
+      console.log('Settings loaded successfully')
     } catch (error) {
       // File doesn't exist or invalid, use defaults
       this.settings = new Map(Object.entries(this.defaultSettings))

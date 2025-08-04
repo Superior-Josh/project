@@ -15,7 +15,7 @@ export class DHTManager {
     }
 
     this.dht = this.p2pNode.node.services.dht
-    // console.log('DHT Manager initialized')
+    console.log('DHT Manager initialized')
   }
 
   // 将文件信息发布到DHT

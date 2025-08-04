@@ -35,7 +35,7 @@ export class DatabaseManager {
       this.setupAutoSave()
       
       this.initialized = true
-      // console.log('Database manager initialized')
+      console.log('Database manager initialized')
     } catch (error) {
       console.error('Error initializing database:', error)
       throw error

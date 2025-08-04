@@ -198,7 +198,7 @@ async function gracefulShutdown() {
 // Auto-start P2P node
 async function autoStartP2PNode(window) {
   try {
-    // console.log('Auto-starting P2P node...')
+    console.log('Auto-starting P2P node...')
 
     if (!p2pNode) {
       // Get download path from settings
@@ -283,7 +283,7 @@ app.whenReady().then(async () => {
       }
     }
 
-    // console.log('P2P modules loaded successfully')
+    console.log('P2P modules loaded successfully')
 
     // Create main window
     await createWindow()
