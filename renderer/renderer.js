@@ -1,4 +1,64 @@
-// renderer.js
+// 主题管理器
+class ThemeManager {
+  constructor() {
+    this.currentTheme = 'system' // 默认系统主题
+    this.init()
+  }
+
+  init() {
+    // 从设置中加载主题
+    this.loadThemeFromSettings()
+    
+    // 监听系统主题变化
+    if (window.matchMedia) {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        if (this.currentTheme === 'system') {
+          this.applyTheme('system')
+        }
+      })
+    }
+  }
+
+  async loadThemeFromSettings() {
+    try {
+      if (window.electronAPI && window.electronAPI.getSettings) {
+        const settings = await window.electronAPI.getSettings()
+        const theme = settings.theme || 'system'
+        this.setTheme(theme)
+      }
+    } catch (error) {
+      console.log('Could not load theme from settings, using default:', error.message)
+      this.setTheme('system')
+    }
+  }
+
+  setTheme(theme) {
+    this.currentTheme = theme
+    this.applyTheme(theme)
+  }
+
+  applyTheme(theme) {
+    const html = document.documentElement
+    const body = document.body
+    
+    // 移除所有主题类
+    html.removeAttribute('data-theme')
+    body.classList.remove('theme-light', 'theme-dark', 'theme-system')
+    
+    // 应用新主题
+    html.setAttribute('data-theme', theme)
+    body.classList.add(`theme-${theme}`)
+    
+    console.log(`Theme applied: ${theme}`)
+  }
+
+  getTheme() {
+    return this.currentTheme
+  }
+}
+
+// 创建全局主题管理器实例
+const themeManager = new ThemeManager()
 
 // Message Manager for UI notifications
 class MessageManager {
@@ -362,15 +422,11 @@ window.electronAPI.onP2PNodeStatusChanged((result) => {
 // Open settings
 async function openSettings() {
   try {
-    const result = await window.electronAPI.openSettings()
-    if (result.success) {
-      console.log('Settings window opened')
-    } else {
-      showMessage(`Failed to open settings: ${result.error}`, 'error')
-    }
+    showSettings()
+    console.log('Settings interface shown')
   } catch (error) {
     console.error('Error opening settings:', error)
-    showMessage(`Error opening settings: ${error.message}`, 'error')
+    showMessage('Failed to open settings', 'error')
   }
 }
 
@@ -1072,14 +1128,7 @@ function showSettings() {
 }
 
 function goBackToMain() {
-  // Check for unsaved changes
-  if (typeof hasUnsavedChanges !== 'undefined' && hasUnsavedChanges) {
-    if (confirm('You have unsaved changes. Are you sure you want to close without saving?')) {
-      hideSettings()
-    }
-  } else {
-    hideSettings()
-  }
+  hideSettings()
 }
 
 function hideSettings() {
@@ -1120,6 +1169,11 @@ async function loadSettings() {
     const settings = await window.electronAPI.getSettings()
     currentSettings = settings
     populateSettingsForm(settings)
+    
+    // 应用主题设置
+    if (settings.theme) {
+      themeManager.setTheme(settings.theme)
+    }
   } catch (error) {
     console.error('Error loading settings:', error)
     showMessage('Failed to load settings', 'error')
@@ -1147,14 +1201,8 @@ function populateSettingsForm(settings) {
   const windowBehavior = document.getElementById('windowBehavior')
   if (windowBehavior) windowBehavior.value = settings.windowBehavior || 'close'
 
-  const startMinimized = document.getElementById('startMinimized')
-  if (startMinimized) startMinimized.checked = settings.startMinimized || false
-
   const autoStartNode = document.getElementById('autoStartNode')
   if (autoStartNode) autoStartNode.checked = settings.autoStartNode !== false
-
-  const showNotifications = document.getElementById('showNotifications')
-  if (showNotifications) showNotifications.checked = settings.showNotifications !== false
 
   const theme = document.getElementById('theme')
   if (theme) theme.value = settings.theme || 'system'
@@ -1224,7 +1272,14 @@ function setupFormEventListeners() {
   const inputs = document.querySelectorAll('#settingsInterface input, #settingsInterface select')
   inputs.forEach(input => {
     if (input.type !== 'range') {
-      input.addEventListener('change', markUnsaved)
+      input.addEventListener('change', (e) => {
+        markUnsaved()
+        
+        // 如果是主题设置，立即应用
+        if (input.id === 'theme') {
+          themeManager.setTheme(input.value)
+        }
+      })
     }
   })
 
@@ -1265,11 +1320,6 @@ function updateAllRangeValues() {
 function markUnsaved() {
   hasUnsavedChanges = true
   window.hasUnsavedChanges = true
-
-  const saveButton = document.querySelector('#settingsInterface .btn-primary')
-  if (saveButton && !saveButton.textContent.includes('*')) {
-    saveButton.textContent = 'Save Changes *'
-  }
 }
 
 async function saveAllSettings() {
@@ -1291,11 +1341,6 @@ async function saveAllSettings() {
     hasUnsavedChanges = false
     window.hasUnsavedChanges = false
 
-    const saveButton = document.querySelector('#settingsInterface .btn-primary')
-    if (saveButton) {
-      saveButton.textContent = 'Save Changes'
-    }
-
     showMessage('Settings saved successfully', 'success')
 
     currentSettings = settings
@@ -1315,9 +1360,7 @@ function collectSettingsFromForm() {
     chunkSize: parseInt(document.getElementById('chunkSize')?.value) || 262144,
     enableResumeDownload: document.getElementById('enableResumeDownload')?.checked !== false,
     windowBehavior: document.getElementById('windowBehavior')?.value || 'close',
-    startMinimized: document.getElementById('startMinimized')?.checked || false,
     autoStartNode: document.getElementById('autoStartNode')?.checked !== false,
-    showNotifications: document.getElementById('showNotifications')?.checked !== false,
     theme: document.getElementById('theme')?.value || 'system',
   }
 }
@@ -1341,11 +1384,6 @@ async function resetAllSettings() {
       hasUnsavedChanges = false
       window.hasUnsavedChanges = false
 
-      const saveButton = document.querySelector('#settingsInterface .btn-primary')
-      if (saveButton) {
-        saveButton.textContent = 'Save Changes'
-      }
-
       showMessage('All settings reset to defaults', 'success')
 
     } catch (error) {
@@ -1363,10 +1401,6 @@ async function selectDownloadPath() {
       if (downloadPath) {
         downloadPath.value = result.filePaths[0]
         hasUnsavedChanges = true
-        const saveButton = document.querySelector('#settingsInterface .btn-primary')
-        if (saveButton && !saveButton.textContent.includes('*')) {
-          saveButton.textContent = 'Save Changes *'
-        }
       }
     }
   } catch (error) {
@@ -1388,18 +1422,10 @@ window.resetAllSettings = resetAllSettings
 window.selectDownloadPath = selectDownloadPath
 window.hasUnsavedChanges = false
 
-// Open settings - modified to show in same window
-async function openSettings() {
-  try {
-    showSettings()
-    console.log('Settings interface shown')
-  } catch (error) {
-    console.error('Error opening settings:', error)
-    showMessage('Failed to open settings', 'error')
-  }
-}
-
 // Make functions globally available
 window.updateRangeValue = updateRangeValue
 window.updateAllRangeValues = updateAllRangeValues
 window.markUnsaved = markUnsaved
+
+// 导出主题管理器供全局使用
+window.themeManager = themeManager

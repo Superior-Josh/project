@@ -44,24 +44,11 @@ async function createWindow() {
   // Handle window close based on settings
   mainWindow.on('close', (event) => {
     const windowBehavior = settingsManager ? settingsManager.get('windowBehavior', 'close') : 'close'
-    
-    if (windowBehavior === 'minimize') {
-      event.preventDefault()
-      mainWindow.minimize()
-    } else if (windowBehavior === 'hide') {
+
+    if (windowBehavior === 'hide') {
       event.preventDefault()
       mainWindow.hide()
-      
-      // Show tray notification on first hide
-      if (tray && settingsManager?.get('showNotifications', true)) {
-        tray.displayBalloon({
-          iconType: 'info',
-          title: 'P2P File Sharing',
-          content: 'Application minimized to system tray'
-        })
-      }
     }
-    // If 'close', let the default behavior happen
   })
 
   mainWindow.webContents.once('did-finish-load', () => {
@@ -126,10 +113,10 @@ async function createSettingsWindow() {
 // Create system tray
 function createTray() {
   const iconPath = path.join(__dirname, 'assets', 'tray-icon.png') // You'll need to add this icon
-  
+
   try {
     tray = new Tray(iconPath)
-    
+
     const contextMenu = Menu.buildFromTemplate([
       {
         label: 'Show Application',
@@ -155,10 +142,10 @@ function createTray() {
         }
       }
     ])
-    
+
     tray.setToolTip('P2P File Sharing')
     tray.setContextMenu(contextMenu)
-    
+
     // Double click to show window
     tray.on('double-click', () => {
       if (mainWindow) {
@@ -174,7 +161,7 @@ function createTray() {
 // Graceful shutdown
 async function gracefulShutdown() {
   console.log('Starting graceful shutdown...')
-  
+
   // Stop P2P node
   if (p2pNode) {
     try {
@@ -211,12 +198,12 @@ async function gracefulShutdown() {
 // Auto-start P2P node
 async function autoStartP2PNode(window) {
   try {
-    console.log('Auto-starting P2P node...')
+    // console.log('Auto-starting P2P node...')
 
     if (!p2pNode) {
       // Get download path from settings
       const downloadPath = settingsManager ? settingsManager.get('downloadPath') : './downloads'
-      
+
       p2pNode = new P2PNode()
       dhtManager = new DHTManager(p2pNode)
 
@@ -253,16 +240,6 @@ async function autoStartP2PNode(window) {
         nodeInfo
       })
     }
-
-    // Show notification if enabled
-    if (settingsManager?.get('showNotifications', true) && tray) {
-      tray.displayBalloon({
-        iconType: 'info',
-        title: 'P2P File Sharing',
-        content: 'P2P node started successfully'
-      })
-    }
-
     console.log('P2P node auto-started successfully')
   } catch (error) {
     console.error('Failed to auto-start P2P node:', error)
@@ -306,7 +283,7 @@ app.whenReady().then(async () => {
       }
     }
 
-    console.log('P2P modules loaded successfully')
+    // console.log('P2P modules loaded successfully')
 
     // Create main window
     await createWindow()
@@ -330,7 +307,7 @@ app.whenReady().then(async () => {
 
 app.on('window-all-closed', async () => {
   const windowBehavior = settingsManager ? settingsManager.get('windowBehavior', 'close') : 'close'
-  
+
   // If set to hide to tray, don't quit the app
   if (windowBehavior === 'hide' && tray) {
     return
@@ -407,12 +384,12 @@ ipcMain.handle('save-settings', async (event, settings) => {
     if (!settingsManager) {
       throw new Error('Settings manager not initialized')
     }
-    
+
     await settingsManager.setMultiple(settings)
-    
+
     // Apply certain settings immediately
     applySettings(settings)
-    
+
     return { success: true }
   } catch (error) {
     console.error('Error saving settings:', error)
@@ -425,7 +402,7 @@ ipcMain.handle('reset-settings', async () => {
     if (!settingsManager) {
       throw new Error('Settings manager not initialized')
     }
-    
+
     await settingsManager.resetToDefaults()
     return { success: true }
   } catch (error) {
@@ -440,7 +417,7 @@ ipcMain.handle('select-folder', async (event, title = 'Select Folder') => {
       title,
       properties: ['openDirectory']
     })
-    
+
     return {
       success: true,
       cancelled: result.canceled,
@@ -457,7 +434,7 @@ ipcMain.handle('create-settings-backup', async () => {
     if (!settingsManager) {
       throw new Error('Settings manager not initialized')
     }
-    
+
     const backupPath = await settingsManager.createBackup()
     return { success: true, backupPath }
   } catch (error) {
@@ -471,7 +448,7 @@ ipcMain.handle('get-available-backups', async () => {
     if (!settingsManager) {
       throw new Error('Settings manager not initialized')
     }
-    
+
     return await settingsManager.getAvailableBackups()
   } catch (error) {
     console.error('Error getting available backups:', error)
@@ -484,7 +461,7 @@ ipcMain.handle('restore-settings-backup', async (event, backupPath) => {
     if (!settingsManager) {
       throw new Error('Settings manager not initialized')
     }
-    
+
     await settingsManager.restoreFromBackup(backupPath)
     return { success: true }
   } catch (error) {
@@ -509,7 +486,7 @@ ipcMain.handle('export-settings', async () => {
     if (!settingsManager) {
       throw new Error('Settings manager not initialized')
     }
-    
+
     const result = await dialog.showSaveDialog(mainWindow, {
       title: 'Export Settings',
       defaultPath: `p2p-settings-${new Date().toISOString().split('T')[0]}.json`,
@@ -518,7 +495,7 @@ ipcMain.handle('export-settings', async () => {
         { name: 'All Files', extensions: ['*'] }
       ]
     })
-    
+
     if (!result.canceled) {
       await settingsManager.exportSettings(result.filePath)
       return { success: true, cancelled: false, filePath: result.filePath }
@@ -536,7 +513,7 @@ ipcMain.handle('import-settings', async () => {
     if (!settingsManager) {
       throw new Error('Settings manager not initialized')
     }
-    
+
     const result = await dialog.showOpenDialog(mainWindow, {
       title: 'Import Settings',
       filters: [
@@ -545,7 +522,7 @@ ipcMain.handle('import-settings', async () => {
       ],
       properties: ['openFile']
     })
-    
+
     if (!result.canceled && result.filePaths.length > 0) {
       await settingsManager.importSettings(result.filePaths[0])
       return { success: true, cancelled: false, filePath: result.filePaths[0] }
@@ -565,18 +542,18 @@ function applySettings(settings) {
     if (settings.downloadPath && fileManager) {
       fileManager.downloadDir = settings.downloadPath
     }
-    
+
     // Update chunk size for chunk manager
     if (settings.chunkSize && chunkManager) {
       chunkManager.defaultChunkSize = settings.chunkSize
     }
-    
+
     // Update max connections for P2P node
     if (settings.maxConnections && p2pNode) {
       // This would require P2P node to support dynamic reconfiguration
       console.log('Max connections setting updated:', settings.maxConnections)
     }
-    
+
     // Create or destroy tray based on window behavior
     if (settings.windowBehavior === 'hide' && !tray) {
       createTray()
@@ -584,7 +561,6 @@ function applySettings(settings) {
       tray.destroy()
       tray = null
     }
-    
     console.log('Settings applied successfully')
   } catch (error) {
     console.error('Error applying settings:', error)
@@ -937,28 +913,28 @@ ipcMain.handle('download-file', async (event, fileHash, fileName) => {
     if (!fileManager) {
       throw new Error('File manager not initialized')
     }
-    
+
     if (!dhtManager) {
       throw new Error('DHT manager not initialized')
     }
-    
+
     console.log(`Starting download process`)
     console.log(`File name: ${fileName}`)
     console.log(`File hash: ${fileHash}`)
-    
+
     // Check local file status using database instead of DHT local index
     console.log('Checking local file status...')
-    
+
     let isLocalFile = false
     let sourceFilePath = null
-    
+
     if (databaseManager) {
       const dbFileInfo = await databaseManager.getFileInfo(fileHash)
       console.log('Database file info:', dbFileInfo)
-      
+
       if (dbFileInfo && dbFileInfo.localPath) {
         console.log('Found local file path in database:', dbFileInfo.localPath)
-        
+
         try {
           const fs = await import('fs/promises')
           await fs.access(dbFileInfo.localPath)
@@ -970,39 +946,39 @@ ipcMain.handle('download-file', async (event, fileHash, fileName) => {
         }
       }
     }
-    
+
     // Check DHT local index as backup
     if (!isLocalFile) {
       const dhtLocalFiles = dhtManager.getLocalFiles()
       console.log('DHT local files count:', dhtLocalFiles.length)
-      
+
       const dhtLocalFile = dhtLocalFiles.find(file => file.hash === fileHash)
       if (dhtLocalFile) {
         console.log('Found file in DHT local index')
         isLocalFile = true
       }
     }
-    
+
     // Scan known directories for file (last resort)
     if (!isLocalFile || !sourceFilePath) {
       console.log('Trying to find file in known directories...')
-      
+
       const possiblePaths = [
         `./shared/${fileName}`,
         `./uploads/${fileName}`,
         `./files/${fileName}`,
         `./${fileName}`
       ]
-      
+
       for (const possiblePath of possiblePaths) {
         try {
           const fs = await import('fs/promises')
           await fs.access(possiblePath)
-          
+
           const { createHash } = await import('crypto')
           const fileData = await fs.readFile(possiblePath)
           const calculatedHash = createHash('sha256').update(fileData).digest('hex')
-          
+
           if (calculatedHash === fileHash) {
             console.log(`Found matching file at ${possiblePath}`)
             isLocalFile = true
@@ -1014,24 +990,24 @@ ipcMain.handle('download-file', async (event, fileHash, fileName) => {
         }
       }
     }
-    
+
     // If local file, copy directly
     if (isLocalFile && sourceFilePath) {
       console.log('Performing local file copy...')
-      
+
       try {
         const fs = await import('fs/promises')
         const path = await import('path')
-        
+
         const downloadDir = './downloads'
         await fs.mkdir(downloadDir, { recursive: true })
-        
+
         const downloadPath = path.join(downloadDir, fileName)
-        
+
         await fs.copyFile(sourceFilePath, downloadPath)
-        
+
         console.log(`Local file copy successful: ${downloadPath}`)
-        
+
         if (databaseManager) {
           await databaseManager.saveTransferRecord(`local-copy-${fileHash}-${Date.now()}`, {
             type: 'local_copy',
@@ -1042,7 +1018,7 @@ ipcMain.handle('download-file', async (event, fileHash, fileName) => {
             sourcePath: sourceFilePath,
             downloadPath: downloadPath
           })
-          
+
           await databaseManager.saveFileInfo(fileHash, {
             name: fileName,
             hash: fileHash,
@@ -1051,24 +1027,24 @@ ipcMain.handle('download-file', async (event, fileHash, fileName) => {
             downloadedAt: Date.now()
           })
         }
-        
+
         return {
           success: true,
           message: 'Local file copy successful',
           filePath: downloadPath,
           source: 'local'
         }
-        
+
       } catch (copyError) {
         console.error('Local file copy failed:', copyError.message)
         throw new Error(`Local file copy failed: ${copyError.message}`)
       }
     }
-    
+
     // Check network connection status
     const dhtStats = await dhtManager.getDHTStats()
     console.log('DHT status:', JSON.stringify(dhtStats, null, 2))
-    
+
     if (dhtStats.connectedPeers === 0) {
       throw new Error(`Cannot download file: No other nodes connected, and file not found locally.
 
@@ -1082,23 +1058,23 @@ Suggestions:
 2. Wait for connection to other nodes
 3. Contact file sharer to confirm file availability`)
     }
-    
+
     // Try network download
     console.log('Attempting network download...')
-    
+
     let fileInfo = null
     try {
       fileInfo = await dhtManager.findFile(fileHash)
       console.log('DHT file info search result:', fileInfo)
     } catch (dhtError) {
       console.error('DHT file search failed:', dhtError.message)
-      
+
       if (databaseManager) {
         fileInfo = await databaseManager.getFileInfo(fileHash)
         console.log('Local database file info:', fileInfo)
       }
     }
-    
+
     if (!fileInfo) {
       fileInfo = {
         name: fileName,
@@ -1108,7 +1084,7 @@ Suggestions:
       }
       console.log('Using default file info')
     }
-    
+
     // Find providers
     let providers = []
     try {
@@ -1116,13 +1092,13 @@ Suggestions:
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => reject(new Error('Provider search timeout')), 5000)
       })
-      
+
       providers = await Promise.race([providerPromise, timeoutPromise])
       console.log(`Found ${providers.length} providers`)
     } catch (providerError) {
       console.error('Provider search failed:', providerError.message)
     }
-    
+
     if (providers.length === 0) {
       throw new Error(`Cannot find providers for file "${fileName}".
 
@@ -1134,11 +1110,11 @@ Possible causes:
 
 Suggestion: Please try again later, or contact file sharer to confirm their node is online.`)
     }
-    
+
     // Start network download
     console.log(`Starting download from ${providers.length} providers...`)
     const result = await fileManager.downloadFile(fileHash, fileName)
-    
+
     if (result.success) {
       if (databaseManager) {
         await databaseManager.saveFileInfo(fileHash, {
@@ -1147,7 +1123,7 @@ Suggestion: Please try again later, or contact file sharer to confirm their node
           downloadedAt: Date.now(),
           localPath: result.filePath
         })
-        
+
         await databaseManager.saveTransferRecord(`download-${fileHash}-${Date.now()}`, {
           type: 'network_download',
           fileHash,
@@ -1156,7 +1132,7 @@ Suggestion: Please try again later, or contact file sharer to confirm their node
           completedAt: Date.now()
         })
       }
-      
+
       console.log(`Network download completed: ${result.filePath}`)
       return {
         success: true,
@@ -1167,12 +1143,12 @@ Suggestion: Please try again later, or contact file sharer to confirm their node
     } else {
       throw new Error(result.error)
     }
-    
+
   } catch (error) {
     console.error('Download failed')
     console.error('Error details:', error.message)
     console.error('Error stack:', error.stack)
-    
+
     return {
       success: false,
       error: error.message

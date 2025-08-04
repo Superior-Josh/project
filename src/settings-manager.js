@@ -11,20 +11,18 @@ export class SettingsManager {
     this.initialized = false
     
     this.defaultSettings = {
+      // Window & UI Settings
+      windowBehavior: 'close', // 'close', 'hide'
+      autoStartNode: true,
+      theme: 'system', // 默认设置为system主题
+
       // File & Download Settings
       downloadPath: path.join(os.homedir(), 'Downloads', 'P2P-Files'),
       autoCreateSubfolders: true,
       maxConcurrentDownloads: 3,
       chunkSize: 256 * 1024, // 256KB
       enableResumeDownload: true,
-      
-      // Window & UI Settings
-      windowBehavior: 'minimize', // 'close', 'minimize', 'hide'
-      startMinimized: false,
-      autoStartNode: true,
-      showNotifications: true,
-      theme: 'system', // 'light', 'dark', 'system'
-      
+
       // Network Settings
       autoConnectToPeers: true,
       maxConnections: 50,
@@ -57,7 +55,7 @@ export class SettingsManager {
       await fs.mkdir(this.settingsDir, { recursive: true })
       await this.loadSettings()
       this.initialized = true
-      console.log('Settings manager initialized')
+      // console.log('Settings manager initialized')
       
       // Setup auto-save
       this.setupAutoSave()
@@ -78,12 +76,12 @@ export class SettingsManager {
         ...loadedSettings
       }))
       
-      console.log('Settings loaded successfully')
+      // console.log('Settings loaded successfully')
     } catch (error) {
       // File doesn't exist or invalid, use defaults
       this.settings = new Map(Object.entries(this.defaultSettings))
       await this.saveSettings()
-      console.log('Created default settings file')
+      console.log('Created default settings file with system theme')
     }
   }
 
@@ -157,8 +155,8 @@ export class SettingsManager {
     switch (key) {
       case 'theme':
         if (newValue !== oldValue) {
-          this.applyThemeSetting(newValue)
           console.log(`Theme changed from '${oldValue}' to '${newValue}'`)
+          // 主题应用逻辑在前端处理
         }
         break
         
@@ -171,26 +169,6 @@ export class SettingsManager {
       default:
         // No special handling needed
         break
-    }
-  }
-
-  // Apply theme setting
-  applyThemeSetting(theme) {
-    if (typeof document !== 'undefined') {
-      const body = document.body
-      
-      // Remove existing theme classes
-      body.classList.remove('theme-light', 'theme-dark', 'theme-system')
-      
-      // Apply new theme class
-      body.classList.add(`theme-${theme}`)
-      
-      // Handle system theme
-      if (theme === 'system') {
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-        body.classList.toggle('theme-system-dark', prefersDark)
-        body.classList.toggle('theme-system-light', !prefersDark)
-      }
     }
   }
 
@@ -230,7 +208,7 @@ export class SettingsManager {
   getSettingsByCategory(category) {
     const categories = {
       download: ['downloadPath', 'autoCreateSubfolders', 'maxConcurrentDownloads', 'chunkSize', 'enableResumeDownload'],
-      window: ['windowBehavior', 'startMinimized', 'autoStartNode', 'showNotifications', 'theme'],
+      window: ['windowBehavior', 'autoStartNode', 'theme'],
       network: ['autoConnectToPeers', 'maxConnections', 'connectionTimeout', 'enableUpnp', 'customBootstrapNodes'],
       privacy: ['enableEncryption', 'shareFileByDefault', 'autoAcceptConnections', 'logLevel'],
       performance: ['memoryLimit', 'diskCacheSize', 'enableFileValidation', 'cleanupTempFiles'],
@@ -253,8 +231,8 @@ export class SettingsManager {
       downloadPath: (val) => typeof val === 'string' && val.length > 0,
       maxConcurrentDownloads: (val) => Number.isInteger(val) && val >= 1 && val <= 10,
       chunkSize: (val) => Number.isInteger(val) && val >= 1024 && val <= 10 * 1024 * 1024,
-      windowBehavior: (val) => ['close', 'minimize', 'hide'].includes(val),
-      theme: (val) => ['light', 'dark', 'system'].includes(val),
+      windowBehavior: (val) => ['close', 'hide'].includes(val),
+      theme: (val) => ['light', 'dark', 'system'].includes(val), // 验证主题值
       maxConnections: (val) => Number.isInteger(val) && val >= 1 && val <= 200,
       connectionTimeout: (val) => Number.isInteger(val) && val >= 5 && val <= 120,
       logLevel: (val) => ['debug', 'info', 'warn', 'error'].includes(val),
@@ -547,24 +525,13 @@ export class SettingsManager {
             description: 'What happens when you close the main window',
             options: [
               { value: 'close', label: 'Exit Application' },
-              { value: 'minimize', label: 'Minimize to Taskbar' },
               { value: 'hide', label: 'Hide to System Tray' }
             ]
-          },
-          startMinimized: {
-            type: 'boolean',
-            title: 'Start Minimized',
-            description: 'Start the application minimized'
           },
           autoStartNode: {
             type: 'boolean',
             title: 'Auto Start P2P Node',
             description: 'Automatically start the P2P node when app launches'
-          },
-          showNotifications: {
-            type: 'boolean',
-            title: 'Show Notifications',
-            description: 'Show desktop notifications for downloads and connections'
           },
           theme: {
             type: 'select',
@@ -747,18 +714,10 @@ export class SettingsManager {
       },
       windowBehavior: {
         type: 'string',
-        enum: ['close', 'minimize', 'hide'],
-        category: 'window'
-      },
-      startMinimized: {
-        type: 'boolean',
+        enum: ['close', 'hide'],
         category: 'window'
       },
       autoStartNode: {
-        type: 'boolean',
-        category: 'window'
-      },
-      showNotifications: {
         type: 'boolean',
         category: 'window'
       },

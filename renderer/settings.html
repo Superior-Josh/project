@@ -1,5 +1,45 @@
+<!-- Window & Interface Settings -->
+<div class="settings-panel active" id="window-panel">
+  <div class="panel-header">
+    <h2>Window & Interface</h2>
+    <p>Customize application appearance and behavior</p>
+  </div>
+  <div class="settings-group">
+    <div class="setting-item">
+      <label for="windowBehavior">When Closing Window</label>
+      <div class="setting-control">
+        <select id="windowBehavior" onchange="markUnsaved()">
+          <option value="close">Exit Application</option>
+          <option value="hide">Hide to System Tray</option>
+        </select>
+      </div>
+      <p class="setting-description">What happens when you close the main window</p>
+    </div>
+
+    <div class="setting-item">
+      <label>
+        <input type="checkbox" id="autoStartNode" onchange="markUnsaved()">
+        <span>Auto Start P2P Node</span>
+      </label>
+      <p class="setting-description">Automatically start the P2P node when app launches</p>
+    </div>
+
+    <div class="setting-item">
+      <label for="theme">Theme</label>
+      <div class="setting-control">
+        <select id="theme" onchange="markUnsaved()">
+          <option value="system">System Default</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </div>
+      <p class="setting-description">Application theme</p>
+    </div>
+  </div>
+</div>
+
 <!-- Download & Files Settings -->
-<div class="settings-panel active" id="download-panel">
+<div class="settings-panel" id="download-panel">
   <div class="panel-header">
     <h2>Download & Files</h2>
     <p>Configure file download and storage settings</p>
@@ -172,63 +212,6 @@
     <h3>Available Backups</h3>
     <div id="backupItems" class="backup-items">
       <!-- Backup items will be populated here -->
-    </div>
-  </div>
-</div>
-
-<!-- Window & Interface Settings -->
-<div class="settings-panel" id="window-panel">
-  <div class="panel-header">
-    <h2>Window & Interface</h2>
-    <p>Customize application appearance and behavior</p>
-  </div>
-  <div class="settings-group">
-    <div class="setting-item">
-      <label for="windowBehavior">When Closing Window</label>
-      <div class="setting-control">
-        <select id="windowBehavior" onchange="markUnsaved()">
-          <option value="close">Exit Application</option>
-          <option value="minimize">Minimize to Taskbar</option>
-          <option value="hide">Hide to System Tray</option>
-        </select>
-      </div>
-      <p class="setting-description">What happens when you close the main window</p>
-    </div>
-
-    <div class="setting-item">
-      <label>
-        <input type="checkbox" id="startMinimized" onchange="markUnsaved()">
-        <span>Start Minimized</span>
-      </label>
-      <p class="setting-description">Start the application minimized</p>
-    </div>
-
-    <div class="setting-item">
-      <label>
-        <input type="checkbox" id="autoStartNode" onchange="markUnsaved()">
-        <span>Auto Start P2P Node</span>
-      </label>
-      <p class="setting-description">Automatically start the P2P node when app launches</p>
-    </div>
-
-    <div class="setting-item">
-      <label>
-        <input type="checkbox" id="showNotifications" onchange="markUnsaved()">
-        <span>Show Notifications</span>
-      </label>
-      <p class="setting-description">Show desktop notifications for downloads and connections</p>
-    </div>
-
-    <div class="setting-item">
-      <label for="theme">Theme</label>
-      <div class="setting-control">
-        <select id="theme" onchange="markUnsaved()">
-          <option value="system">System Default</option>
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
-        </select>
-      </div>
-      <p class="setting-description">Application theme</p>
     </div>
   </div>
 </div>
