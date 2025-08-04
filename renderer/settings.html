@@ -1,22 +1,68 @@
-<!-- Complete Settings HTML with full i18n support -->
 <!-- Download & Files Settings -->
 <div class="settings-panel active" id="download-panel">
   <div class="panel-header">
-    <h2 data-i18n="settings.download">Download & Files</h2>
-    <p data-i18n="settings.download.desc">Configure file download and storage settings</p>
+    <h2>Download & Files</h2>
+    <p>Configure file download and storage settings</p>
+  </div>
+
+  <label for="downloadPath">Download Location</label>
+  <div class="setting-control">
+    <input type="text" id="downloadPath" readonly>
+    <button onclick="selectDownloadPath()">Browse</button>
+  </div>
+  <p class="setting-description">Where downloaded files will be saved</p>
+
+  <div class="setting-item">
+    <label>
+      <input type="checkbox" id="autoCreateSubfolders">
+      <span>Auto Create Subfolders</span>
+    </label>
+    <p class="setting-description">Automatically create subfolders for different file types</p>
+  </div>
+
+  <div class="setting-item">
+    <label for="maxConcurrentDownloads">Max Concurrent Downloads</label>
+    <div class="setting-control">
+      <input type="range" id="maxConcurrentDownloads" min="1" max="10" step="1" oninput="updateRangeValue(event)"
+        onchange="markUnsaved()">
+      <span class="range-value">3</span>
+    </div>
+    <p class="setting-description">Maximum number of files to download simultaneously</p>
+  </div>
+
+  <div class="setting-item">
+    <label for="chunkSize">Chunk Size</label>
+    <div class="setting-control">
+      <select id="chunkSize" onchange="markUnsaved()">
+        <option value="65536">64KB</option>
+        <option value="131072">128KB</option>
+        <option value="262144">256KB</option>
+        <option value="524288">512KB</option>
+        <option value="1048576">1MB</option>
+      </select>
+    </div>
+    <p class="setting-description">Size of file chunks for downloading</p>
+  </div>
+
+  <div class="setting-item">
+    <label>
+      <input type="checkbox" id="enableResumeDownload" onchange="markUnsaved()">
+      <span>Enable Resume Download</span>
+    </label>
+    <p class="setting-description">Allow resuming interrupted downloads</p>
   </div>
   <div class="settings-group">
     <div class="setting-item">
-      <label for="logLevel" data-i18n="settings.logLevel">Log Level</label>
+      <label for="logLevel">Log Level</label>
       <div class="setting-control">
         <select id="logLevel" onchange="markUnsaved()">
-          <option value="error" data-i18n="settings.logLevel.error">Error Only</option>
-          <option value="warn" data-i18n="settings.logLevel.warn">Warnings</option>
-          <option value="info" data-i18n="settings.logLevel.info">Information</option>
-          <option value="debug" data-i18n="settings.logLevel.debug">Debug (Verbose)</option>
+          <option value="error">Error Only</option>
+          <option value="warn">Warnings</option>
+          <option value="info">Information</option>
+          <option value="debug">Debug (Verbose)</option>
         </select>
       </div>
-      <p class="setting-description" data-i18n="settings.logLevel.desc">Application logging level</p>
+      <p class="setting-description">Application logging level</p>
     </div>
   </div>
 </div>
@@ -24,42 +70,44 @@
 <!-- Performance Settings -->
 <div class="settings-panel" id="performance-panel">
   <div class="panel-header">
-    <h2 data-i18n="settings.performance">Performance</h2>
-    <p data-i18n="settings.performance.desc">Optimize application performance</p>
+    <h2>Performance</h2>
+    <p>Optimize application performance</p>
   </div>
   <div class="settings-group">
     <div class="setting-item">
-      <label for="memoryLimit" data-i18n="settings.memoryLimit">Memory Limit (MB)</label>
+      <label for="memoryLimit">Memory Limit (MB)</label>
       <div class="setting-control">
-        <input type="range" id="memoryLimit" min="128" max="4096" step="64" oninput="updateRangeValue(event)" onchange="markUnsaved()">
+        <input type="range" id="memoryLimit" min="128" max="4096" step="64" oninput="updateRangeValue(event)"
+          onchange="markUnsaved()">
         <span class="range-value">512MB</span>
       </div>
-      <p class="setting-description" data-i18n="settings.memoryLimit.desc">Maximum memory usage</p>
+      <p class="setting-description">Maximum memory usage</p>
     </div>
-    
+
     <div class="setting-item">
-      <label for="diskCacheSize" data-i18n="settings.diskCacheSize">Disk Cache Size (MB)</label>
+      <label for="diskCacheSize">Disk Cache Size (MB)</label>
       <div class="setting-control">
-        <input type="range" id="diskCacheSize" min="100" max="10240" step="100" oninput="updateRangeValue(event)" onchange="markUnsaved()">
+        <input type="range" id="diskCacheSize" min="100" max="10240" step="100" oninput="updateRangeValue(event)"
+          onchange="markUnsaved()">
         <span class="range-value">1024MB</span>
       </div>
-      <p class="setting-description" data-i18n="settings.diskCacheSize.desc">Size of disk cache for files</p>
+      <p class="setting-description">Size of disk cache for files</p>
     </div>
-    
+
     <div class="setting-item">
       <label>
         <input type="checkbox" id="enableFileValidation" onchange="markUnsaved()">
-        <span data-i18n="settings.enableFileValidation">Enable File Validation</span>
+        <span>Enable File Validation</span>
       </label>
-      <p class="setting-description" data-i18n="settings.enableFileValidation.desc">Verify file integrity after download</p>
+      <p class="setting-description">Verify file integrity after download</p>
     </div>
-    
+
     <div class="setting-item">
       <label>
         <input type="checkbox" id="cleanupTempFiles" onchange="markUnsaved()">
-        <span data-i18n="settings.cleanupTempFiles">Cleanup Temp Files</span>
+        <span>Cleanup Temp Files</span>
       </label>
-      <p class="setting-description" data-i18n="settings.cleanupTempFiles.desc">Automatically cleanup temporary files</p>
+      <p class="setting-description">Automatically cleanup temporary files</p>
     </div>
   </div>
 </div>
@@ -67,471 +115,63 @@
 <!-- Backup & Import Settings -->
 <div class="settings-panel" id="backup-panel">
   <div class="panel-header">
-    <h2 data-i18n="settings.backup">Backup & Import</h2>
-    <p data-i18n="settings.backup.desc">Manage settings and data backup</p>
+    <h2>Backup & Import</h2>
+    <p>Manage settings and data backup</p>
   </div>
   <div class="settings-group">
     <div class="setting-item">
       <label>
         <input type="checkbox" id="autoBackupSettings" onchange="markUnsaved()">
-        <span data-i18n="settings.autoBackupSettings">Auto Backup Settings</span>
+        <span>Auto Backup Settings</span>
       </label>
-      <p class="setting-description" data-i18n="settings.autoBackupSettings.desc">Automatically backup settings periodically</p>
+      <p class="setting-description">Automatically backup settings periodically</p>
     </div>
-    
+
     <div class="setting-item">
       <label>
         <input type="checkbox" id="autoBackupDatabase" onchange="markUnsaved()">
-        <span data-i18n="settings.autoBackupDatabase">Auto Backup Database</span>
+        <span>Auto Backup Database</span>
       </label>
-      <p class="setting-description" data-i18n="settings.autoBackupDatabase.desc">Automatically backup file database</p>
+      <p class="setting-description">Automatically backup file database</p>
     </div>
-    
+
     <div class="setting-item">
-      <label for="backupInterval" data-i18n="settings.backupInterval">Backup Interval (hours)</label>
+      <label for="backupInterval">Backup Interval (hours)</label>
       <div class="setting-control">
-        <input type="range" id="backupInterval" min="1" max="168" step="1" oninput="updateRangeValue(event)" onchange="markUnsaved()">
+        <input type="range" id="backupInterval" min="1" max="168" step="1" oninput="updateRangeValue(event)"
+          onchange="markUnsaved()">
         <span class="range-value">24 hours</span>
       </div>
-      <p class="setting-description" data-i18n="settings.backupInterval.desc">How often to create automatic backups</p>
+      <p class="setting-description">How often to create automatic backups</p>
     </div>
-    
+
     <div class="setting-item">
-      <label for="maxBackupFiles" data-i18n="settings.maxBackupFiles">Max Backup Files</label>
+      <label for="maxBackupFiles">Max Backup Files</label>
       <div class="setting-control">
-        <input type="range" id="maxBackupFiles" min="1" max="50" step="1" oninput="updateRangeValue(event)" onchange="markUnsaved()">
+        <input type="range" id="maxBackupFiles" min="1" max="50" step="1" oninput="updateRangeValue(event)"
+          onchange="markUnsaved()">
         <span class="range-value">5</span>
       </div>
-      <p class="setting-description" data-i18n="settings.maxBackupFiles.desc">Maximum number of backup files to keep</p>
+      <p class="setting-description">Maximum number of backup files to keep</p>
     </div>
-    
+
     <div class="setting-item backup-actions">
       <div class="backup-buttons">
-        <button class="btn-secondary" onclick="createBackup()" data-i18n="settings.createBackup">Create Backup Now</button>
-        <button class="btn-secondary" onclick="showBackupList()" data-i18n="settings.viewBackups">View Backups</button>
+        <button class="btn-secondary" onclick="createBackup()">Create Backup Now</button>
+        <button class="btn-secondary" onclick="showBackupList()">View Backups</button>
       </div>
       <div class="import-export-buttons">
-        <button class="btn-outline" onclick="exportSettings()" data-i18n="settings.exportSettings">Export Settings</button>
-        <button class="btn-outline" onclick="importSettings()" data-i18n="settings.importSettings">Import Settings</button>
+        <button class="btn-outline" onclick="exportSettings()">Export Settings</button>
+        <button class="btn-outline" onclick="importSettings()">Import Settings</button>
       </div>
     </div>
   </div>
 
   <!-- Backup List -->
   <div id="backupList" class="backup-list" style="display: none;">
-    <h3 data-i18n="settings.availableBackups">Available Backups</h3>
+    <h3>Available Backups</h3>
     <div id="backupItems" class="backup-items">
       <!-- Backup items will be populated here -->
-    </div>
-  </div>
-</div>
-
-<script>
-
-// Enhanced range value update with localization
-function updateRangeValue(event) {
-  const input = event.target
-  const valueSpan = input.parentNode.querySelector('.range-value')
-  if (valueSpan) {
-    let value = input.value
-    
-    // Format specific values with localization
-    if (input.id === 'connectionTimeout') {
-      value = `${value}${window.t ? window.t('time.seconds').charAt(0) : 's'}`
-    } else if (input.id === 'memoryLimit' || input.id === 'diskCacheSize') {
-      value = `${value}MB`
-    } else if (input.id === 'backupInterval') {
-      if (window.t) {
-        const unit = value === '1' ? window.t('time.hours').slice(0, -1) : window.t('time.hours')
-        value = `${value} ${unit}`
-      } else {
-        value = value === '1' ? '1 hour' : `${value} hours`
-      }
-    }
-    
-    valueSpan.textContent = value
-  }
-  
-  if (typeof markUnsaved === 'function') {
-    markUnsaved()
-  }
-}
-
-// Backup management functions with i18n support
-async function createBackup() {
-  try {
-    const result = await window.electronAPI.createSettingsBackup()
-    
-    if (result.success) {
-      const message = window.t ? 
-        window.t('message.backupCreated') : 
-        'Backup created successfully'
-      
-      if (window.showLocalizedSuccess) {
-        window.showLocalizedSuccess('message.backupCreated')
-      } else {
-        alert(message)
-      }
-      
-      // Refresh backup list if it's visible
-      const backupList = document.getElementById('backupList')
-      if (backupList && backupList.style.display !== 'none') {
-        await loadBackupList()
-      }
-    } else {
-      const message = window.t ? 
-        window.t('error.backupFailed', { error: result.error }) : 
-        `Backup failed: ${result.error}`
-      
-      if (window.showLocalizedError) {
-        window.showLocalizedError('error.backupFailed', { error: result.error })
-      } else {
-        alert(message)
-      }
-    }
-  } catch (error) {
-    const message = window.t ? 
-      window.t('error.backupFailed', { error: error.message }) : 
-      `Backup failed: ${error.message}`
-    
-    if (window.showLocalizedError) {
-      window.showLocalizedError('error.backupFailed', { error: error.message })
-    } else {
-      alert(message)
-    }
-  }
-}
-
-async function showBackupList() {
-  const backupList = document.getElementById('backupList')
-  
-  if (backupList.style.display === 'none') {
-    await loadBackupList()
-    backupList.style.display = 'block'
-  } else {
-    backupList.style.display = 'none'
-  }
-}
-
-async function loadBackupList() {
-  try {
-    const backups = await window.electronAPI.getAvailableBackups()
-    const backupItems = document.getElementById('backupItems')
-    
-    if (backups.length === 0) {
-      const noBackupsText = window.t ? window.t('settings.noBackups') : 'No backups available'
-      backupItems.innerHTML = `<p>${noBackupsText}</p>`
-    } else {
-      const backupHtml = backups.map(backup => `
-        <div class="backup-item">
-          <div class="backup-info">
-            <div class="backup-name">${backup.name}</div>
-            <div class="backup-date">
-              ${window.t ? window.t('settings.backupCreated') : 'Created'}: ${new Date(backup.created).toLocaleString()}
-              <br>
-              ${window.t ? window.t('settings.backupSize') : 'Size'}: ${formatBackupSize(backup.size)}
-            </div>
-          </div>
-          <div class="backup-actions-small">
-            <button onclick="restoreBackup('${backup.path}')" data-i18n="settings.restore">Restore</button>
-            <button onclick="deleteBackup('${backup.path}')" data-i18n="settings.delete">Delete</button>
-          </div>
-        </div>
-      `).join('')
-      
-      backupItems.innerHTML = backupHtml
-      
-      // Update i18n for dynamically created elements
-      if (window.i18n) {
-        setTimeout(() => {
-          window.i18n.updatePageText()
-        }, 100)
-      }
-    }
-  } catch (error) {
-    console.error('Error loading backup list:', error)
-    const errorText = window.t ? 
-      window.t('error.loadBackupsFailed') : 
-      'Failed to load backup list'
-    document.getElementById('backupItems').innerHTML = `<p>${errorText}</p>`
-  }
-}
-
-function formatBackupSize(bytes) {
-  if (window.formatFileSize) {
-    return window.formatFileSize(bytes)
-  }
-  
-  // Fallback formatting
-  if (bytes < 1024) return bytes + ' B'
-  if (bytes < 1048576) return Math.round(bytes / 1024) + ' KB'
-  return Math.round(bytes / 1048576) + ' MB'
-}
-
-async function restoreBackup(backupPath) {
-  const confirmMessage = window.t ? 
-    window.t('confirm.restoreBackup') : 
-    'This will overwrite your current settings. Are you sure you want to restore from this backup?'
-  
-  if (confirm(confirmMessage)) {
-    try {
-      const result = await window.electronAPI.restoreSettingsBackup(backupPath)
-      
-      if (result.success) {
-        const message = window.t ? 
-          window.t('message.backupRestored') : 
-          'Settings restored from backup'
-        
-        if (window.showLocalizedSuccess) {
-          window.showLocalizedSuccess('message.backupRestored')
-        } else {
-          alert(message)
-        }
-        
-        // Reload settings
-        await loadSettings()
-        updateAllRangeValues()
-        
-        // Clear unsaved flag
-        if (typeof window.hasUnsavedChanges !== 'undefined') {
-          window.hasUnsavedChanges = false
-        }
-        
-        const saveButton = document.querySelector('#settingsInterface .btn-primary')
-        if (saveButton) {
-          saveButton.textContent = window.t ? window.t('settings.saveChanges') : 'Save Changes'
-        }
-      } else {
-        const message = window.t ? 
-          window.t('error.restoreFailed', { error: result.error }) : 
-          `Restore failed: ${result.error}`
-        
-        if (window.showLocalizedError) {
-          window.showLocalizedError('error.restoreFailed', { error: result.error })
-        } else {
-          alert(message)
-        }
-      }
-    } catch (error) {
-      const message = window.t ? 
-        window.t('error.restoreFailed', { error: error.message }) : 
-        `Restore failed: ${error.message}`
-      
-      if (window.showLocalizedError) {
-        window.showLocalizedError('error.restoreFailed', { error: error.message })
-      } else {
-        alert(message)
-      }
-    }
-  }
-}
-
-async function deleteBackup(backupPath) {
-  const confirmMessage = window.t ? 
-    window.t('confirm.deleteBackup') : 
-    'Are you sure you want to delete this backup?'
-  
-  if (confirm(confirmMessage)) {
-    try {
-      const result = await window.electronAPI.deleteSettingsBackup(backupPath)
-      
-      if (result.success) {
-        // Reload backup list
-        await loadBackupList()
-        
-        const message = window.t ? 
-          window.t('message.backupDeleted') : 
-          'Backup deleted successfully'
-        
-        if (window.showLocalizedSuccess) {
-          window.showLocalizedSuccess('message.backupDeleted')
-        }
-      } else {
-        const message = window.t ? 
-          window.t('error.deleteFailed', { error: result.error }) : 
-          `Delete failed: ${result.error}`
-        
-        if (window.showLocalizedError) {
-          window.showLocalizedError('error.deleteFailed', { error: result.error })
-        } else {
-          alert(message)
-        }
-      }
-    } catch (error) {
-      const message = window.t ? 
-        window.t('error.deleteFailed', { error: error.message }) : 
-        `Delete failed: ${error.message}`
-      
-      if (window.showLocalizedError) {
-        window.showLocalizedError('error.deleteFailed', { error: error.message })
-      } else {
-        alert(message)
-      }
-    }
-  }
-}
-
-async function exportSettings() {
-  try {
-    const result = await window.electronAPI.exportSettings()
-    
-    if (result.success && !result.cancelled) {
-      const message = window.t ? 
-        window.t('message.settingsExported', { path: result.filePath }) : 
-        `Settings exported to: ${result.filePath}`
-      
-      if (window.showLocalizedSuccess) {
-        window.showLocalizedSuccess('message.settingsExported', { path: result.filePath })
-      } else {
-        alert(message)
-      }
-    } else if (result.cancelled) {
-      const message = window.t ? 
-        window.t('message.exportCancelled') : 
-        'Export cancelled'
-      
-      if (window.showLocalizedMessage) {
-        window.showLocalizedMessage('message.exportCancelled')
-      }
-    } else {
-      const message = window.t ? 
-        window.t('error.exportFailed', { error: result.error }) : 
-        `Export failed: ${result.error}`
-      
-      if (window.showLocalizedError) {
-        window.showLocalizedError('error.exportFailed', { error: result.error })
-      } else {
-        alert(message)
-      }
-    }
-  } catch (error) {
-    const message = window.t ? 
-      window.t('error.exportFailed', { error: error.message }) : 
-      `Export failed: ${error.message}`
-    
-    if (window.showLocalizedError) {
-      window.showLocalizedError('error.exportFailed', { error: error.message })
-    } else {
-      alert(message)
-    }
-  }
-}
-
-async function importSettings() {
-  try {
-    const result = await window.electronAPI.importSettings()
-    
-    if (result.success && !result.cancelled) {
-      const message = window.t ? 
-        window.t('message.settingsImported') : 
-        'Settings imported successfully'
-      
-      if (window.showLocalizedSuccess) {
-        window.showLocalizedSuccess('message.settingsImported')
-      } else {
-        alert(message)
-      }
-      
-      // Reload settings
-      await loadSettings()
-      updateAllRangeValues()
-      
-      // Clear unsaved flag
-      if (typeof window.hasUnsavedChanges !== 'undefined') {
-        window.hasUnsavedChanges = false
-      }
-      
-      const saveButton = document.querySelector('#settingsInterface .btn-primary')
-      if (saveButton) {
-        saveButton.textContent = window.t ? window.t('settings.saveChanges') : 'Save Changes'
-      }
-    } else if (result.cancelled) {
-      const message = window.t ? 
-        window.t('message.importCancelled') : 
-        'Import cancelled'
-      
-      if (window.showLocalizedMessage) {
-        window.showLocalizedMessage('message.importCancelled')
-      }
-    } else {
-      const message = window.t ? 
-        window.t('error.importFailed', { error: result.error }) : 
-        `Import failed: ${result.error}`
-      
-      if (window.showLocalizedError) {
-        window.showLocalizedError('error.importFailed', { error: result.error })
-      } else {
-        alert(message)
-      }
-    }
-  } catch (error) {
-    const message = window.t ? 
-      window.t('error.importFailed', { error: error.message }) : 
-      `Import failed: ${error.message}`
-    
-    if (window.showLocalizedError) {
-      window.showLocalizedError('error.importFailed', { error: error.message })
-    } else {
-      alert(message)
-    }
-  }
-}
-
-// Make functions available globally
-window.updateRangeValue = updateRangeValue
-window.createBackup = createBackup
-window.showBackupList = showBackupList
-window.loadBackupList = loadBackupList
-window.restoreBackup = restoreBackup
-window.deleteBackup = deleteBackup
-window.exportSettings = exportSettings
-window.importSettings = importSettings
-</script>
-      <label for="downloadPath" data-i18n="settings.downloadPath">Download Location</label>
-      <div class="setting-control">
-        <input type="text" id="downloadPath" readonly>
-        <button onclick="selectDownloadPath()" data-i18n="settings.downloadPath.browse">Browse</button>
-      </div>
-      <p class="setting-description" data-i18n="settings.downloadPath.desc">Where downloaded files will be saved</p>
-    </div>
-    
-    <div class="setting-item">
-      <label>
-        <input type="checkbox" id="autoCreateSubfolders">
-        <span data-i18n="settings.autoCreateSubfolders">Auto Create Subfolders</span>
-      </label>
-      <p class="setting-description" data-i18n="settings.autoCreateSubfolders.desc">Automatically create subfolders for different file types</p>
-    </div>
-    
-    <div class="setting-item">
-      <label for="maxConcurrentDownloads" data-i18n="settings.maxConcurrentDownloads">Max Concurrent Downloads</label>
-      <div class="setting-control">
-        <input type="range" id="maxConcurrentDownloads" min="1" max="10" step="1" oninput="updateRangeValue(event)" onchange="markUnsaved()">
-        <span class="range-value">3</span>
-      </div>
-      <p class="setting-description" data-i18n="settings.maxConcurrentDownloads.desc">Maximum number of files to download simultaneously</p>
-    </div>
-    
-    <div class="setting-item">
-      <label for="chunkSize" data-i18n="settings.chunkSize">Chunk Size</label>
-      <div class="setting-control">
-        <select id="chunkSize" onchange="markUnsaved()">
-          <option value="65536">64KB</option>
-          <option value="131072">128KB</option>
-          <option value="262144">256KB</option>
-          <option value="524288">512KB</option>
-          <option value="1048576">1MB</option>
-        </select>
-      </div>
-      <p class="setting-description" data-i18n="settings.chunkSize.desc">Size of file chunks for downloading</p>
-    </div>
-    
-    <div class="setting-item">
-      <label>
-        <input type="checkbox" id="enableResumeDownload" onchange="markUnsaved()">
-        <span data-i18n="settings.enableResumeDownload">Enable Resume Download</span>
-      </label>
-      <p class="setting-description" data-i18n="settings.enableResumeDownload.desc">Allow resuming interrupted downloads</p>
     </div>
   </div>
 </div>
@@ -539,100 +179,101 @@ window.importSettings = importSettings
 <!-- Window & Interface Settings -->
 <div class="settings-panel" id="window-panel">
   <div class="panel-header">
-    <h2 data-i18n="settings.window">Window & Interface</h2>
-    <p data-i18n="settings.window.desc">Customize application appearance and behavior</p>
+    <h2>Window & Interface</h2>
+    <p>Customize application appearance and behavior</p>
   </div>
   <div class="settings-group">
     <div class="setting-item">
-      <label for="windowBehavior" data-i18n="settings.windowBehavior">When Closing Window</label>
+      <label for="windowBehavior">When Closing Window</label>
       <div class="setting-control">
         <select id="windowBehavior" onchange="markUnsaved()">
-          <option value="close" data-i18n="settings.windowBehavior.close">Exit Application</option>
-          <option value="minimize" data-i18n="settings.windowBehavior.minimize">Minimize to Taskbar</option>
-          <option value="hide" data-i18n="settings.windowBehavior.hide">Hide to System Tray</option>
+          <option value="close">Exit Application</option>
+          <option value="minimize">Minimize to Taskbar</option>
+          <option value="hide">Hide to System Tray</option>
         </select>
       </div>
-      <p class="setting-description" data-i18n="settings.windowBehavior.desc">What happens when you close the main window</p>
+      <p class="setting-description">What happens when you close the main window</p>
     </div>
-    
+
     <div class="setting-item">
       <label>
         <input type="checkbox" id="startMinimized" onchange="markUnsaved()">
-        <span data-i18n="settings.startMinimized">Start Minimized</span>
+        <span>Start Minimized</span>
       </label>
-      <p class="setting-description" data-i18n="settings.startMinimized.desc">Start the application minimized</p>
+      <p class="setting-description">Start the application minimized</p>
     </div>
-    
+
     <div class="setting-item">
       <label>
         <input type="checkbox" id="autoStartNode" onchange="markUnsaved()">
-        <span data-i18n="settings.autoStartNode">Auto Start P2P Node</span>
+        <span>Auto Start P2P Node</span>
       </label>
-      <p class="setting-description" data-i18n="settings.autoStartNode.desc">Automatically start the P2P node when app launches</p>
+      <p class="setting-description">Automatically start the P2P node when app launches</p>
     </div>
-    
+
     <div class="setting-item">
       <label>
         <input type="checkbox" id="showNotifications" onchange="markUnsaved()">
-        <span data-i18n="settings.showNotifications">Show Notifications</span>
+        <span>Show Notifications</span>
       </label>
-      <p class="setting-description" data-i18n="settings.showNotifications.desc">Show desktop notifications for downloads and connections</p>
+      <p class="setting-description">Show desktop notifications for downloads and connections</p>
     </div>
-    
+
     <div class="setting-item">
-      <label for="theme" data-i18n="settings.theme">Theme</label>
+      <label for="theme">Theme</label>
       <div class="setting-control">
         <select id="theme" onchange="markUnsaved()">
-          <option value="system" data-i18n="settings.theme.system">System Default</option>
-          <option value="light" data-i18n="settings.theme.light">Light</option>
-          <option value="dark" data-i18n="settings.theme.dark">Dark</option>
+          <option value="system">System Default</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
         </select>
       </div>
-      <p class="setting-description" data-i18n="settings.theme.desc">Application theme</p>
+      <p class="setting-description">Application theme</p>
     </div>
-    
   </div>
 </div>
 
 <!-- Network Settings -->
 <div class="settings-panel" id="network-panel">
   <div class="panel-header">
-    <h2 data-i18n="settings.network">Network & Connections</h2>
-    <p data-i18n="settings.network.desc">Configure P2P network settings</p>
+    <h2>Network & Connections</h2>
+    <p>Configure P2P network settings</p>
   </div>
   <div class="settings-group">
     <div class="setting-item">
       <label>
         <input type="checkbox" id="autoConnectToPeers" onchange="markUnsaved()">
-        <span data-i18n="settings.autoConnectToPeers">Auto Connect to Peers</span>
+        <span>Auto Connect to Peers</span>
       </label>
-      <p class="setting-description" data-i18n="settings.autoConnectToPeers.desc">Automatically connect to discovered peers</p>
+      <p class="setting-description">Automatically connect to discovered peers</p>
     </div>
-    
+
     <div class="setting-item">
-      <label for="maxConnections" data-i18n="settings.maxConnections">Max Connections</label>
+      <label for="maxConnections">Max Connections</label>
       <div class="setting-control">
-        <input type="range" id="maxConnections" min="1" max="200" step="1" oninput="updateRangeValue(event)" onchange="markUnsaved()">
+        <input type="range" id="maxConnections" min="1" max="200" step="1" oninput="updateRangeValue(event)"
+          onchange="markUnsaved()">
         <span class="range-value">50</span>
       </div>
-      <p class="setting-description" data-i18n="settings.maxConnections.desc">Maximum number of peer connections</p>
+      <p class="setting-description">Maximum number of peer connections</p>
     </div>
-    
+
     <div class="setting-item">
-      <label for="connectionTimeout" data-i18n="settings.connectionTimeout">Connection Timeout</label>
+      <label for="connectionTimeout">Connection Timeout</label>
       <div class="setting-control">
-        <input type="range" id="connectionTimeout" min="5" max="120" step="5" oninput="updateRangeValue(event)" onchange="markUnsaved()">
+        <input type="range" id="connectionTimeout" min="5" max="120" step="5" oninput="updateRangeValue(event)"
+          onchange="markUnsaved()">
         <span class="range-value">30s</span>
       </div>
-      <p class="setting-description" data-i18n="settings.connectionTimeout.desc">Timeout for peer connections (seconds)</p>
+      <p class="setting-description">Timeout for peer connections (seconds)</p>
     </div>
-    
+
     <div class="setting-item">
       <label>
         <input type="checkbox" id="enableUpnp" onchange="markUnsaved()">
-        <span data-i18n="settings.enableUpnp">Enable UPnP</span>
+        <span>Enable UPnP</span>
       </label>
-      <p class="setting-description" data-i18n="settings.enableUpnp.desc">Automatically configure router port forwarding</p>
+      <p class="setting-description">Automatically configure router port forwarding</p>
     </div>
   </div>
 </div>
@@ -640,32 +281,32 @@ window.importSettings = importSettings
 <!-- Privacy & Security Settings -->
 <div class="settings-panel" id="privacy-panel">
   <div class="panel-header">
-    <h2 data-i18n="settings.privacy">Privacy & Security</h2>
-    <p data-i18n="settings.privacy.desc">Configure privacy and security options</p>
+    <h2>Privacy & Security</h2>
+    <p>Configure privacy and security options</p>
   </div>
   <div class="settings-group">
     <div class="setting-item">
       <label>
         <input type="checkbox" id="enableEncryption" onchange="markUnsaved()">
-        <span data-i18n="settings.enableEncryption">Enable Encryption</span>
+        <span>Enable Encryption</span>
       </label>
-      <p class="setting-description" data-i18n="settings.enableEncryption.desc">Encrypt all P2P communications</p>
+      <p class="setting-description">Encrypt all P2P communications</p>
     </div>
-    
+
     <div class="setting-item">
       <label>
         <input type="checkbox" id="shareFileByDefault" onchange="markUnsaved()">
-        <span data-i18n="settings.shareFileByDefault">Share Files by Default</span>
+        <span>Share Files by Default</span>
       </label>
-      <p class="setting-description" data-i18n="settings.shareFileByDefault.desc">Automatically share new files with the network</p>
+      <p class="setting-description">Automatically share new files with the network</p>
     </div>
-    
+
     <div class="setting-item">
       <label>
         <input type="checkbox" id="autoAcceptConnections" onchange="markUnsaved()">
-        <span data-i18n="settings.autoAcceptConnections">Auto Accept Connections</span>
+        <span>Auto Accept Connections</span>
       </label>
-      <p class="setting-description" data-i18n="settings.autoAcceptConnections.desc">Automatically accept incoming peer connections</p>
+      <p class="setting-description">Automatically accept incoming peer connections</p>
     </div>
-    
-    <div class="setting-item">
+  </div>
+</div>

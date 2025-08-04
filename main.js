@@ -1,221 +1,4 @@
-// Settings IPC handlers
-ipcMain.handle('open-settings', async () => {
-  try {
-    await createSettingsWindow()
-    return { success: true }
-  } catch (error) {
-    console.error('Error opening settings:', error)
-    return { success: false, error: error.message }
-  }
-})
-
-ipcMain.handle('close-settings', async () => {
-  if (settingsWindow) {
-    settingsWindow.close()
-  }
-  return { success: true }
-})
-
-ipcMain.handle('get-settings', async () => {
-  try {
-    if (!settingsManager) {
-      throw new Error('Settings manager not initialized')
-    }
-    return settingsManager.getAll()
-  } catch (error) {
-    console.error('Error getting settings:', error)
-    throw error
-  }
-})
-
-ipcMain.handle('save-settings', async (event, settings) => {
-  try {
-    if (!settingsManager) {
-      throw new Error('Settings manager not initialized')
-    }
-    
-    await settingsManager.setMultiple(settings)
-    
-    // Apply certain settings immediately
-    applySettings(settings)
-    
-    return { success: true }
-  } catch (error) {
-    console.error('Error saving settings:', error)
-    return { success: false, error: error.message }
-  }
-})
-
-ipcMain.handle('reset-settings', async () => {
-  try {
-    if (!settingsManager) {
-      throw new Error('Settings manager not initialized')
-    }
-    
-    await settingsManager.resetToDefaults()
-    return { success: true }
-  } catch (error) {
-    console.error('Error resetting settings:', error)
-    return { success: false, error: error.message }
-  }
-})
-
-ipcMain.handle('select-folder', async (event, title = 'Select Folder') => {
-  try {
-    const result = await dialog.showOpenDialog(mainWindow, {
-      title,
-      properties: ['openDirectory']
-    })
-    
-    return {
-      success: true,
-      cancelled: result.canceled,
-      filePaths: result.filePaths
-    }
-  } catch (error) {
-    console.error('Error selecting folder:', error)
-    return { success: false, error: error.message }
-  }
-})
-
-ipcMain.handle('create-settings-backup', async () => {
-  try {
-    if (!settingsManager) {
-      throw new Error('Settings manager not initialized')
-    }
-    
-    const backupPath = await settingsManager.createBackup()
-    return { success: true, backupPath }
-  } catch (error) {
-    console.error('Error creating settings backup:', error)
-    return { success: false, error: error.message }
-  }
-})
-
-ipcMain.handle('get-available-backups', async () => {
-  try {
-    if (!settingsManager) {
-      throw new Error('Settings manager not initialized')
-    }
-    
-    return await settingsManager.getAvailableBackups()
-  } catch (error) {
-    console.error('Error getting available backups:', error)
-    return []
-  }
-})
-
-ipcMain.handle('restore-settings-backup', async (event, backupPath) => {
-  try {
-    if (!settingsManager) {
-      throw new Error('Settings manager not initialized')
-    }
-    
-    await settingsManager.restoreFromBackup(backupPath)
-    return { success: true }
-  } catch (error) {
-    console.error('Error restoring settings backup:', error)
-    return { success: false, error: error.message }
-  }
-})
-
-ipcMain.handle('delete-settings-backup', async (event, backupPath) => {
-  try {
-    const fs = await import('fs/promises')
-    await fs.unlink(backupPath)
-    return { success: true }
-  } catch (error) {
-    console.error('Error deleting settings backup:', error)
-    return { success: false, error: error.message }
-  }
-})
-
-ipcMain.handle('export-settings', async () => {
-  try {
-    if (!settingsManager) {
-      throw new Error('Settings manager not initialized')
-    }
-    
-    const result = await dialog.showSaveDialog(mainWindow, {
-      title: 'Export Settings',
-      defaultPath: `p2p-settings-${new Date().toISOString().split('T')[0]}.json`,
-      filters: [
-        { name: 'JSON Files', extensions: ['json'] },
-        { name: 'All Files', extensions: ['*'] }
-      ]
-    })
-    
-    if (!result.canceled) {
-      await settingsManager.exportSettings(result.filePath)
-      return { success: true, cancelled: false, filePath: result.filePath }
-    } else {
-      return { success: true, cancelled: true }
-    }
-  } catch (error) {
-    console.error('Error exporting settings:', error)
-    return { success: false, error: error.message }
-  }
-})
-
-ipcMain.handle('import-settings', async () => {
-  try {
-    if (!settingsManager) {
-      throw new Error('Settings manager not initialized')
-    }
-    
-    const result = await dialog.showOpenDialog(mainWindow, {
-      title: 'Import Settings',
-      filters: [
-        { name: 'JSON Files', extensions: ['json'] },
-        { name: 'All Files', extensions: ['*'] }
-      ],
-      properties: ['openFile']
-    })
-    
-    if (!result.canceled && result.filePaths.length > 0) {
-      await settingsManager.importSettings(result.filePaths[0])
-      return { success: true, cancelled: false, filePath: result.filePaths[0] }
-    } else {
-      return { success: true, cancelled: true }
-    }
-  } catch (error) {
-    console.error('Error importing settings:', error)
-    return { success: false, error: error.message }
-  }
-})
-
-// Apply settings immediately
-function applySettings(settings) {
-  try {
-    // Update download path for file manager
-    if (settings.downloadPath && fileManager) {
-      fileManager.downloadDir = settings.downloadPath
-    }
-    
-    // Update chunk size for chunk manager
-    if (settings.chunkSize && chunkManager) {
-      chunkManager.defaultChunkSize = settings.chunkSize
-    }
-    
-    // Update max connections for P2P node
-    if (settings.maxConnections && p2pNode) {
-      // This would require P2P node to support dynamic reconfiguration
-      console.log('Max connections setting updated:', settings.maxConnections)
-    }
-    
-    // Create or destroy tray based on window behavior
-    if (settings.windowBehavior === 'hide' && !tray) {
-      createTray()
-    } else if (settings.windowBehavior !== 'hide' && tray) {
-      tray.destroy()
-      tray = null
-    }
-    
-    console.log('Settings applied successfully')
-  } catch (error) {
-    console.error('Error applying settings:', error)
-  }
-}// main.js
+// main.js
 
 import { app, BrowserWindow, ipcMain, Tray, Menu, dialog } from 'electron';
 import path from 'path';
@@ -587,6 +370,225 @@ function notifyNodeStatusChange(success, nodeInfo = null, error = null) {
       })
     }
   })
+}
+
+// Settings IPC handlers
+ipcMain.handle('open-settings', async () => {
+  try {
+    await createSettingsWindow()
+    return { success: true }
+  } catch (error) {
+    console.error('Error opening settings:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('close-settings', async () => {
+  if (settingsWindow) {
+    settingsWindow.close()
+  }
+  return { success: true }
+})
+
+ipcMain.handle('get-settings', async () => {
+  try {
+    if (!settingsManager) {
+      throw new Error('Settings manager not initialized')
+    }
+    return settingsManager.getAll()
+  } catch (error) {
+    console.error('Error getting settings:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('save-settings', async (event, settings) => {
+  try {
+    if (!settingsManager) {
+      throw new Error('Settings manager not initialized')
+    }
+    
+    await settingsManager.setMultiple(settings)
+    
+    // Apply certain settings immediately
+    applySettings(settings)
+    
+    return { success: true }
+  } catch (error) {
+    console.error('Error saving settings:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('reset-settings', async () => {
+  try {
+    if (!settingsManager) {
+      throw new Error('Settings manager not initialized')
+    }
+    
+    await settingsManager.resetToDefaults()
+    return { success: true }
+  } catch (error) {
+    console.error('Error resetting settings:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('select-folder', async (event, title = 'Select Folder') => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title,
+      properties: ['openDirectory']
+    })
+    
+    return {
+      success: true,
+      cancelled: result.canceled,
+      filePaths: result.filePaths
+    }
+  } catch (error) {
+    console.error('Error selecting folder:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('create-settings-backup', async () => {
+  try {
+    if (!settingsManager) {
+      throw new Error('Settings manager not initialized')
+    }
+    
+    const backupPath = await settingsManager.createBackup()
+    return { success: true, backupPath }
+  } catch (error) {
+    console.error('Error creating settings backup:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('get-available-backups', async () => {
+  try {
+    if (!settingsManager) {
+      throw new Error('Settings manager not initialized')
+    }
+    
+    return await settingsManager.getAvailableBackups()
+  } catch (error) {
+    console.error('Error getting available backups:', error)
+    return []
+  }
+})
+
+ipcMain.handle('restore-settings-backup', async (event, backupPath) => {
+  try {
+    if (!settingsManager) {
+      throw new Error('Settings manager not initialized')
+    }
+    
+    await settingsManager.restoreFromBackup(backupPath)
+    return { success: true }
+  } catch (error) {
+    console.error('Error restoring settings backup:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('delete-settings-backup', async (event, backupPath) => {
+  try {
+    const fs = await import('fs/promises')
+    await fs.unlink(backupPath)
+    return { success: true }
+  } catch (error) {
+    console.error('Error deleting settings backup:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('export-settings', async () => {
+  try {
+    if (!settingsManager) {
+      throw new Error('Settings manager not initialized')
+    }
+    
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: 'Export Settings',
+      defaultPath: `p2p-settings-${new Date().toISOString().split('T')[0]}.json`,
+      filters: [
+        { name: 'JSON Files', extensions: ['json'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    })
+    
+    if (!result.canceled) {
+      await settingsManager.exportSettings(result.filePath)
+      return { success: true, cancelled: false, filePath: result.filePath }
+    } else {
+      return { success: true, cancelled: true }
+    }
+  } catch (error) {
+    console.error('Error exporting settings:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('import-settings', async () => {
+  try {
+    if (!settingsManager) {
+      throw new Error('Settings manager not initialized')
+    }
+    
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Import Settings',
+      filters: [
+        { name: 'JSON Files', extensions: ['json'] },
+        { name: 'All Files', extensions: ['*'] }
+      ],
+      properties: ['openFile']
+    })
+    
+    if (!result.canceled && result.filePaths.length > 0) {
+      await settingsManager.importSettings(result.filePaths[0])
+      return { success: true, cancelled: false, filePath: result.filePaths[0] }
+    } else {
+      return { success: true, cancelled: true }
+    }
+  } catch (error) {
+    console.error('Error importing settings:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+// Apply settings immediately
+function applySettings(settings) {
+  try {
+    // Update download path for file manager
+    if (settings.downloadPath && fileManager) {
+      fileManager.downloadDir = settings.downloadPath
+    }
+    
+    // Update chunk size for chunk manager
+    if (settings.chunkSize && chunkManager) {
+      chunkManager.defaultChunkSize = settings.chunkSize
+    }
+    
+    // Update max connections for P2P node
+    if (settings.maxConnections && p2pNode) {
+      // This would require P2P node to support dynamic reconfiguration
+      console.log('Max connections setting updated:', settings.maxConnections)
+    }
+    
+    // Create or destroy tray based on window behavior
+    if (settings.windowBehavior === 'hide' && !tray) {
+      createTray()
+    } else if (settings.windowBehavior !== 'hide' && tray) {
+      tray.destroy()
+      tray = null
+    }
+    
+    console.log('Settings applied successfully')
+  } catch (error) {
+    console.error('Error applying settings:', error)
+  }
 }
 
 // IPC handlers

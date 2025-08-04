@@ -1,4 +1,4 @@
-// settings-manager.js - Enhanced Settings Manager with i18n support
+// settings-manager.js
 import fs from 'fs/promises'
 import path from 'path'
 import os from 'os'
@@ -10,7 +10,6 @@ export class SettingsManager {
     this.settings = new Map()
     this.initialized = false
     
-    // Default settings with i18n support
     this.defaultSettings = {
       // File & Download Settings
       downloadPath: path.join(os.homedir(), 'Downloads', 'P2P-Files'),
@@ -492,39 +491,36 @@ export class SettingsManager {
     }
   }
 
-  // Get localized settings schema for UI generation
-  getLocalizedSettingsSchema() {
-    // This method would be called from the renderer process where i18n is available
-    const t = (typeof window !== 'undefined' && window.t) ? window.t : (key) => key
-    
+  // Get settings schema for UI generation (English only)
+  getSettingsSchema() {
     return {
       download: {
-        title: t('settings.download'),
+        title: 'Download & Files',
         icon: 'download',
-        description: t('settings.download.desc'),
+        description: 'Configure file download and storage settings',
         settings: {
           downloadPath: {
             type: 'folder',
-            title: t('settings.downloadPath'),
-            description: t('settings.downloadPath.desc')
+            title: 'Download Location',
+            description: 'Where downloaded files will be saved'
           },
           autoCreateSubfolders: {
             type: 'boolean',
-            title: t('settings.autoCreateSubfolders'),
-            description: t('settings.autoCreateSubfolders.desc')
+            title: 'Auto Create Subfolders',
+            description: 'Automatically create subfolders for different file types'
           },
           maxConcurrentDownloads: {
             type: 'range',
-            title: t('settings.maxConcurrentDownloads'),
-            description: t('settings.maxConcurrentDownloads.desc'),
+            title: 'Max Concurrent Downloads',
+            description: 'Maximum number of files to download simultaneously',
             min: 1,
             max: 10,
             step: 1
           },
           chunkSize: {
             type: 'select',
-            title: t('settings.chunkSize'),
-            description: t('settings.chunkSize.desc'),
+            title: 'Chunk Size',
+            description: 'Size of file chunks for downloading',
             options: [
               { value: 64 * 1024, label: '64KB' },
               { value: 128 * 1024, label: '128KB' },
@@ -535,75 +531,75 @@ export class SettingsManager {
           },
           enableResumeDownload: {
             type: 'boolean',
-            title: t('settings.enableResumeDownload'),
-            description: t('settings.enableResumeDownload.desc')
+            title: 'Enable Resume Download',
+            description: 'Allow resuming interrupted downloads'
           }
         }
       },
       window: {
-        title: t('settings.window'),
+        title: 'Window & Interface',
         icon: 'window',
-        description: t('settings.window.desc'),
+        description: 'Customize application appearance and behavior',
         settings: {
           windowBehavior: {
             type: 'select',
-            title: t('settings.windowBehavior'),
-            description: t('settings.windowBehavior.desc'),
+            title: 'When Closing Window',
+            description: 'What happens when you close the main window',
             options: [
-              { value: 'close', label: t('settings.windowBehavior.close') },
-              { value: 'minimize', label: t('settings.windowBehavior.minimize') },
-              { value: 'hide', label: t('settings.windowBehavior.hide') }
+              { value: 'close', label: 'Exit Application' },
+              { value: 'minimize', label: 'Minimize to Taskbar' },
+              { value: 'hide', label: 'Hide to System Tray' }
             ]
           },
           startMinimized: {
             type: 'boolean',
-            title: t('settings.startMinimized'),
-            description: t('settings.startMinimized.desc')
+            title: 'Start Minimized',
+            description: 'Start the application minimized'
           },
           autoStartNode: {
             type: 'boolean',
-            title: t('settings.autoStartNode'),
-            description: t('settings.autoStartNode.desc')
+            title: 'Auto Start P2P Node',
+            description: 'Automatically start the P2P node when app launches'
           },
           showNotifications: {
             type: 'boolean',
-            title: t('settings.showNotifications'),
-            description: t('settings.showNotifications.desc')
+            title: 'Show Notifications',
+            description: 'Show desktop notifications for downloads and connections'
           },
           theme: {
             type: 'select',
-            title: t('settings.theme'),
-            description: t('settings.theme.desc'),
+            title: 'Theme',
+            description: 'Application theme',
             options: [
-              { value: 'system', label: t('settings.theme.system') },
-              { value: 'light', label: t('settings.theme.light') },
-              { value: 'dark', label: t('settings.theme.dark') }
+              { value: 'system', label: 'System Default' },
+              { value: 'light', label: 'Light' },
+              { value: 'dark', label: 'Dark' }
             ]
           },
         }
       },
       network: {
-        title: t('settings.network'),
+        title: 'Network & Connections',
         icon: 'network',
-        description: t('settings.network.desc'),
+        description: 'Configure P2P network settings',
         settings: {
           autoConnectToPeers: {
             type: 'boolean',
-            title: t('settings.autoConnectToPeers'),
-            description: t('settings.autoConnectToPeers.desc')
+            title: 'Auto Connect to Peers',
+            description: 'Automatically connect to discovered peers'
           },
           maxConnections: {
             type: 'range',
-            title: t('settings.maxConnections'),
-            description: t('settings.maxConnections.desc'),
+            title: 'Max Connections',
+            description: 'Maximum number of peer connections',
             min: 1,
             max: 200,
             step: 1
           },
           connectionTimeout: {
             type: 'range',
-            title: t('settings.connectionTimeout'),
-            description: t('settings.connectionTimeout.desc'),
+            title: 'Connection Timeout',
+            description: 'Timeout for peer connections (seconds)',
             min: 5,
             max: 120,
             step: 5,
@@ -611,53 +607,53 @@ export class SettingsManager {
           },
           enableUpnp: {
             type: 'boolean',
-            title: t('settings.enableUpnp'),
-            description: t('settings.enableUpnp.desc')
+            title: 'Enable UPnP',
+            description: 'Automatically configure router port forwarding'
           }
         }
       },
       privacy: {
-        title: t('settings.privacy'),
+        title: 'Privacy & Security',
         icon: 'shield',
-        description: t('settings.privacy.desc'),
+        description: 'Configure privacy and security options',
         settings: {
           enableEncryption: {
             type: 'boolean',
-            title: t('settings.enableEncryption'),
-            description: t('settings.enableEncryption.desc')
+            title: 'Enable Encryption',
+            description: 'Encrypt all P2P communications'
           },
           shareFileByDefault: {
             type: 'boolean',
-            title: t('settings.shareFileByDefault'),
-            description: t('settings.shareFileByDefault.desc')
+            title: 'Share Files by Default',
+            description: 'Automatically share new files with the network'
           },
           autoAcceptConnections: {
             type: 'boolean',
-            title: t('settings.autoAcceptConnections'),
-            description: t('settings.autoAcceptConnections.desc')
+            title: 'Auto Accept Connections',
+            description: 'Automatically accept incoming peer connections'
           },
           logLevel: {
             type: 'select',
-            title: t('settings.logLevel'),
-            description: t('settings.logLevel.desc'),
+            title: 'Log Level',
+            description: 'Application logging level',
             options: [
-              { value: 'error', label: t('settings.logLevel.error') },
-              { value: 'warn', label: t('settings.logLevel.warn') },
-              { value: 'info', label: t('settings.logLevel.info') },
-              { value: 'debug', label: t('settings.logLevel.debug') }
+              { value: 'error', label: 'Error Only' },
+              { value: 'warn', label: 'Warnings' },
+              { value: 'info', label: 'Information' },
+              { value: 'debug', label: 'Debug (Verbose)' }
             ]
           }
         }
       },
       performance: {
-        title: t('settings.performance'),
+        title: 'Performance',
         icon: 'gauge',
-        description: t('settings.performance.desc'),
+        description: 'Optimize application performance',
         settings: {
           memoryLimit: {
             type: 'range',
-            title: t('settings.memoryLimit'),
-            description: t('settings.memoryLimit.desc'),
+            title: 'Memory Limit (MB)',
+            description: 'Maximum memory usage',
             min: 128,
             max: 4096,
             step: 64,
@@ -665,8 +661,8 @@ export class SettingsManager {
           },
           diskCacheSize: {
             type: 'range',
-            title: t('settings.diskCacheSize'),
-            description: t('settings.diskCacheSize.desc'),
+            title: 'Disk Cache Size (MB)',
+            description: 'Size of disk cache for files',
             min: 100,
             max: 10240,
             step: 100,
@@ -674,35 +670,35 @@ export class SettingsManager {
           },
           enableFileValidation: {
             type: 'boolean',
-            title: t('settings.enableFileValidation'),
-            description: t('settings.enableFileValidation.desc')
+            title: 'Enable File Validation',
+            description: 'Verify file integrity after download'
           },
           cleanupTempFiles: {
             type: 'boolean',
-            title: t('settings.cleanupTempFiles'),
-            description: t('settings.cleanupTempFiles.desc')
+            title: 'Cleanup Temp Files',
+            description: 'Automatically cleanup temporary files'
           }
         }
       },
       backup: {
-        title: t('settings.backup'),
+        title: 'Backup & Import',
         icon: 'archive',
-        description: t('settings.backup.desc'),
+        description: 'Manage settings and data backup',
         settings: {
           autoBackupSettings: {
             type: 'boolean',
-            title: t('settings.autoBackupSettings'),
-            description: t('settings.autoBackupSettings.desc')
+            title: 'Auto Backup Settings',
+            description: 'Automatically backup settings periodically'
           },
           autoBackupDatabase: {
             type: 'boolean',
-            title: t('settings.autoBackupDatabase'),
-            description: t('settings.autoBackupDatabase.desc')
+            title: 'Auto Backup Database',
+            description: 'Automatically backup file database'
           },
           backupInterval: {
             type: 'range',
-            title: t('settings.backupInterval'),
-            description: t('settings.backupInterval.desc'),
+            title: 'Backup Interval (hours)',
+            description: 'How often to create automatic backups',
             min: 1,
             max: 168,
             step: 1,
@@ -710,8 +706,8 @@ export class SettingsManager {
           },
           maxBackupFiles: {
             type: 'range',
-            title: t('settings.maxBackupFiles'),
-            description: t('settings.maxBackupFiles.desc'),
+            title: 'Max Backup Files',
+            description: 'Maximum number of backup files to keep',
             min: 1,
             max: 50,
             step: 1
