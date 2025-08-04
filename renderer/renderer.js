@@ -1,16 +1,17 @@
 // renderer.js
 
 // Message Manager for UI notifications
+
 class MessageManager {
   constructor() {
     this.messages = new Map()
     this.messageCount = 0
     this.maxMessages = 5
     this.defaultDuration = 5000
-    
+
     this.createMessageContainer()
   }
-  
+
   createMessageContainer() {
     let container = document.getElementById('message-container')
     if (!container) {
@@ -21,73 +22,73 @@ class MessageManager {
     }
     this.container = container
   }
-  
+
   show(message, type = 'info', duration = null) {
     const messageId = ++this.messageCount
     const actualDuration = duration || this.getDurationByType(type)
-    
+
     if (this.messages.size >= this.maxMessages) {
       const oldestId = Math.min(...this.messages.keys())
       this.remove(oldestId)
     }
-    
+
     const messageEl = this.createMessageElement(message, type, messageId)
-    
+
     this.container.appendChild(messageEl)
-    
+
     this.messages.set(messageId, {
       element: messageEl,
       timer: null,
       type,
       message
     })
-    
+
     if (actualDuration > 0) {
       const timer = setTimeout(() => {
         this.remove(messageId)
       }, actualDuration)
-      
+
       this.messages.get(messageId).timer = timer
     }
-    
+
     messageEl.addEventListener('click', () => {
       this.remove(messageId)
     })
-    
+
     console.log(`[${type.toUpperCase()}] ${message}`)
-    
+
     return messageId
   }
-  
+
   createMessageElement(message, type, messageId) {
     const messageEl = document.createElement('div')
     messageEl.className = `message message-${type}`
     messageEl.setAttribute('data-message-id', messageId)
     messageEl.textContent = message
-    
+
     messageEl.style.opacity = '0'
     messageEl.style.transform = 'translateX(100%)'
-    
+
     requestAnimationFrame(() => {
       messageEl.style.opacity = '1'
       messageEl.style.transform = 'translateX(0)'
     })
-    
+
     return messageEl
   }
-  
+
   remove(messageId) {
     const messageInfo = this.messages.get(messageId)
     if (!messageInfo) return
-    
+
     const { element, timer } = messageInfo
-    
+
     if (timer) {
       clearTimeout(timer)
     }
-    
+
     element.classList.add('removing')
-    
+
     setTimeout(() => {
       if (element.parentNode) {
         element.parentNode.removeChild(element)
@@ -95,13 +96,13 @@ class MessageManager {
       this.messages.delete(messageId)
     }, 300)
   }
-  
+
   clear() {
     for (const messageId of this.messages.keys()) {
       this.remove(messageId)
     }
   }
-  
+
   getDurationByType(type) {
     const durations = {
       'success': 4000,
@@ -111,30 +112,30 @@ class MessageManager {
     }
     return durations[type] || this.defaultDuration
   }
-  
+
   updateOrShow(message, type = 'info', duration = null) {
     for (const [id, info] of this.messages) {
       if (info.message === message && info.type === type) {
         if (info.timer) {
           clearTimeout(info.timer)
         }
-        
+
         const actualDuration = duration || this.getDurationByType(type)
         if (actualDuration > 0) {
           info.timer = setTimeout(() => {
             this.remove(id)
           }, actualDuration)
         }
-        
+
         info.element.style.animation = 'none'
         requestAnimationFrame(() => {
           info.element.style.animation = 'slideInRight 0.3s ease'
         })
-        
+
         return id
       }
     }
-    
+
     return this.show(message, type, duration)
   }
 }
@@ -195,7 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!messageManager.container) {
     messageManager.createMessageContainer()
   }
-  
+
   console.log('Message system initialized')
 })
 
@@ -248,7 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!messageManager.container) {
     messageManager.createMessageContainer()
   }
-  
+
   console.log('P2P File Sharing System loaded')
 
   // Initialize DOM elements
@@ -736,9 +737,9 @@ function displaySearchResults(results) {
 }
 
 // Download file
-window.downloadFile = async function(fileHash, fileName) {
+window.downloadFile = async function (fileHash, fileName) {
   console.log('Download button clicked:', { fileHash, fileName })
-  
+
   if (!isNodeStarted) {
     showMessage('Please start P2P node first', 'warning')
     return
@@ -747,13 +748,13 @@ window.downloadFile = async function(fileHash, fileName) {
   try {
     const localFiles = await window.electronAPI.getLocalFiles()
     const isLocalFile = localFiles.some(file => file.hash === fileHash)
-    
+
     if (isLocalFile) {
       console.log('Detected local file, trying direct copy')
       showMessage(`Copying local file: ${fileName}`, 'info')
-      
+
       const localResult = await window.electronAPI.downloadLocalFile(fileHash, fileName)
-      
+
       if (localResult.success) {
         showMessage(`Local file copy successful: ${fileName}`, 'success')
         await refreshDownloads()
@@ -763,9 +764,9 @@ window.downloadFile = async function(fileHash, fileName) {
         showMessage(`Local copy failed, trying network download: ${fileName}`, 'warning')
       }
     }
-    
+
     showMessage(`Looking for file: ${fileName}`, 'info')
-    
+
     const result = await window.electronAPI.downloadFile(fileHash, fileName)
 
     if (result.success) {
@@ -1064,7 +1065,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!messageManager.container) {
     messageManager.createMessageContainer()
   }
-  
+
   console.log('Message system initialized')
 
   // Initialize i18n
@@ -1077,10 +1078,10 @@ async function initializeI18n() {
     // Get language setting from electron
     const settings = await window.electronAPI.getSettings()
     const language = settings.language || 'en'
-    
+
     // Set language
     window.i18n.setLanguage(language)
-    
+
     console.log('I18n initialized with language:', language)
   } catch (error) {
     console.error('Error initializing i18n:', error)
@@ -1093,7 +1094,7 @@ async function initializeI18n() {
 function showSettings() {
   document.getElementById('mainInterface').style.display = 'none'
   document.getElementById('settingsInterface').style.display = 'flex'
-  
+
   // Load settings content
   loadSettingsContent()
 }
@@ -1122,7 +1123,7 @@ function goBackToMain() {
 function hideSettings() {
   document.getElementById('settingsInterface').style.display = 'none'
   document.getElementById('mainInterface').style.display = 'block'
-  
+
   // Reset unsaved changes flag
   if (typeof hasUnsavedChanges !== 'undefined') {
     window.hasUnsavedChanges = false
@@ -1132,142 +1133,33 @@ function hideSettings() {
 // Load settings content dynamically
 async function loadSettingsContent() {
   const settingsContent = document.getElementById('settingsContent')
-  
-  // Create settings panels HTML
-  settingsContent.innerHTML = `
-    <!-- Download & Files Settings -->
-    <div class="settings-panel active" id="download-panel">
-      <div class="panel-header">
-        <h2 data-i18n="settings.download">Download & Files</h2>
-        <p data-i18n="settings.download.desc">Configure file download and storage settings</p>
-      </div>
-      <div class="settings-group">
-        <div class="setting-item">
-          <label for="downloadPath" data-i18n="settings.downloadPath">Download Location</label>
-          <div class="setting-control">
-            <input type="text" id="downloadPath" readonly>
-            <button onclick="selectDownloadPath()" data-i18n="settings.downloadPath.browse">Browse</button>
-          </div>
-          <p class="setting-description" data-i18n="settings.downloadPath.desc">Where downloaded files will be saved</p>
-        </div>
-        <div class="setting-item">
-          <label>
-            <input type="checkbox" id="autoCreateSubfolders">
-            <span data-i18n="settings.autoCreateSubfolders">Auto Create Subfolders</span>
-          </label>
-          <p class="setting-description" data-i18n="settings.autoCreateSubfolders.desc">Automatically create subfolders for different file types</p>
-        </div>
-        <div class="setting-item">
-          <label for="maxConcurrentDownloads" data-i18n="settings.maxConcurrentDownloads">Max Concurrent Downloads</label>
-          <div class="setting-control">
-            <input type="range" id="maxConcurrentDownloads" min="1" max="10" step="1">
-            <span class="range-value">3</span>
-          </div>
-          <p class="setting-description" data-i18n="settings.maxConcurrentDownloads.desc">Maximum number of files to download simultaneously</p>
-        </div>
-        <div class="setting-item">
-          <label for="chunkSize" data-i18n="settings.chunkSize">Chunk Size</label>
-          <div class="setting-control">
-            <select id="chunkSize">
-              <option value="65536">64KB</option>
-              <option value="131072">128KB</option>
-              <option value="262144">256KB</option>
-              <option value="524288">512KB</option>
-              <option value="1048576">1MB</option>
-            </select>
-          </div>
-          <p class="setting-description" data-i18n="settings.chunkSize.desc">Size of file chunks for downloading</p>
-        </div>
-        <div class="setting-item">
-          <label>
-            <input type="checkbox" id="enableResumeDownload">
-            <span data-i18n="settings.enableResumeDownload">Enable Resume Download</span>
-          </label>
-          <p class="setting-description" data-i18n="settings.enableResumeDownload.desc">Allow resuming interrupted downloads</p>
-        </div>
-      </div>
-    </div>
 
-    <!-- Window & Interface Settings -->
-    <div class="settings-panel" id="window-panel">
-      <div class="panel-header">
-        <h2 data-i18n="settings.window">Window & Interface</h2>
-        <p data-i18n="settings.window.desc">Customize application appearance and behavior</p>
-      </div>
-      <div class="settings-group">
-        <div class="setting-item">
-          <label for="windowBehavior" data-i18n="settings.windowBehavior">When Closing Window</label>
-          <div class="setting-control">
-            <select id="windowBehavior">
-              <option value="close">Exit Application</option>
-              <option value="hide">Hide to System Tray</option>
-            </select>
-          </div>
-          <p class="setting-description" data-i18n="settings.windowBehavior.desc">What happens when you close the main window</p>
-        </div>
-        <div class="setting-item">
-          <label>
-            <input type="checkbox" id="startMinimized">
-            <span data-i18n="settings.startMinimized">Start Minimized</span>
-          </label>
-          <p class="setting-description" data-i18n="settings.startMinimized.desc">Start the application minimized</p>
-        </div>
-        <div class="setting-item">
-          <label>
-            <input type="checkbox" id="autoStartNode">
-            <span data-i18n="settings.autoStartNode">Auto Start P2P Node</span>
-          </label>
-          <p class="setting-description" data-i18n="settings.autoStartNode.desc">Automatically start the P2P node when app launches</p>
-        </div>
-        <div class="setting-item">
-          <label>
-            <input type="checkbox" id="showNotifications">
-            <span data-i18n="settings.showNotifications">Show Notifications</span>
-          </label>
-          <p class="setting-description" data-i18n="settings.showNotifications.desc">Show desktop notifications for downloads and connections</p>
-        </div>
-        <div class="setting-item">
-          <label for="theme" data-i18n="settings.theme">Theme</label>
-          <div class="setting-control">
-            <select id="theme">
-              <option value="system">System Default</option>
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-            </select>
-          </div>
-          <p class="setting-description" data-i18n="settings.theme.desc">Application theme</p>
-        </div>
-        <div class="setting-item">
-          <label for="language" data-i18n="settings.language">Language</label>
-          <div class="setting-control">
-            <select id="language" onchange="handleLanguageChange(this.value)">
-              <option value="en">English</option>
-              <option value="zh">中文</option>
-            </select>
-          </div>
-          <p class="setting-description" data-i18n="settings.language.desc">Application language</p>
-        </div>
-      </div>
-    </div>
-  `
-  
-  // Update i18n after loading content
-  window.i18n.updatePageText()
-  
-  // Setup settings functionality
-  setupSettingsNavigation()
-  await loadSettings()
+  try {
+    // Create settings panels HTML
+    const html = await fetch('settings.html').then(res => res.text())
+    settingsContent.innerHTML = html
+
+    // Update i18n after loading content
+    window.i18n.updatePageText()
+
+    // Setup settings functionality
+    setupSettingsNavigation()
+    await loadSettings()
+  } catch (error) {
+    console.error('Error loading settings content:', error)
+    settingsContent.innerHTML = '<p>Failed to load settings</p>'
+  }
 }
 
 // Handle language change
 function handleLanguageChange(language) {
   window.i18n.setLanguage(language)
-  
+
   // Update all text immediately
   setTimeout(() => {
     window.i18n.updatePageText()
   }, 100)
-  
+
   // Mark as unsaved change
   if (typeof markUnsaved === 'function') {
     markUnsaved()
@@ -1294,96 +1186,195 @@ function populateSettingsForm(settings) {
   // Download settings
   const downloadPath = document.getElementById('downloadPath')
   if (downloadPath) downloadPath.value = settings.downloadPath || ''
-  
+
   const autoCreateSubfolders = document.getElementById('autoCreateSubfolders')
   if (autoCreateSubfolders) autoCreateSubfolders.checked = settings.autoCreateSubfolders || false
-  
+
   const maxConcurrentDownloads = document.getElementById('maxConcurrentDownloads')
   if (maxConcurrentDownloads) maxConcurrentDownloads.value = settings.maxConcurrentDownloads || 3
-  
+
   const chunkSize = document.getElementById('chunkSize')
   if (chunkSize) chunkSize.value = settings.chunkSize || 262144
-  
+
   const enableResumeDownload = document.getElementById('enableResumeDownload')
   if (enableResumeDownload) enableResumeDownload.checked = settings.enableResumeDownload !== false
-  
+
   // Window settings
   const windowBehavior = document.getElementById('windowBehavior')
   if (windowBehavior) windowBehavior.value = settings.windowBehavior || 'close'
-  
+
   const startMinimized = document.getElementById('startMinimized')
   if (startMinimized) startMinimized.checked = settings.startMinimized || false
-  
+
   const autoStartNode = document.getElementById('autoStartNode')
   if (autoStartNode) autoStartNode.checked = settings.autoStartNode !== false
-  
+
   const showNotifications = document.getElementById('showNotifications')
   if (showNotifications) showNotifications.checked = settings.showNotifications !== false
-  
+
   const theme = document.getElementById('theme')
   if (theme) theme.value = settings.theme || 'system'
-  
+
   const language = document.getElementById('language')
   if (language) language.value = settings.language || 'en'
 }
 
 function setupSettingsNavigation() {
+  console.log('Setting up settings navigation...')
+
   const navItems = document.querySelectorAll('#settingsInterface .nav-item')
   const panels = document.querySelectorAll('#settingsInterface .settings-panel')
-  
-  navItems.forEach(item => {
+
+  console.log('Found nav items:', navItems.length)
+  console.log('Found panels:', panels.length)
+
+  // 移除旧的事件监听器并重新绑定
+  navItems.forEach((item, index) => {
+    // 克隆节点以移除旧的事件监听器
+    const newItem = item.cloneNode(true)
+    item.parentNode.replaceChild(newItem, item)
+  })
+
+  // 重新获取导航项
+  const newNavItems = document.querySelectorAll('#settingsInterface .nav-item')
+
+  newNavItems.forEach((item) => {
     item.addEventListener('click', () => {
       const category = item.dataset.category
-      
-      // Update navigation
-      navItems.forEach(nav => nav.classList.remove('active'))
+      console.log('Nav item clicked:', category)
+
+      if (!category) {
+        console.error('No category found for nav item')
+        return
+      }
+
+      // 更新导航状态
+      newNavItems.forEach(nav => nav.classList.remove('active'))
       item.classList.add('active')
-      
-      // Update panels
+
+      // 更新面板显示
       panels.forEach(panel => panel.classList.remove('active'))
       const targetPanel = document.getElementById(`${category}-panel`)
       if (targetPanel) {
         targetPanel.classList.add('active')
+        console.log(`Switched to panel: ${category}`)
+      } else {
+        console.error(`Panel not found: ${category}-panel`)
       }
     })
   })
-  
-  // Setup event listeners for form elements
+
+  // 设置表单事件监听器
+  setupFormEventListeners()
+}
+
+// 设置表单事件监听器
+function setupFormEventListeners() {
+  console.log('Setting up form event listeners...')
+
+  // Range输入
+  const rangeInputs = document.querySelectorAll('#settingsInterface input[type="range"]')
+  rangeInputs.forEach(input => {
+    input.addEventListener('input', updateRangeValue)
+    input.addEventListener('change', markUnsaved)
+  })
+
+  // 其他输入
   const inputs = document.querySelectorAll('#settingsInterface input, #settingsInterface select')
   inputs.forEach(input => {
-    input.addEventListener('change', () => {
-      hasUnsavedChanges = true
-      const saveButton = document.querySelector('#settingsInterface .btn-primary')
-      if (saveButton && !saveButton.textContent.includes('*')) {
-        saveButton.textContent = window.i18n ? window.i18n.t('settings.saveChanges') + ' *' : 'Save Changes *'
-      }
-    })
+    if (input.type !== 'range') {
+      input.addEventListener('change', markUnsaved)
+    }
+  })
+
+  // 更新所有range值显示
+  updateAllRangeValues()
+}
+
+// 更新range值显示
+function updateRangeValue(event) {
+  const input = event.target
+  const valueSpan = input.parentNode.querySelector('.range-value')
+  if (valueSpan) {
+    let value = input.value
+
+    // 格式化特定值
+    if (input.id === 'connectionTimeout') {
+      value = `${value}s`
+    } else if (input.id === 'memoryLimit' || input.id === 'diskCacheSize') {
+      value = `${value}MB`
+    } else if (input.id === 'backupInterval') {
+      value = value === '1' ? '1 hour' : `${value} hours`
+    }
+
+    valueSpan.textContent = value
+  }
+  markUnsaved()
+}
+
+// 更新所有range值
+function updateAllRangeValues() {
+  const rangeInputs = document.querySelectorAll('#settingsInterface input[type="range"]')
+  rangeInputs.forEach(input => {
+    updateRangeValue({ target: input })
   })
 }
 
+// 标记为未保存
+function markUnsaved() {
+  hasUnsavedChanges = true
+  window.hasUnsavedChanges = true
+
+  const saveButton = document.querySelector('#settingsInterface .btn-primary')
+  if (saveButton && !saveButton.textContent.includes('*')) {
+    saveButton.textContent = (window.i18n ? window.i18n.t('settings.saveChanges') : 'Save Changes') + ' *'
+  }
+}
+
 async function saveAllSettings() {
+  console.log('Starting to save settings...')
+
   try {
     const settings = collectSettingsFromForm()
-    
-    await window.electronAPI.saveSettings(settings)
-    
+    console.log('Collected settings:', settings)
+
+    const result = await window.electronAPI.saveSettings(settings)
+    console.log('Save result:', result)
+
+    // 检查保存结果 - 修复重复消息问题
+    if (result && result.success === false) {
+      throw new Error(result.error || 'Settings save failed')
+    }
+
+    // 保存成功
     hasUnsavedChanges = false
+    window.hasUnsavedChanges = false
+
     const saveButton = document.querySelector('#settingsInterface .btn-primary')
     if (saveButton) {
       saveButton.textContent = window.i18n ? window.i18n.t('settings.saveChanges') : 'Save Changes'
     }
-    
+
     showMessage(window.i18n ? window.i18n.t('message.settingsSaved') : 'Settings saved successfully', 'success')
-    
-    // Apply language change if needed
+
+    // 应用语言更改
     if (settings.language !== currentSettings.language) {
-      window.i18n.setLanguage(settings.language)
+      if (window.i18n) {
+        window.i18n.setLanguage(settings.language)
+      }
     }
-    
+
     currentSettings = settings
+    console.log('Settings saved successfully')
+
   } catch (error) {
     console.error('Error saving settings:', error)
-    showMessage(window.i18n ? window.i18n.t('message.settingsFailed') : 'Failed to save settings', 'error')
+    showMessage(
+      window.i18n ?
+        window.i18n.t('message.settingsFailed') :
+        `Failed to save settings: ${error.message}`,
+      'error'
+    )
   }
 }
 
@@ -1404,19 +1395,36 @@ function collectSettingsFromForm() {
 }
 
 async function resetAllSettings() {
-  if (confirm(window.i18n ? window.i18n.t('confirm.resetSettings') : 'This will reset all settings to their default values. This action cannot be undone.')) {
+  const confirmMessage = window.i18n ?
+    window.i18n.t('confirm.resetSettings') :
+    'This will reset all settings to their default values. This action cannot be undone.'
+
+  if (confirm(confirmMessage)) {
     try {
-      await window.electronAPI.resetSettings()
+      console.log('Resetting all settings...')
+
+      const result = await window.electronAPI.resetSettings()
+      console.log('Reset result:', result)
+
+      if (result && result.success === false) {
+        throw new Error(result.error || 'Settings reset failed')
+      }
+
       await loadSettings()
+      updateAllRangeValues()
       hasUnsavedChanges = false
+      window.hasUnsavedChanges = false
+
       const saveButton = document.querySelector('#settingsInterface .btn-primary')
       if (saveButton) {
         saveButton.textContent = window.i18n ? window.i18n.t('settings.saveChanges') : 'Save Changes'
       }
+
       showMessage(window.i18n ? window.i18n.t('message.settingsReset') : 'All settings reset to defaults', 'success')
+
     } catch (error) {
       console.error('Error resetting settings:', error)
-      showMessage('Failed to reset settings', 'error')
+      showMessage(`Failed to reset settings: ${error.message}`, 'error')
     }
   }
 }
@@ -1464,3 +1472,9 @@ async function openSettings() {
     showMessage(window.i18n ? window.i18n.t('message.settingsFailed') : 'Failed to open settings', 'error')
   }
 }
+
+// 确保函数全局可用
+window.handleLanguageChange = handleLanguageChange
+window.updateRangeValue = updateRangeValue
+window.updateAllRangeValues = updateAllRangeValues
+window.markUnsaved = markUnsaved

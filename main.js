@@ -1,4 +1,21 @@
-// Settings IPC handlers (simplified - no separate window)
+// Settings IPC handlers
+ipcMain.handle('open-settings', async () => {
+  try {
+    await createSettingsWindow()
+    return { success: true }
+  } catch (error) {
+    console.error('Error opening settings:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('close-settings', async () => {
+  if (settingsWindow) {
+    settingsWindow.close()
+  }
+  return { success: true }
+})
+
 ipcMain.handle('get-settings', async () => {
   try {
     if (!settingsManager) {
@@ -218,6 +235,7 @@ let databaseManager = null
 let chunkManager = null
 let settingsManager = null
 let mainWindow = null
+let settingsWindow = null
 let tray = null
 
 async function createWindow() {
@@ -230,6 +248,7 @@ async function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    autoHideMenuBar: true,
     title: `P2P File Sharing - Node ${nodeId} (PID: ${processId})`,
     show: !startMinimized,
     webPreferences: {
@@ -287,6 +306,40 @@ async function createWindow() {
   return mainWindow
 }
 
+// Create settings window
+async function createSettingsWindow() {
+  if (settingsWindow) {
+    settingsWindow.focus()
+    return settingsWindow
+  }
+
+  settingsWindow = new BrowserWindow({
+    width: 1000,
+    height: 700,
+    title: 'Settings - P2P File Sharing',
+    parent: mainWindow,
+    modal: false,
+    resizable: true,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
+    }
+  })
+
+  settingsWindow.on('closed', () => {
+    settingsWindow = null
+  })
+
+  await settingsWindow.loadFile('renderer/settings.html')
+
+  if (process.env.NODE_ENV === 'development') {
+    settingsWindow.webContents.openDevTools()
+  }
+
+  return settingsWindow
+}
+
 // Create system tray
 function createTray() {
   const iconPath = path.join(__dirname, 'assets', 'tray-icon.png') // You'll need to add this icon
@@ -302,6 +355,12 @@ function createTray() {
             mainWindow.show()
             mainWindow.focus()
           }
+        }
+      },
+      {
+        label: 'Settings',
+        click: () => {
+          createSettingsWindow()
         }
       },
       { type: 'separator' },
