@@ -1,64 +1,4 @@
-// 主题管理器
-class ThemeManager {
-  constructor() {
-    this.currentTheme = 'system' // 默认系统主题
-    this.init()
-  }
-
-  init() {
-    // 从设置中加载主题
-    this.loadThemeFromSettings()
-    
-    // 监听系统主题变化
-    if (window.matchMedia) {
-      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-        if (this.currentTheme === 'system') {
-          this.applyTheme('system')
-        }
-      })
-    }
-  }
-
-  async loadThemeFromSettings() {
-    try {
-      if (window.electronAPI && window.electronAPI.getSettings) {
-        const settings = await window.electronAPI.getSettings()
-        const theme = settings.theme || 'system'
-        this.setTheme(theme)
-      }
-    } catch (error) {
-      console.log('Could not load theme from settings, using default:', error.message)
-      this.setTheme('system')
-    }
-  }
-
-  setTheme(theme) {
-    this.currentTheme = theme
-    this.applyTheme(theme)
-  }
-
-  applyTheme(theme) {
-    const html = document.documentElement
-    const body = document.body
-    
-    // 移除所有主题类
-    html.removeAttribute('data-theme')
-    body.classList.remove('theme-light', 'theme-dark', 'theme-system')
-    
-    // 应用新主题
-    html.setAttribute('data-theme', theme)
-    body.classList.add(`theme-${theme}`)
-    
-    console.log(`Theme applied: ${theme}`)
-  }
-
-  getTheme() {
-    return this.currentTheme
-  }
-}
-
-// 创建全局主题管理器实例
-const themeManager = new ThemeManager()
+// 移除了主题管理器 - 使用固定的浅色主题
 
 // Message Manager for UI notifications
 class MessageManager {
@@ -1220,11 +1160,6 @@ async function loadSettings() {
     const settings = await window.electronAPI.getSettings()
     currentSettings = settings
     populateSettingsForm(settings)
-    
-    // 应用主题设置
-    if (settings.theme) {
-      themeManager.setTheme(settings.theme)
-    }
   } catch (error) {
     console.error('Error loading settings:', error)
     showMessage('Failed to load settings', 'error')
@@ -1254,9 +1189,6 @@ function populateSettingsForm(settings) {
 
   const autoStartNode = document.getElementById('autoStartNode')
   if (autoStartNode) autoStartNode.checked = settings.autoStartNode !== false
-
-  const theme = document.getElementById('theme')
-  if (theme) theme.value = settings.theme || 'system'
 }
 
 function setupSettingsNavigation() {
@@ -1323,14 +1255,7 @@ function setupFormEventListeners() {
   const inputs = document.querySelectorAll('#settingsContent input, #settingsContent select')
   inputs.forEach(input => {
     if (input.type !== 'range') {
-      input.addEventListener('change', (e) => {
-        markUnsaved()
-        
-        // 如果是主题设置，立即应用
-        if (input.id === 'theme') {
-          themeManager.setTheme(input.value)
-        }
-      })
+      input.addEventListener('change', markUnsaved)
     }
   })
 
@@ -1412,7 +1337,6 @@ function collectSettingsFromForm() {
     enableResumeDownload: document.getElementById('enableResumeDownload')?.checked !== false,
     windowBehavior: document.getElementById('windowBehavior')?.value || 'close',
     autoStartNode: document.getElementById('autoStartNode')?.checked !== false,
-    theme: document.getElementById('theme')?.value || 'system',
   }
 }
 
@@ -1527,6 +1451,3 @@ window.importSettings = importSettings
 window.updateRangeValue = updateRangeValue
 window.updateAllRangeValues = updateAllRangeValues
 window.hasUnsavedChanges = false
-
-// 导出主题管理器供全局使用
-window.themeManager = themeManager

@@ -112,7 +112,7 @@ async function createSettingsWindow() {
 
 // Create system tray
 function createTray() {
-  const iconPath = path.join(__dirname, 'assets', 'tray-icon.png') // You'll need to add this icon
+  const iconPath = path.join(__dirname, 'assets', 'tray-icon.svg') // You'll need to add this icon
 
   try {
     tray = new Tray(iconPath)

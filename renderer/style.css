@@ -5,7 +5,7 @@
   box-sizing: border-box;
 }
 
-/* CSS Variables - Light Theme */
+/* CSS Variables - Light Theme Only */
 :root {
   --bg-primary: #f8f9fa;
   --bg-secondary: #ffffff;
@@ -32,67 +32,6 @@
   --settings-sidebar-width: 280px;
   --settings-actions-height: 80px;
   --settings-content-padding: 32px;
-}
-
-/* Dark Theme Variables */
-[data-theme="dark"] {
-  --bg-primary: #1a1d23;
-  --bg-secondary: #212529;
-  --bg-tertiary: #343a40;
-  --text-primary: #e9ecef;
-  --text-secondary: #adb5bd;
-  --text-accent: #f8f9fa;
-  --border-color: #495057;
-  --border-accent: #6c757d;
-  --shadow-light: rgba(0, 0, 0, 0.3);
-  --shadow-medium: rgba(0, 0, 0, 0.4);
-  --shadow-heavy: rgba(0, 0, 0, 0.6);
-  --hover-bg: #343a40;
-  --active-bg: #1e3a5f;
-  --active-color: #66b3ff;
-  --gradient-light: linear-gradient(135deg, #495057, #343a40);
-  --gradient-info: linear-gradient(135deg, #343a40, #495057);
-}
-
-/* System Theme */
-[data-theme="system"] {
-  --bg-primary: #f8f9fa;
-  --bg-secondary: #ffffff;
-  --bg-tertiary: #f8f9fa;
-  --text-primary: #333333;
-  --text-secondary: #6c757d;
-  --text-accent: #212529;
-  --border-color: #e9ecef;
-  --border-accent: #ced4da;
-  --shadow-light: rgba(0, 0, 0, 0.1);
-  --shadow-medium: rgba(0, 0, 0, 0.15);
-  --shadow-heavy: rgba(0, 0, 0, 0.2);
-  --hover-bg: #f8f9fa;
-  --active-bg: #e3f2fd;
-  --active-color: #1976d2;
-  --gradient-light: linear-gradient(135deg, #ecf0f1, #d5dbdb);
-  --gradient-info: linear-gradient(135deg, #f8f9fa, #e9ecef);
-}
-
-@media (prefers-color-scheme: dark) {
-  [data-theme="system"] {
-    --bg-primary: #1a1d23;
-    --bg-secondary: #212529;
-    --bg-tertiary: #343a40;
-    --text-primary: #e9ecef;
-    --text-secondary: #adb5bd;
-    --text-accent: #f8f9fa;
-    --border-color: #495057;
-    --border-accent: #6c757d;
-    --shadow-light: rgba(0, 0, 0, 0.3);
-    --shadow-medium: rgba(0, 0, 0, 0.4);
-    --shadow-heavy: rgba(0, 0, 0, 0.6);
-    --hover-bg: #343a40;
-    --active-bg: #1e3a5f;
-    --active-color: #66b3ff;
-    --gradient-light: linear-gradient(135deg, #495057, #343a40);
-    --gradient-info: linear-gradient(135deg, #343a40, #495057);
-  }
 }
 
 html {
@@ -847,7 +786,7 @@ body {
   padding: 0 16px;
 }
 
-/* Settings Main Content - 自适应剩余空间，可滚动 */
+/* Settings Main Content - 自适应剩余空间，可滚动，为底部按钮留出空间 */
 .settings-main {
   flex: 1;
   background: var(--bg-secondary);
@@ -855,14 +794,16 @@ body {
   transition: background-color 0.3s ease;
   position: relative;
   min-width: 0;
+  /* 为固定的底部按钮留出空间 */
+  padding-bottom: var(--settings-actions-height);
 }
 
-/* Settings Panels - 正常滚动，固定底部空间 */
+/* Settings Panels - 正常滚动，底部留出按钮空间 */
 .settings-panel {
   display: none;
   padding: var(--settings-content-padding);
-  min-height: calc(100vh - var(--settings-header-height) - var(--settings-actions-height));
-  padding-bottom: calc(var(--settings-content-padding) + var(--settings-actions-height));
+  /* 移除最小高度限制，让内容自然流动 */
+  /* 底部不需要额外padding，因为.settings-main已经有了 */
 }
 
 .settings-panel.active {
@@ -890,7 +831,7 @@ body {
 
 /* Settings Actions - 固定在底部 */
 .settings-actions {
-  position: absolute;
+  position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
@@ -1560,17 +1501,20 @@ input[type="checkbox"] {
 
   .settings-main {
     height: calc(100vh - var(--settings-header-height) - 120px);
+    /* 为固定的底部按钮留出空间 */
+    padding-bottom: var(--settings-actions-height);
   }
 
   .settings-panel {
     padding: var(--settings-content-padding);
-    padding-bottom: calc(var(--settings-content-padding) + var(--settings-actions-height));
-    min-height: calc(100vh - var(--settings-header-height) - 120px - var(--settings-actions-height));
+    /* 移除额外的底部padding */
   }
 
   .settings-actions {
     padding: 16px var(--settings-content-padding);
     height: var(--settings-actions-height);
+    /* 确保在移动设备上也是固定定位 */
+    position: fixed;
   }
 
   .panel-header h2 {
@@ -1764,18 +1708,18 @@ input[type="checkbox"] {
 
   .settings-main {
     height: calc(100vh - var(--settings-header-height) - 120px);
+    padding-bottom: var(--settings-actions-height);
   }
 
   .settings-panel {
     padding: var(--settings-content-padding);
-    padding-bottom: calc(var(--settings-content-padding) + var(--settings-actions-height));
-    min-height: calc(100vh - var(--settings-header-height) - 120px - var(--settings-actions-height));
   }
 
   .settings-actions {
     padding: 12px var(--settings-content-padding);
     gap: 8px;
     height: var(--settings-actions-height);
+    position: fixed;
   }
 
   .panel-header h2 {

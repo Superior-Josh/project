@@ -8,7 +8,7 @@
     <div class="setting-item">
       <label for="windowBehavior">When Closing Window</label>
       <div class="setting-control">
-        <select id="windowBehavior" onchange="markUnsaved()">
+        <select id="windowBehavior">
           <option value="close">Exit Application</option>
           <option value="hide">Hide to System Tray</option>
         </select>
@@ -18,22 +18,10 @@
 
     <div class="setting-item">
       <label>
-        <input type="checkbox" id="autoStartNode" onchange="markUnsaved()">
+        <input type="checkbox" id="autoStartNode">
         <span>Auto Start P2P Node</span>
       </label>
       <p class="setting-description">Automatically start the P2P node when app launches</p>
-    </div>
-
-    <div class="setting-item">
-      <label for="theme">Theme</label>
-      <div class="setting-control">
-        <select id="theme" onchange="markUnsaved()">
-          <option value="system">System Default</option>
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
-        </select>
-      </div>
-      <p class="setting-description">Application theme</p>
     </div>
   </div>
 </div>
@@ -45,57 +33,59 @@
     <p>Configure file download and storage settings</p>
   </div>
 
-  <label for="downloadPath">Download Location</label>
-  <div class="setting-control">
-    <input type="text" id="downloadPath" readonly>
-    <button onclick="selectDownloadPath()">Browse</button>
-  </div>
-  <p class="setting-description">Where downloaded files will be saved</p>
-
-  <div class="setting-item">
-    <label>
-      <input type="checkbox" id="autoCreateSubfolders">
-      <span>Auto Create Subfolders</span>
-    </label>
-    <p class="setting-description">Automatically create subfolders for different file types</p>
-  </div>
-
-  <div class="setting-item">
-    <label for="maxConcurrentDownloads">Max Concurrent Downloads</label>
-    <div class="setting-control">
-      <input type="range" id="maxConcurrentDownloads" min="1" max="10" step="1" oninput="updateRangeValue(event)"
-        onchange="markUnsaved()">
-      <span class="range-value">3</span>
-    </div>
-    <p class="setting-description">Maximum number of files to download simultaneously</p>
-  </div>
-
-  <div class="setting-item">
-    <label for="chunkSize">Chunk Size</label>
-    <div class="setting-control">
-      <select id="chunkSize" onchange="markUnsaved()">
-        <option value="65536">64KB</option>
-        <option value="131072">128KB</option>
-        <option value="262144">256KB</option>
-        <option value="524288">512KB</option>
-        <option value="1048576">1MB</option>
-      </select>
-    </div>
-    <p class="setting-description">Size of file chunks for downloading</p>
-  </div>
-
-  <div class="setting-item">
-    <label>
-      <input type="checkbox" id="enableResumeDownload" onchange="markUnsaved()">
-      <span>Enable Resume Download</span>
-    </label>
-    <p class="setting-description">Allow resuming interrupted downloads</p>
-  </div>
   <div class="settings-group">
+    <div class="setting-item">
+      <label for="downloadPath">Download Location</label>
+      <div class="setting-control">
+        <input type="text" id="downloadPath" readonly>
+        <button onclick="selectDownloadPath()">Browse</button>
+      </div>
+      <p class="setting-description">Where downloaded files will be saved</p>
+    </div>
+
+    <div class="setting-item">
+      <label>
+        <input type="checkbox" id="autoCreateSubfolders">
+        <span>Auto Create Subfolders</span>
+      </label>
+      <p class="setting-description">Automatically create subfolders for different file types</p>
+    </div>
+
+    <div class="setting-item">
+      <label for="maxConcurrentDownloads">Max Concurrent Downloads</label>
+      <div class="setting-control">
+        <input type="range" id="maxConcurrentDownloads" min="1" max="10" step="1" oninput="updateRangeValue(event)">
+        <span class="range-value">3</span>
+      </div>
+      <p class="setting-description">Maximum number of files to download simultaneously</p>
+    </div>
+
+    <div class="setting-item">
+      <label for="chunkSize">Chunk Size</label>
+      <div class="setting-control">
+        <select id="chunkSize">
+          <option value="65536">64KB</option>
+          <option value="131072">128KB</option>
+          <option value="262144">256KB</option>
+          <option value="524288">512KB</option>
+          <option value="1048576">1MB</option>
+        </select>
+      </div>
+      <p class="setting-description">Size of file chunks for downloading</p>
+    </div>
+
+    <div class="setting-item">
+      <label>
+        <input type="checkbox" id="enableResumeDownload">
+        <span>Enable Resume Download</span>
+      </label>
+      <p class="setting-description">Allow resuming interrupted downloads</p>
+    </div>
+
     <div class="setting-item">
       <label for="logLevel">Log Level</label>
       <div class="setting-control">
-        <select id="logLevel" onchange="markUnsaved()">
+        <select id="logLevel">
           <option value="error">Error Only</option>
           <option value="warn">Warnings</option>
           <option value="info">Information</option>
@@ -117,8 +107,7 @@
     <div class="setting-item">
       <label for="memoryLimit">Memory Limit (MB)</label>
       <div class="setting-control">
-        <input type="range" id="memoryLimit" min="128" max="4096" step="64" oninput="updateRangeValue(event)"
-          onchange="markUnsaved()">
+        <input type="range" id="memoryLimit" min="128" max="4096" step="64" oninput="updateRangeValue(event)">
         <span class="range-value">512MB</span>
       </div>
       <p class="setting-description">Maximum memory usage</p>
@@ -127,8 +116,7 @@
     <div class="setting-item">
       <label for="diskCacheSize">Disk Cache Size (MB)</label>
       <div class="setting-control">
-        <input type="range" id="diskCacheSize" min="100" max="10240" step="100" oninput="updateRangeValue(event)"
-          onchange="markUnsaved()">
+        <input type="range" id="diskCacheSize" min="100" max="10240" step="100" oninput="updateRangeValue(event)">
         <span class="range-value">1024MB</span>
       </div>
       <p class="setting-description">Size of disk cache for files</p>
@@ -136,7 +124,7 @@
 
     <div class="setting-item">
       <label>
-        <input type="checkbox" id="enableFileValidation" onchange="markUnsaved()">
+        <input type="checkbox" id="enableFileValidation">
         <span>Enable File Validation</span>
       </label>
       <p class="setting-description">Verify file integrity after download</p>
@@ -144,7 +132,7 @@
 
     <div class="setting-item">
       <label>
-        <input type="checkbox" id="cleanupTempFiles" onchange="markUnsaved()">
+        <input type="checkbox" id="cleanupTempFiles">
         <span>Cleanup Temp Files</span>
       </label>
       <p class="setting-description">Automatically cleanup temporary files</p>
@@ -161,7 +149,7 @@
   <div class="settings-group">
     <div class="setting-item">
       <label>
-        <input type="checkbox" id="autoBackupSettings" onchange="markUnsaved()">
+        <input type="checkbox" id="autoBackupSettings">
         <span>Auto Backup Settings</span>
       </label>
       <p class="setting-description">Automatically backup settings periodically</p>
@@ -169,7 +157,7 @@
 
     <div class="setting-item">
       <label>
-        <input type="checkbox" id="autoBackupDatabase" onchange="markUnsaved()">
+        <input type="checkbox" id="autoBackupDatabase">
         <span>Auto Backup Database</span>
       </label>
       <p class="setting-description">Automatically backup file database</p>
@@ -178,8 +166,7 @@
     <div class="setting-item">
       <label for="backupInterval">Backup Interval (hours)</label>
       <div class="setting-control">
-        <input type="range" id="backupInterval" min="1" max="168" step="1" oninput="updateRangeValue(event)"
-          onchange="markUnsaved()">
+        <input type="range" id="backupInterval" min="1" max="168" step="1" oninput="updateRangeValue(event)">
         <span class="range-value">24 hours</span>
       </div>
       <p class="setting-description">How often to create automatic backups</p>
@@ -188,8 +175,7 @@
     <div class="setting-item">
       <label for="maxBackupFiles">Max Backup Files</label>
       <div class="setting-control">
-        <input type="range" id="maxBackupFiles" min="1" max="50" step="1" oninput="updateRangeValue(event)"
-          onchange="markUnsaved()">
+        <input type="range" id="maxBackupFiles" min="1" max="50" step="1" oninput="updateRangeValue(event)">
         <span class="range-value">5</span>
       </div>
       <p class="setting-description">Maximum number of backup files to keep</p>
@@ -225,7 +211,7 @@
   <div class="settings-group">
     <div class="setting-item">
       <label>
-        <input type="checkbox" id="autoConnectToPeers" onchange="markUnsaved()">
+        <input type="checkbox" id="autoConnectToPeers">
         <span>Auto Connect to Peers</span>
       </label>
       <p class="setting-description">Automatically connect to discovered peers</p>
@@ -234,8 +220,7 @@
     <div class="setting-item">
       <label for="maxConnections">Max Connections</label>
       <div class="setting-control">
-        <input type="range" id="maxConnections" min="1" max="200" step="1" oninput="updateRangeValue(event)"
-          onchange="markUnsaved()">
+        <input type="range" id="maxConnections" min="1" max="200" step="1" oninput="updateRangeValue(event)">
         <span class="range-value">50</span>
       </div>
       <p class="setting-description">Maximum number of peer connections</p>
@@ -244,8 +229,7 @@
     <div class="setting-item">
       <label for="connectionTimeout">Connection Timeout</label>
       <div class="setting-control">
-        <input type="range" id="connectionTimeout" min="5" max="120" step="5" oninput="updateRangeValue(event)"
-          onchange="markUnsaved()">
+        <input type="range" id="connectionTimeout" min="5" max="120" step="5" oninput="updateRangeValue(event)">
         <span class="range-value">30s</span>
       </div>
       <p class="setting-description">Timeout for peer connections (seconds)</p>
@@ -253,7 +237,7 @@
 
     <div class="setting-item">
       <label>
-        <input type="checkbox" id="enableUpnp" onchange="markUnsaved()">
+        <input type="checkbox" id="enableUpnp">
         <span>Enable UPnP</span>
       </label>
       <p class="setting-description">Automatically configure router port forwarding</p>
@@ -270,7 +254,7 @@
   <div class="settings-group">
     <div class="setting-item">
       <label>
-        <input type="checkbox" id="enableEncryption" onchange="markUnsaved()">
+        <input type="checkbox" id="enableEncryption">
         <span>Enable Encryption</span>
       </label>
       <p class="setting-description">Encrypt all P2P communications</p>
@@ -278,7 +262,7 @@
 
     <div class="setting-item">
       <label>
-        <input type="checkbox" id="shareFileByDefault" onchange="markUnsaved()">
+        <input type="checkbox" id="shareFileByDefault">
         <span>Share Files by Default</span>
       </label>
       <p class="setting-description">Automatically share new files with the network</p>
@@ -286,7 +270,7 @@
 
     <div class="setting-item">
       <label>
-        <input type="checkbox" id="autoAcceptConnections" onchange="markUnsaved()">
+        <input type="checkbox" id="autoAcceptConnections">
         <span>Auto Accept Connections</span>
       </label>
       <p class="setting-description">Automatically accept incoming peer connections</p>
