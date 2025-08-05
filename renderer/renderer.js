@@ -72,10 +72,10 @@ class MessageManager {
   }
 
   createMessageContainer() {
-    let container = document.getElementById('message-container')
+    let container = document.getElementById('messageContainer')
     if (!container) {
       container = document.createElement('div')
-      container.id = 'message-container'
+      container.id = 'messageContainer'
       container.className = 'message-container'
       document.body.appendChild(container)
     }
@@ -251,6 +251,8 @@ window.updateMessage = updateMessage
 window.closeMessage = closeMessage
 
 // Global state
+let currentInterface = 'main'
+let hasUnsavedChanges = false
 let isNodeStarted = false
 let selectedFiles = []
 let downloadInterval = null
@@ -258,40 +260,146 @@ let isAutoStarting = false
 
 // DOM elements
 const elements = {
-  startNode: document.getElementById('startNode'),
-  stopNode: document.getElementById('stopNode'),
-  openSettings: document.getElementById('openSettings'),
-  nodeStatus: document.getElementById('nodeStatus'),
-  nodeInfo: document.getElementById('nodeInfo'),
-  peerAddress: document.getElementById('peerAddress'),
-  connectPeer: document.getElementById('connectPeer'),
-  dhtStats: document.getElementById('dhtStats'),
-  refreshStats: document.getElementById('refreshStats'),
-  selectFiles: document.getElementById('selectFiles'),
-  shareSelected: document.getElementById('shareSelected'),
-  selectedFiles: document.getElementById('selectedFiles'),
-  searchInput: document.getElementById('searchInput'),
-  searchFiles: document.getElementById('searchFiles'),
-  localFiles: document.getElementById('localFiles'),
-  searchResults: document.getElementById('searchResults'),
-  activeDownloads: document.getElementById('activeDownloads'),
-  refreshDownloads: document.getElementById('refreshDownloads'),
-  databaseStats: document.getElementById('databaseStats'),
-  refreshDatabaseStats: document.getElementById('refreshDatabaseStats'),
-  cleanupDatabase: document.getElementById('cleanupDatabase'),
-  exportData: document.getElementById('exportData'),
-  importData: document.getElementById('importData')
+  startNode: null,
+  stopNode: null,
+  openSettings: null,
+  nodeStatus: null,
+  nodeInfo: null,
+  peerAddress: null,
+  connectPeer: null,
+  dhtStats: null,
+  refreshStats: null,
+  selectFiles: null,
+  shareSelected: null,
+  selectedFiles: null,
+  searchInput: null,
+  searchFiles: null,
+  localFiles: null,
+  searchResults: null,
+  activeDownloads: null,
+  refreshDownloads: null,
+  databaseStats: null,
+  refreshDatabaseStats: null,
+  cleanupDatabase: null,
+  exportData: null,
+  importData: null
 }
 
 // Initialize DOM elements after page load
 function initializeDOMElements() {
   // Re-query elements in case they weren't ready before
   Object.keys(elements).forEach(key => {
-    const element = document.getElementById(key === 'openSettings' ? 'openSettings' : key)
+    const element = document.getElementById(key)
     if (element) {
       elements[key] = element
     }
   })
+}
+
+// Navigation functionality
+function initializeNavigation() {
+  // Main interface navigation
+  const mainNavItems = document.querySelectorAll('#mainInterface .nav-item')
+  const contentSections = document.querySelectorAll('.content-section')
+
+  mainNavItems.forEach(item => {
+    item.addEventListener('click', () => {
+      const sectionId = item.dataset.section
+      
+      // Update navigation
+      mainNavItems.forEach(nav => nav.classList.remove('active'))
+      item.classList.add('active')
+      
+      // Update content
+      contentSections.forEach(section => section.classList.remove('active'))
+      const targetSection = document.getElementById(`${sectionId}-section`)
+      if (targetSection) {
+        targetSection.classList.add('active')
+      }
+    })
+  })
+
+  // Settings navigation
+  const settingsNavItems = document.querySelectorAll('#settingsInterface .nav-item')
+
+  settingsNavItems.forEach(item => {
+    item.addEventListener('click', () => {
+      const category = item.dataset.category
+      
+      // Update navigation
+      settingsNavItems.forEach(nav => nav.classList.remove('active'))
+      item.classList.add('active')
+      
+      // Update panels - will be handled by loadSettingsContent
+      switchSettingsPanel(category)
+    })
+  })
+}
+
+// Interface switching
+function showSettings() {
+  document.getElementById('mainInterface').style.display = 'none'
+  document.getElementById('settingsInterface').style.display = 'flex'
+  currentInterface = 'settings'
+  
+  // Load settings content
+  loadSettingsContent()
+}
+
+function goBackToMain() {
+    hideSettings()
+}
+
+function hideSettings() {
+  document.getElementById('settingsInterface').style.display = 'none'
+  document.getElementById('mainInterface').style.display = 'flex'
+  currentInterface = 'main'
+  hasUnsavedChanges = false
+}
+
+// Load settings content dynamically
+async function loadSettingsContent() {
+  const settingsContent = document.getElementById('settingsContent')
+
+  try {
+    // Load settings.html content
+  
+    const response = await fetch('settings.html')
+    const html = await response.text()
+    settingsContent.innerHTML = html
+
+    // Setup settings functionality
+    setupSettingsNavigation()
+    await loadSettings()
+  } catch (error) {
+    console.error('Error loading settings content:', error)
+    // Fallback: create basic settings panels
+    createFallbackSettings(settingsContent)
+  }
+}
+
+function createFallbackSettings(container) {
+  container.innerHTML = `
+    <div class="settings-panel active" id="window-panel">
+      <div class="panel-header">
+        <h2>Settings</h2>
+        <p>Basic settings panel</p>
+      </div>
+      <div class="settings-group">
+        <p>Settings content could not be loaded.</p>
+      </div>
+    </div>
+  `
+}
+
+function switchSettingsPanel(category) {
+  const panels = document.querySelectorAll('#settingsContent .settings-panel')
+  panels.forEach(panel => panel.classList.remove('active'))
+  
+  const targetPanel = document.getElementById(`${category}-panel`)
+  if (targetPanel) {
+    targetPanel.classList.add('active')
+  }
 }
 
 // Page load initialization
@@ -305,6 +413,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Initialize DOM elements
   initializeDOMElements()
 
+  // Initialize navigation
+  initializeNavigation()
+
   // Define global functions immediately when page loads
   window.removeSelectedFile = removeSelectedFile
   window.pauseDownload = pauseDownload
@@ -313,6 +424,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.connectToDiscoveredPeer = connectToDiscoveredPeer
   window.refreshDiscoveredPeers = refreshDiscoveredPeers
   window.goBackToMain = goBackToMain
+  window.markUnsaved = markUnsaved
+  window.saveAllSettings = saveAllSettings
+  window.resetAllSettings = resetAllSettings
+  window.selectDownloadPath = selectDownloadPath
+  window.createBackup = createBackup
+  window.showBackupList = showBackupList
+  window.exportSettings = exportSettings
+  window.importSettings = importSettings
 
   // Setup event listeners
   setupEventListeners()
@@ -356,6 +475,15 @@ function setupEventListeners() {
       }
     })
   }
+
+  // Peer address input enter key
+  if (elements.peerAddress) {
+    elements.peerAddress.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        connectToPeer()
+      }
+    })
+  }
 }
 
 // Update button states
@@ -386,38 +514,40 @@ function updateButtonStates(nodeStarted) {
 }
 
 // Listen for auto-start events
-window.electronAPI.onP2PNodeStarted((result) => {
-  console.log('Received auto-start result:', result)
+if (window.electronAPI) {
+  window.electronAPI.onP2PNodeStarted((result) => {
+    console.log('Received auto-start result:', result)
 
-  isAutoStarting = false
+    isAutoStarting = false
 
-  if (result.success) {
-    updateButtonStates(true)
-    updateNodeInfo(result.nodeInfo)
-    startStatsRefresh()
-    showMessage('P2P node auto-started successfully', 'success')
-  } else {
-    updateButtonStates(false)
-    elements.nodeInfo.innerHTML = '<p>Auto-start failed</p>'
-    showMessage(`Auto-start failed: ${result.error}`, 'error')
-  }
-})
+    if (result.success) {
+      updateButtonStates(true)
+      updateNodeInfo(result.nodeInfo)
+      startStatsRefresh()
+      showMessage('P2P node auto-started successfully', 'success')
+    } else {
+      updateButtonStates(false)
+      elements.nodeInfo.innerHTML = '<p>Auto-start failed</p>'
+      showMessage(`Auto-start failed: ${result.error}`, 'error')
+    }
+  })
 
-// Listen for node status change events
-window.electronAPI.onP2PNodeStatusChanged((result) => {
-  console.log('Received node status change:', result)
+  // Listen for node status change events
+  window.electronAPI.onP2PNodeStatusChanged((result) => {
+    console.log('Received node status change:', result)
 
-  if (result.success && result.nodeInfo) {
-    updateButtonStates(true)
-    updateNodeInfo(result.nodeInfo)
-  } else if (result.success && !result.nodeInfo) {
-    updateButtonStates(false)
-    elements.nodeInfo.innerHTML = '<p>Node stopped</p>'
-    elements.dhtStats.innerHTML = '<p>DHT not running</p>'
-  } else if (!result.success && result.error) {
-    showMessage(`Node operation failed: ${result.error}`, 'error')
-  }
-})
+    if (result.success && result.nodeInfo) {
+      updateButtonStates(true)
+      updateNodeInfo(result.nodeInfo)
+    } else if (result.success && !result.nodeInfo) {
+      updateButtonStates(false)
+      elements.nodeInfo.innerHTML = '<p>Node stopped</p>'
+      elements.dhtStats.innerHTML = '<p>DHT not running</p>'
+    } else if (!result.success && result.error) {
+      showMessage(`Node operation failed: ${result.error}`, 'error')
+    }
+  })
+}
 
 // Open settings
 async function openSettings() {
@@ -506,7 +636,7 @@ async function stopNode() {
 // Update node status
 function updateNodeStatus(status) {
   if (elements.nodeStatus) {
-    elements.nodeStatus.className = `status ${status}`
+    elements.nodeStatus.className = `node-status ${status}`
 
     // Use fixed status texts
     const statusTexts = {
@@ -520,7 +650,7 @@ function updateNodeStatus(status) {
 
 // Update node information
 function updateNodeInfo(nodeInfo) {
-  if (nodeInfo) {
+  if (nodeInfo && elements.nodeInfo) {
     elements.nodeInfo.innerHTML = `
       <p><strong>Node ID:</strong> ${nodeInfo.peerId}</p>
       <p><strong>Connected Peers:</strong> ${nodeInfo.connectedPeers}</p>
@@ -990,7 +1120,7 @@ async function refreshDatabaseStats() {
   try {
     const stats = await window.electronAPI.getDatabaseStats()
 
-    if (stats) {
+    if (stats && elements.databaseStats) {
       elements.databaseStats.innerHTML = `
         <p><strong>Node Records:</strong> ${stats.nodes}</p>
         <p><strong>File Records:</strong> ${stats.files}</p>
@@ -999,7 +1129,7 @@ async function refreshDatabaseStats() {
         <p><strong>Config Items:</strong> ${stats.config}</p>
         <p><strong>Status:</strong> ${stats.initialized ? 'Initialized' : 'Not Initialized'}</p>
       `
-    } else {
+    } else if (elements.databaseStats) {
       elements.databaseStats.innerHTML = '<p>Database not initialized</p>'
     }
   } catch (error) {
@@ -1081,86 +1211,7 @@ async function importData() {
   }
 }
 
-// Utility functions
-function formatFileSize(bytes) {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-}
-
-function formatTime(seconds) {
-  if (seconds < 60) return `${seconds}s`
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m${seconds % 60}s`
-  return `${Math.floor(seconds / 3600)}h${Math.floor((seconds % 3600) / 60)}m`
-}
-
-function formatRelativeTime(timestamp) {
-  const now = Date.now()
-  const diff = now - timestamp
-  const seconds = Math.floor(diff / 1000)
-
-  if (seconds < 60) return 'Just now'
-  if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`
-  return `${Math.floor(seconds / 86400)} days ago`
-}
-
-function getStatusText(status) {
-  const statusMap = {
-    'downloading': 'Downloading',
-    'paused': 'Paused',
-    'completed': 'Completed',
-    'failed': 'Failed',
-    'cancelled': 'Cancelled'
-  }
-  return statusMap[status] || status
-}
-
-// Switch between main and settings interface
-function showSettings() {
-  document.getElementById('mainInterface').style.display = 'none'
-  document.getElementById('settingsInterface').style.display = 'flex'
-
-  // Load settings content
-  loadSettingsContent()
-}
-
-function goBackToMain() {
-  hideSettings()
-}
-
-function hideSettings() {
-  document.getElementById('settingsInterface').style.display = 'none'
-  document.getElementById('mainInterface').style.display = 'block'
-
-  // Reset unsaved changes flag
-  if (typeof hasUnsavedChanges !== 'undefined') {
-    window.hasUnsavedChanges = false
-  }
-}
-
-// Load settings content dynamically
-async function loadSettingsContent() {
-  const settingsContent = document.getElementById('settingsContent')
-
-  try {
-    // Create settings panels HTML
-    const html = await fetch('settings.html').then(res => res.text())
-    settingsContent.innerHTML = html
-
-    // Setup settings functionality
-    setupSettingsNavigation()
-    await loadSettings()
-  } catch (error) {
-    console.error('Error loading settings content:', error)
-    settingsContent.innerHTML = '<p>Failed to load settings</p>'
-  }
-}
-
-// Settings functionality for in-app settings
-let hasUnsavedChanges = false
+// Settings functionality
 let currentSettings = {}
 
 // Settings functions
@@ -1212,7 +1263,7 @@ function setupSettingsNavigation() {
   console.log('Setting up settings navigation...')
 
   const navItems = document.querySelectorAll('#settingsInterface .nav-item')
-  const panels = document.querySelectorAll('#settingsInterface .settings-panel')
+  const panels = document.querySelectorAll('#settingsContent .settings-panel')
 
   console.log('Found nav items:', navItems.length)
   console.log('Found panels:', panels.length)
@@ -1262,14 +1313,14 @@ function setupFormEventListeners() {
   console.log('Setting up form event listeners...')
 
   // Range inputs
-  const rangeInputs = document.querySelectorAll('#settingsInterface input[type="range"]')
+  const rangeInputs = document.querySelectorAll('#settingsContent input[type="range"]')
   rangeInputs.forEach(input => {
     input.addEventListener('input', updateRangeValue)
     input.addEventListener('change', markUnsaved)
   })
 
   // Other inputs
-  const inputs = document.querySelectorAll('#settingsInterface input, #settingsInterface select')
+  const inputs = document.querySelectorAll('#settingsContent input, #settingsContent select')
   inputs.forEach(input => {
     if (input.type !== 'range') {
       input.addEventListener('change', (e) => {
@@ -1310,7 +1361,7 @@ function updateRangeValue(event) {
 
 // Update all range values
 function updateAllRangeValues() {
-  const rangeInputs = document.querySelectorAll('#settingsInterface input[type="range"]')
+  const rangeInputs = document.querySelectorAll('#settingsContent input[type="range"]')
   rangeInputs.forEach(input => {
     updateRangeValue({ target: input })
   })
@@ -1409,23 +1460,73 @@ async function selectDownloadPath() {
   }
 }
 
-// Simplified confirmation dialog
-function showConfirmDialog(title, message, onConfirm) {
-  if (confirm(message)) {
-    onConfirm()
-  }
+// Placeholder functions for backup and import
+function createBackup() {
+  showMessage('Creating backup...', 'info')
 }
 
-// Make settings functions global
+function showBackupList() {
+  showMessage('Loading backup list...', 'info')
+}
+
+function exportSettings() {
+  showMessage('Exporting settings...', 'info')
+}
+
+function importSettings() {
+  showMessage('Opening import dialog...', 'info')
+}
+
+// Utility functions
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
+function formatTime(seconds) {
+  if (seconds < 60) return `${seconds}s`
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m${seconds % 60}s`
+  return `${Math.floor(seconds / 3600)}h${Math.floor((seconds % 3600) / 60)}m`
+}
+
+function formatRelativeTime(timestamp) {
+  const now = Date.now()
+  const diff = now - timestamp
+  const seconds = Math.floor(diff / 1000)
+
+  if (seconds < 60) return 'Just now'
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`
+  return `${Math.floor(seconds / 86400)} days ago`
+}
+
+function getStatusText(status) {
+  const statusMap = {
+    'downloading': 'Downloading',
+    'paused': 'Paused',
+    'completed': 'Completed',
+    'failed': 'Failed',
+    'cancelled': 'Cancelled'
+  }
+  return statusMap[status] || status
+}
+
+// Make functions globally available for onclick handlers
+window.goBackToMain = goBackToMain
+window.markUnsaved = markUnsaved
 window.saveAllSettings = saveAllSettings
 window.resetAllSettings = resetAllSettings
 window.selectDownloadPath = selectDownloadPath
-window.hasUnsavedChanges = false
-
-// Make functions globally available
+window.createBackup = createBackup
+window.showBackupList = showBackupList
+window.exportSettings = exportSettings
+window.importSettings = importSettings
 window.updateRangeValue = updateRangeValue
 window.updateAllRangeValues = updateAllRangeValues
-window.markUnsaved = markUnsaved
+window.hasUnsavedChanges = false
 
 // 导出主题管理器供全局使用
 window.themeManager = themeManager

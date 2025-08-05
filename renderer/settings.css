@@ -5,7 +5,7 @@
   box-sizing: border-box;
 }
 
-/* CSS变量定义 - 浅色主题 */
+/* CSS变量定义 - 与主样式保持一致 */
 :root {
   --bg-primary: #f8f9fa;
   --bg-secondary: #ffffff;
@@ -21,6 +21,12 @@
   --hover-bg: #f8f9fa;
   --active-bg: #e3f2fd;
   --active-color: #1976d2;
+  
+  /* 固定设置界面尺寸 */
+  --settings-header-height: 80px;
+  --settings-sidebar-width: 280px;
+  --settings-actions-height: 80px;
+  --settings-content-padding: 32px;
 }
 
 /* 深色主题变量 */
@@ -84,17 +90,22 @@ body {
   color: var(--text-primary);
   line-height: 1.6;
   transition: background-color 0.3s ease, color 0.3s ease;
+  /* 防止水平滚动 */
+  overflow-x: hidden;
+  /* 固定字体大小 */
+  font-size: 1rem;
 }
 
-/* Settings container */
+/* Settings container - 固定布局 */
 .settings-container {
   height: 100vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
 }
 
-/* Header - 固定在顶部 */
+/* Header - 固定在顶部，固定高度 */
 .settings-header {
   position: fixed;
   top: 0;
@@ -104,12 +115,13 @@ body {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  padding: 8px 16px;
+  padding: 16px 24px;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
   box-shadow: 0 2px 4px var(--shadow-light);
-  min-height: 60px;
+  height: var(--settings-header-height);
   transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  flex-shrink: 0;
 }
 
 .header-content {
@@ -120,6 +132,7 @@ body {
   max-width: 1200px;
   margin: 0 auto;
   width: 100%;
+  height: 100%;
 }
 
 .back-btn {
@@ -135,6 +148,7 @@ body {
   transition: all 0.2s ease;
   flex-shrink: 0;
   white-space: nowrap;
+  height: 40px;
 }
 
 .back-btn:hover {
@@ -143,35 +157,36 @@ body {
 }
 
 .settings-header h1 {
-  font-size: 24px;
+  font-size: 1.5rem;
   font-weight: 600;
   color: var(--text-accent);
   margin: 0;
   flex-shrink: 0;
+  margin-left: 24px;
 }
 
-/* Settings content - 可滚动区域 */
+/* Settings content - 可滚动区域，固定布局 */
 .settings-content {
   flex: 1;
   display: flex;
   max-width: 1200px;
   margin: 0 auto;
   width: 100%;
-  margin-top: 60px;
-  padding-bottom: 80px;
+  margin-top: var(--settings-header-height);
   overflow: hidden;
+  height: calc(100vh - var(--settings-header-height));
 }
 
-/* Sidebar - 可滚动 */
+/* Sidebar - 固定宽度，可滚动 */
 .settings-sidebar {
-  width: 280px;
+  width: var(--settings-sidebar-width);
   background: var(--bg-secondary);
   border-right: 1px solid var(--border-color);
   padding: 24px 0;
   overflow-y: auto;
   flex-shrink: 0;
-  height: calc(100vh - 60px - 80px);
   transition: background-color 0.3s ease;
+  min-width: var(--settings-sidebar-width);
 }
 
 .settings-nav {
@@ -192,6 +207,7 @@ body {
   color: var(--text-secondary);
   white-space: nowrap;
   flex-shrink: 0;
+  min-height: 44px;
 }
 
 .nav-item:hover {
@@ -211,20 +227,22 @@ body {
   height: 20px;
 }
 
-/* Main content - 可滚动 */
+/* Main content - 自适应剩余空间，可滚动 */
 .settings-main {
   flex: 1;
   background: var(--bg-secondary);
   overflow-y: auto;
-  height: calc(100vh - 60px - 80px);
   transition: background-color 0.3s ease;
+  position: relative;
+  min-width: 0;
 }
 
-/* Settings panels - 正常滚动，不固定 */
+/* Settings panels - 正常滚动，固定底部空间 */
 .settings-panel {
   display: none;
-  padding: 32px 40px;
-  min-height: 100%;
+  padding: var(--settings-content-padding);
+  min-height: calc(100vh - var(--settings-header-height) - var(--settings-actions-height));
+  padding-bottom: calc(var(--settings-content-padding) + var(--settings-actions-height));
 }
 
 .settings-panel.active {
@@ -238,7 +256,7 @@ body {
 }
 
 .panel-header h2 {
-  font-size: 28px;
+  font-size: 1.75rem;
   font-weight: 600;
   color: var(--text-accent);
   margin-bottom: 8px;
@@ -246,17 +264,17 @@ body {
 
 .panel-header p {
   color: var(--text-secondary);
-  font-size: 16px;
+  font-size: 1rem;
   margin: 0;
 }
 
 /* Settings Actions - 固定在底部 */
 .settings-actions {
-  position: fixed;
+  position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 16px;
+  padding: 16px var(--settings-content-padding);
   background: var(--bg-secondary);
   border-top: 1px solid var(--border-color);
   display: flex;
@@ -265,6 +283,8 @@ body {
   z-index: 1000;
   box-shadow: 0 -2px 4px var(--shadow-light);
   transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  height: var(--settings-actions-height);
+  align-items: center;
 }
 
 /* Settings groups */
@@ -286,7 +306,7 @@ body {
 .setting-item label {
   font-weight: 500;
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: 0.875rem;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -295,6 +315,7 @@ body {
 
 .setting-item label input[type="checkbox"] {
   margin: 0;
+  flex-shrink: 0;
 }
 
 .setting-control {
@@ -311,10 +332,12 @@ body {
   padding: 8px 12px;
   border: 1px solid var(--border-accent);
   border-radius: 4px;
-  font-size: 14px;
+  font-size: 0.875rem;
   background: var(--bg-secondary);
   color: var(--text-primary);
   transition: all 0.2s ease;
+  height: 40px;
+  box-sizing: border-box;
 }
 
 .setting-control input[type="text"]:focus,
@@ -327,6 +350,31 @@ body {
 .setting-control input[type="range"] {
   flex: 1;
   min-width: 150px;
+  height: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--border-color);
+  border-radius: 3px;
+  outline: none;
+}
+
+.setting-control input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: #007bff;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.setting-control input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: #007bff;
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
 }
 
 .range-value {
@@ -335,12 +383,14 @@ body {
   min-width: 60px;
   text-align: center;
   flex-shrink: 0;
+  font-size: 0.875rem;
 }
 
 .setting-description {
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: 0.8125rem;
   margin: 0;
+  line-height: 1.4;
 }
 
 /* Checkbox styling */
@@ -348,48 +398,25 @@ input[type="checkbox"] {
   width: 16px;
   height: 16px;
   accent-color: #007bff;
+  flex-shrink: 0;
 }
 
-/* Range input styling */
-input[type="range"] {
-  -webkit-appearance: none;
-  appearance: none;
-  height: 6px;
-  background: var(--border-color);
-  border-radius: 3px;
-  outline: none;
-}
-
-input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 18px;
-  height: 18px;
-  background: #007bff;
-  border-radius: 50%;
-  cursor: pointer;
-}
-
-input[type="range"]::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
-  background: #007bff;
-  border-radius: 50%;
-  cursor: pointer;
-  border: none;
-}
-
-/* Buttons */
+/* Buttons - 固定尺寸 */
 .btn-primary, .btn-secondary, .btn-outline {
   padding: 8px 16px;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
   border: none;
   white-space: nowrap;
   flex-shrink: 0;
+  height: 40px;
+  min-width: 100px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn-primary {
@@ -434,6 +461,7 @@ input[type="range"]::-moz-range-thumb {
   display: flex;
   gap: 12px;
   margin-bottom: 16px;
+  flex-wrap: wrap;
 }
 
 .import-export-buttons {
@@ -453,6 +481,7 @@ input[type="range"]::-moz-range-thumb {
 .backup-list h3 {
   margin-bottom: 16px;
   color: var(--text-primary);
+  font-size: 1.125rem;
 }
 
 .backup-items {
@@ -470,30 +499,38 @@ input[type="range"]::-moz-range-thumb {
   border-radius: 6px;
   border: 1px solid var(--border-accent);
   transition: background-color 0.3s ease;
+  min-height: 60px;
 }
 
 .backup-info {
   flex: 1;
+  min-width: 0;
 }
 
 .backup-name {
   font-weight: 500;
   color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .backup-date {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--text-secondary);
 }
 
 .backup-actions-small {
   display: flex;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .backup-actions-small button {
   padding: 4px 8px;
-  font-size: 12px;
+  font-size: 0.75rem;
+  min-width: auto;
+  height: 28px;
 }
 
 /* Toast notifications */
@@ -519,6 +556,8 @@ input[type="range"]::-moz-range-thumb {
   animation: slideInRight 0.3s ease;
   color: var(--text-primary);
   transition: background-color 0.3s ease, color 0.3s ease;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .toast.success {
@@ -566,38 +605,95 @@ input[type="range"]::-moz-range-thumb {
   width: 90%;
   box-shadow: 0 8px 32px var(--shadow-heavy);
   transition: background-color 0.3s ease;
+  max-height: 80vh;
+  overflow-y: auto;
 }
 
 .modal-content h3 {
   margin-bottom: 12px;
   color: var(--text-accent);
+  font-size: 1.25rem;
 }
 
 .modal-content p {
   color: var(--text-secondary);
   margin-bottom: 20px;
+  line-height: 1.5;
 }
 
 .modal-actions {
   display: flex;
   gap: 12px;
   justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
-/* Responsive design */
-@media (max-width: 768px) {
+/* 响应式设计 - 渐进式断点 */
+@media screen and (max-width: 1024px) {
+  :root {
+    --settings-sidebar-width: 240px;
+    --settings-content-padding: 24px;
+  }
+  
+  .settings-header h1 {
+    font-size: 1.375rem;
+  }
+  
+  .panel-header h2 {
+    font-size: 1.5rem;
+  }
+  
+  .nav-item {
+    padding: 10px 14px;
+    font-size: 0.875rem;
+  }
+}
+
+@media screen and (max-width: 768px) {
+  :root {
+    --settings-header-height: 120px;
+    --settings-sidebar-width: 100%;
+    --settings-content-padding: 20px;
+    --settings-actions-height: 80px;
+  }
+  
   .settings-content {
     flex-direction: column;
-    margin-top: 70px;
+    margin-top: var(--settings-header-height);
+    height: calc(100vh - var(--settings-header-height));
+  }
+  
+  .settings-header {
+    height: var(--settings-header-height);
+  }
+  
+  .header-content {
+    flex-direction: column;
+    gap: 15px;
+    padding: 12px 16px;
+    justify-content: center;
+  }
+  
+  .settings-header h1 {
+    font-size: 1.25rem;
+    margin-left: 0;
+    margin-top: 8px;
+  }
+  
+  .back-btn {
+    margin-right: 0;
+    align-self: flex-start;
   }
   
   .settings-sidebar {
     width: 100%;
-    height: auto;
-    max-height: 150px;
+    height: 120px;
     border-right: none;
     border-bottom: 1px solid var(--border-color);
     padding: 16px 0;
+    min-width: unset;
+    overflow-x: auto;
+    overflow-y: hidden;
   }
   
   .settings-nav {
@@ -605,28 +701,35 @@ input[type="range"]::-moz-range-thumb {
     overflow-x: auto;
     padding: 0 16px;
     gap: 8px;
+    height: 100%;
+    align-items: center;
   }
   
   .nav-item {
     flex-shrink: 0;
-    min-width: 120px;
+    min-width: 140px;
     justify-content: center;
+    font-size: 0.8125rem;
+    height: 40px;
   }
   
   .settings-main {
-    height: calc(100vh - 70px - 150px - 80px);
+    height: calc(100vh - var(--settings-header-height) - 120px);
   }
   
   .settings-panel {
-    padding: 24px 20px;
+    padding: var(--settings-content-padding);
+    padding-bottom: calc(var(--settings-content-padding) + var(--settings-actions-height));
+    min-height: calc(100vh - var(--settings-header-height) - 120px - var(--settings-actions-height));
   }
   
-  .header-content {
-    padding: 12px 16px;
+  .settings-actions {
+    padding: 16px var(--settings-content-padding);
+    height: var(--settings-actions-height);
   }
   
-  .settings-header h1 {
-    font-size: 20px;
+  .panel-header h2 {
+    font-size: 1.375rem;
   }
   
   .setting-control {
@@ -637,7 +740,13 @@ input[type="range"]::-moz-range-thumb {
   
   .setting-control input[type="text"],
   .setting-control select {
-    min-width: auto;
+    min-width: unset;
+    width: 100%;
+  }
+  
+  .setting-control input[type="range"] {
+    min-width: unset;
+    width: 100%;
   }
   
   .backup-buttons,
@@ -645,39 +754,262 @@ input[type="range"]::-moz-range-thumb {
     flex-direction: column;
     gap: 8px;
   }
+  
+  .backup-buttons button,
+  .import-export-buttons button {
+    width: 100%;
+  }
+  
+  .backup-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    min-height: 80px;
+  }
+  
+  .backup-actions-small {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  
+  .modal-content {
+    margin: 20px;
+    width: calc(100% - 40px);
+    max-width: none;
+  }
+  
+  .modal-actions {
+    flex-direction: column;
+  }
+  
+  .modal-actions button {
+    width: 100%;
+  }
 }
 
-@media (max-width: 480px) {
+@media screen and (max-width: 480px) {
+  :root {
+    --settings-header-height: 140px;
+    --settings-content-padding: 16px;
+    --settings-actions-height: 80px;
+  }
+  
   .settings-content {
-    margin-top: 80px;
+    margin-top: var(--settings-header-height);
+    height: calc(100vh - var(--settings-header-height));
   }
   
   .settings-header h1 {
-    font-size: 18px;
+    font-size: 1.125rem;
   }
   
   .back-btn {
     padding: 6px 10px;
-    font-size: 12px;
+    font-size: 0.875rem;
+    height: 36px;
+  }
+  
+  .nav-item {
+    min-width: 120px;
+    font-size: 0.75rem;
+    padding: 8px 12px;
+    height: 36px;
+  }
+  
+  .settings-main {
+    height: calc(100vh - var(--settings-header-height) - 120px);
+  }
+  
+  .settings-panel {
+    padding: var(--settings-content-padding);
+    padding-bottom: calc(var(--settings-content-padding) + var(--settings-actions-height));
+    min-height: calc(100vh - var(--settings-header-height) - 120px - var(--settings-actions-height));
+  }
+  
+  .settings-actions {
+    padding: 12px var(--settings-content-padding);
+    gap: 8px;
+    height: var(--settings-actions-height);
+  }
+  
+  .panel-header h2 {
+    font-size: 1.25rem;
+  }
+  
+  .panel-header p {
+    font-size: 0.875rem;
+  }
+  
+  .btn-primary, .btn-secondary, .btn-outline {
+    padding: 6px 12px;
+    font-size: 0.75rem;
+    height: 36px;
+    min-width: 80px;
+  }
+  
+  .setting-item label {
+    font-size: 0.8125rem;
+  }
+  
+  .setting-control input[type="text"],
+  .setting-control select {
+    font-size: 0.8125rem;
+    height: 36px;
+    padding: 6px 10px;
+  }
+  
+  .setting-description {
+    font-size: 0.75rem;
+  }
+  
+  .range-value {
+    font-size: 0.8125rem;
+    min-width: 50px;
+  }
+  
+  .backup-list h3 {
+    font-size: 1rem;
+  }
+  
+  .backup-actions-small button {
+    font-size: 0.6875rem;
+    height: 24px;
+    padding: 2px 6px;
+  }
+  
+  .toast {
+    padding: 12px 16px;
+    font-size: 0.875rem;
+    max-width: 280px;
+  }
+  
+  .modal-content {
+    padding: 20px;
+    margin: 10px;
+    width: calc(100% - 20px);
+  }
+  
+  .modal-content h3 {
+    font-size: 1.125rem;
+  }
+  
+  .modal-content p {
+    font-size: 0.875rem;
+  }
+}
+
+/* 防止极小屏幕的问题 */
+@media screen and (max-width: 320px) {
+  :root {
+    --settings-content-padding: 12px;
+  }
+  
+  .settings-header h1 {
+    font-size: 1rem;
+  }
+  
+  .back-btn {
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    height: 32px;
   }
   
   .nav-item {
     min-width: 100px;
-    font-size: 12px;
-    padding: 10px 12px;
+    font-size: 0.6875rem;
+    padding: 6px 8px;
+    height: 32px;
+  }
+  
+  .btn-primary, .btn-secondary, .btn-outline {
+    font-size: 0.6875rem;
+    height: 32px;
+    min-width: 60px;
+    padding: 4px 8px;
+  }
+  
+  .setting-control input[type="text"],
+  .setting-control select {
+    font-size: 0.75rem;
+    height: 32px;
+    padding: 4px 8px;
   }
   
   .panel-header h2 {
-    font-size: 24px;
+    font-size: 1.125rem;
+  }
+  
+  .modal-content {
+    padding: 16px;
+    margin: 5px;
+    width: calc(100% - 10px);
+  }
+}
+
+/* 确保所有容器不会溢出 */
+.settings-container,
+.settings-content,
+.settings-main,
+.settings-panel {
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+/* 确保长文本不会破坏布局 */
+.setting-item,
+.backup-item,
+.modal-content {
+  min-width: 0;
+}
+
+.setting-item label,
+.backup-name,
+.setting-description {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* 特殊情况：非常宽的屏幕 */
+@media screen and (min-width: 1440px) {
+  .settings-content {
+    max-width: 1400px;
+  }
+  
+  .settings-panel {
+    padding: 40px 48px;
+    padding-bottom: calc(48px + var(--settings-actions-height));
   }
   
   .settings-actions {
-    padding: 12px;
-    gap: 8px;
+    padding: 20px 48px;
+  }
+}
+
+/* 打印样式 */
+@media print {
+  .settings-header,
+  .settings-sidebar,
+  .settings-actions,
+  .back-btn {
+    display: none;
   }
   
-  .btn-primary, .btn-secondary {
-    padding: 6px 12px;
-    font-size: 12px;
+  .settings-content {
+    flex-direction: column;
+    margin-top: 0;
+    height: auto;
+  }
+  
+  .settings-main {
+    height: auto;
+    overflow: visible;
+  }
+  
+  .settings-panel {
+    display: block !important;
+    padding: 20px;
+    page-break-inside: avoid;
   }
 }
