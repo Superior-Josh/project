@@ -112,7 +112,7 @@ async function createSettingsWindow() {
 
 // Create system tray
 function createTray() {
-  const iconPath = path.join(__dirname, 'assets', 'tray-icon.svg') // You'll need to add this icon
+  const iconPath = path.join(__dirname, 'assets', 'tray-icon.png') // You'll need to add this icon
 
   try {
     tray = new Tray(iconPath)
@@ -290,9 +290,10 @@ app.whenReady().then(async () => {
 
     // Create system tray if window behavior is set to hide
     const windowBehavior = settingsManager.get('windowBehavior', 'close')
-    if (windowBehavior === 'hide') {
-      createTray()
-    }
+    // if (windowBehavior === 'hide') {
+    //   createTray()
+    // }
+    createTray()
 
   } catch (error) {
     console.error('Error loading modules:', error)
