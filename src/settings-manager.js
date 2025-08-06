@@ -30,11 +30,11 @@ export class SettingsManager {
       enableUpnp: true,
       customBootstrapNodes: [],
       
-      // Privacy & Security
-      enableEncryption: true,
-      shareFileByDefault: false,
-      autoAcceptConnections: true,
-      logLevel: 'info', // 'debug', 'info', 'warn', 'error'
+      // // Privacy & Security
+      // enableEncryption: true,
+      // shareFileByDefault: false,
+      // autoAcceptConnections: true,
+      // logLevel: 'info', // 'debug', 'info', 'warn', 'error'
       
       // Performance Settings
       memoryLimit: 512, // MB

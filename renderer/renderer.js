@@ -489,6 +489,422 @@ if (window.electronAPI) {
   })
 }
 
+// 修复后的页面切换动画管理器
+class PageTransitionManager {
+  constructor() {
+    this.isTransitioning = false
+    this.currentPage = 'main'
+    this.transitionDuration = 400 // ms
+    
+    this.init()
+  }
+  
+  init() {
+    // 创建页面遮罩
+    this.createPageOverlay()
+    
+    // 预设页面状态
+    this.setupInitialStates()
+  }
+  
+  createPageOverlay() {
+    // 检查是否已存在遮罩
+    if (document.querySelector('.page-overlay')) return
+    
+    const overlay = document.createElement('div')
+    overlay.className = 'page-overlay'
+    document.body.appendChild(overlay)
+  }
+  
+  setupInitialStates() {
+    const mainInterface = document.getElementById('mainInterface')
+    const settingsInterface = document.getElementById('settingsInterface')
+    
+    if (mainInterface) {
+      mainInterface.style.display = 'flex'
+      // 清除所有动画类
+      mainInterface.classList.remove('slide-out-left', 'slide-in-left')
+    }
+    
+    if (settingsInterface) {
+      settingsInterface.style.display = 'none'
+      // 清除所有动画类
+      settingsInterface.classList.remove('slide-in-right', 'slide-out-right')
+    }
+  }
+  
+  // 重置元素到初始状态
+  resetElementState(element, isSettings = false) {
+    if (!element) return
+    
+    // 移除所有动画类
+    element.classList.remove('slide-out-left', 'slide-in-left', 'slide-in-right', 'slide-out-right')
+    
+    // 重置transform和opacity
+    element.style.transform = ''
+    element.style.opacity = ''
+    
+    // 强制重绘
+    element.offsetHeight
+    
+    if (isSettings) {
+      // 设置界面重置到右侧位置
+      element.style.transform = 'translateX(100%)'
+      element.style.opacity = '0'
+    } else {
+      // 主界面重置到正常位置
+      element.style.transform = 'translateX(0)'
+      element.style.opacity = '1'
+    }
+    
+    // 再次强制重绘
+    element.offsetHeight
+  }
+  
+  // 切换到设置页面（向右滑入）
+  async showSettings() {
+    if (this.isTransitioning || this.currentPage === 'settings') return
+    
+    console.log('Starting transition to settings page')
+    this.isTransitioning = true
+    document.body.classList.add('page-transitioning')
+    
+    const mainInterface = document.getElementById('mainInterface')
+    const settingsInterface = document.getElementById('settingsInterface')
+    const overlay = document.querySelector('.page-overlay')
+    
+    try {
+      // 显示遮罩
+      if (overlay) {
+        overlay.classList.add('active')
+      }
+      
+      // 重置设置界面状态
+      this.resetElementState(settingsInterface, true)
+      
+      // 显示设置界面
+      settingsInterface.style.display = 'flex'
+      
+      // 等待一帧确保display生效
+      await this.waitForNextFrame()
+      
+      // 开始动画
+      const animationPromises = []
+      
+      // 主界面向左滑出
+      if (mainInterface) {
+        animationPromises.push(this.animateElement(mainInterface, () => {
+          mainInterface.style.transform = 'translateX(-100%)'
+          mainInterface.style.opacity = '0.8'
+        }))
+      }
+      
+      // 设置界面从右滑入
+      if (settingsInterface) {
+        animationPromises.push(this.animateElement(settingsInterface, () => {
+          settingsInterface.style.transform = 'translateX(0)'
+          settingsInterface.style.opacity = '1'
+        }))
+      }
+      
+      await Promise.all(animationPromises)
+      
+      // 隐藏主界面
+      if (mainInterface) {
+        mainInterface.style.display = 'none'
+      }
+      
+      this.currentPage = 'settings'
+      console.log('Transition to settings completed')
+      
+    } catch (error) {
+      console.error('Error during settings transition:', error)
+      // 错误时直接切换
+      this.forceSwitch('settings')
+    } finally {
+      // 清理
+      this.isTransitioning = false
+      document.body.classList.remove('page-transitioning')
+      
+      if (overlay) {
+        overlay.classList.remove('active')
+      }
+    }
+  }
+  
+  // 切换到主页面（向左滑入）
+  async showMain() {
+    if (this.isTransitioning || this.currentPage === 'main') return
+    
+    console.log('Starting transition to main page')
+    this.isTransitioning = true
+    document.body.classList.add('page-transitioning')
+    
+    const mainInterface = document.getElementById('mainInterface')
+    const settingsInterface = document.getElementById('settingsInterface')
+    const overlay = document.querySelector('.page-overlay')
+    
+    try {
+      // 显示遮罩
+      if (overlay) {
+        overlay.classList.add('active')
+      }
+      
+      // 重置主界面状态（从左侧位置开始）
+      this.resetElementState(mainInterface, false)
+      if (mainInterface) {
+        mainInterface.style.transform = 'translateX(-100%)'
+        mainInterface.style.opacity = '0.8'
+      }
+      
+      // 显示主界面
+      if (mainInterface) {
+        mainInterface.style.display = 'flex'
+      }
+      
+      // 等待一帧确保display生效
+      await this.waitForNextFrame()
+      
+      // 开始动画
+      const animationPromises = []
+      
+      // 设置界面向右滑出
+      if (settingsInterface) {
+        animationPromises.push(this.animateElement(settingsInterface, () => {
+          settingsInterface.style.transform = 'translateX(100%)'
+          settingsInterface.style.opacity = '0'
+        }))
+      }
+      
+      // 主界面从左滑入
+      if (mainInterface) {
+        animationPromises.push(this.animateElement(mainInterface, () => {
+          mainInterface.style.transform = 'translateX(0)'
+          mainInterface.style.opacity = '1'
+        }))
+      }
+      
+      await Promise.all(animationPromises)
+      
+      // 隐藏设置界面
+      if (settingsInterface) {
+        settingsInterface.style.display = 'none'
+      }
+      
+      this.currentPage = 'main'
+      console.log('Transition to main completed')
+      
+    } catch (error) {
+      console.error('Error during main transition:', error)
+      // 错误时直接切换
+      this.forceSwitch('main')
+    } finally {
+      // 清理
+      this.isTransitioning = false
+      document.body.classList.remove('page-transitioning')
+      
+      if (overlay) {
+        overlay.classList.remove('active')
+      }
+    }
+  }
+  
+  // 等待下一帧
+  waitForNextFrame() {
+    return new Promise(resolve => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(resolve)
+      })
+    })
+  }
+  
+  // 动画辅助函数 - 重写为更可靠的版本
+  animateElement(element, transformFn) {
+    return new Promise((resolve) => {
+      if (!element) {
+        resolve()
+        return
+      }
+      
+      let resolved = false
+      
+      const handleTransitionEnd = (e) => {
+        // 确保事件来自目标元素且是transform或opacity变化
+        if (e.target === element && (e.propertyName === 'transform' || e.propertyName === 'opacity')) {
+          if (!resolved) {
+            resolved = true
+            element.removeEventListener('transitionend', handleTransitionEnd)
+            resolve()
+          }
+        }
+      }
+      
+      element.addEventListener('transitionend', handleTransitionEnd)
+      
+      // 执行变换
+      transformFn()
+      
+      // 超时保护 - 确保动画不会卡死
+      setTimeout(() => {
+        if (!resolved) {
+          resolved = true
+          element.removeEventListener('transitionend', handleTransitionEnd)
+          console.warn('Animation timeout, forcing completion')
+          resolve()
+        }
+      }, this.transitionDuration + 200)
+    })
+  }
+  
+  // 强制切换（无动画）
+  forceSwitch(targetPage) {
+    const mainInterface = document.getElementById('mainInterface')
+    const settingsInterface = document.getElementById('settingsInterface')
+    
+    if (targetPage === 'settings') {
+      if (mainInterface) {
+        mainInterface.style.display = 'none'
+      }
+      if (settingsInterface) {
+        settingsInterface.style.display = 'flex'
+        this.resetElementState(settingsInterface, false) // 重置为正常状态
+      }
+      this.currentPage = 'settings'
+    } else {
+      if (settingsInterface) {
+        settingsInterface.style.display = 'none'
+      }
+      if (mainInterface) {
+        mainInterface.style.display = 'flex'
+        this.resetElementState(mainInterface, false) // 重置为正常状态
+      }
+      this.currentPage = 'main'
+    }
+  }
+  
+  // 获取当前页面
+  getCurrentPage() {
+    return this.currentPage
+  }
+  
+  // 检查是否正在切换
+  isTransitioningNow() {
+    return this.isTransitioning
+  }
+}
+
+// 创建全局页面切换管理器实例
+let pageTransitionManager = null
+
+// 修改现有的接口切换函数
+function showSettings() {
+  if (!pageTransitionManager) {
+    pageTransitionManager = new PageTransitionManager()
+  }
+  
+  console.log('showSettings called, current page:', pageTransitionManager.getCurrentPage())
+  
+  // 使用动画切换到设置页面
+  pageTransitionManager.showSettings().then(() => {
+    // 切换完成后加载设置内容
+    currentInterface = 'settings'
+    loadSettingsContent()
+  }).catch(error => {
+    console.error('Failed to show settings with animation:', error)
+    // 降级到原来的切换方式
+    document.getElementById('mainInterface').style.display = 'none'
+    document.getElementById('settingsInterface').style.display = 'flex'
+    currentInterface = 'settings'
+    loadSettingsContent()
+  })
+}
+
+function goBackToMain() {
+  if (!pageTransitionManager) {
+    pageTransitionManager = new PageTransitionManager()
+  }
+  
+  console.log('goBackToMain called, current page:', pageTransitionManager.getCurrentPage())
+  
+  // 使用动画切换到主页面
+  pageTransitionManager.showMain().then(() => {
+    currentInterface = 'main'
+    hasUnsavedChanges = false
+  }).catch(error => {
+    console.error('Failed to show main with animation:', error)
+    // 降级到原来的切换方式
+    hideSettings()
+  })
+}
+
+// 修改现有的 hideSettings 函数作为降级方案
+function hideSettings() {
+  const mainInterface = document.getElementById('mainInterface')
+  const settingsInterface = document.getElementById('settingsInterface')
+  
+  if (settingsInterface) {
+    settingsInterface.style.display = 'none'
+    // 清理所有样式
+    settingsInterface.style.transform = ''
+    settingsInterface.style.opacity = ''
+  }
+  
+  if (mainInterface) {
+    mainInterface.style.display = 'flex'
+    // 清理所有样式
+    mainInterface.style.transform = ''
+    mainInterface.style.opacity = ''
+  }
+  
+  currentInterface = 'main'
+  hasUnsavedChanges = false
+  
+  if (pageTransitionManager) {
+    pageTransitionManager.currentPage = 'main'
+  }
+}
+
+// 页面加载完成后初始化动画管理器
+document.addEventListener('DOMContentLoaded', () => {
+  // 延迟初始化，确保所有元素都已加载
+  setTimeout(() => {
+    console.log('Initializing page transition manager')
+    if (!pageTransitionManager) {
+      pageTransitionManager = new PageTransitionManager()
+    }
+  }, 100)
+})
+
+// 添加调试函数
+window.debugPageTransition = () => {
+  if (pageTransitionManager) {
+    console.log('Current page:', pageTransitionManager.getCurrentPage())
+    console.log('Is transitioning:', pageTransitionManager.isTransitioningNow())
+    
+    const mainInterface = document.getElementById('mainInterface')
+    const settingsInterface = document.getElementById('settingsInterface')
+    
+    console.log('Main interface:', {
+      display: mainInterface?.style.display,
+      transform: mainInterface?.style.transform,
+      opacity: mainInterface?.style.opacity,
+      classes: mainInterface?.className
+    })
+    
+    console.log('Settings interface:', {
+      display: settingsInterface?.style.display,
+      transform: settingsInterface?.style.transform,
+      opacity: settingsInterface?.style.opacity,
+      classes: settingsInterface?.className
+    })
+  }
+}
+
+// 导出函数供全局使用
+window.showSettings = showSettings
+window.goBackToMain = goBackToMain
+window.pageTransitionManager = pageTransitionManager
+
 // Open settings
 async function openSettings() {
   try {
@@ -1438,11 +1854,9 @@ function getStatusText(status) {
   return statusMap[status] || status
 }
 
-// Make functions globally available for onclick handlers
 window.goBackToMain = goBackToMain
 window.markUnsaved = markUnsaved
 window.saveAllSettings = saveAllSettings
-window.resetAllSettings = resetAllSettings
 window.selectDownloadPath = selectDownloadPath
 window.createBackup = createBackup
 window.showBackupList = showBackupList

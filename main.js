@@ -3,6 +3,8 @@
 import { app, BrowserWindow, ipcMain, Tray, Menu, dialog } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import os from 'os'
+import crypto from 'crypto'
 
 // Get __dirname in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -158,6 +160,8 @@ function createTray() {
   }
 }
 
+
+
 // Graceful shutdown
 async function gracefulShutdown() {
   console.log('Starting graceful shutdown...')
@@ -193,64 +197,6 @@ async function gracefulShutdown() {
   }
 
   console.log('Graceful shutdown completed')
-}
-
-// Auto-start P2P node
-async function autoStartP2PNode(window) {
-  try {
-    console.log('Auto-starting P2P node...')
-
-    if (!p2pNode) {
-      // Get download path from settings
-      const downloadPath = settingsManager ? settingsManager.get('downloadPath') : './downloads'
-
-      p2pNode = new P2PNode()
-      dhtManager = new DHTManager(p2pNode)
-
-      databaseManager = new DatabaseManager('./data')
-      await databaseManager.initialize()
-
-      fileManager = new FileManager(p2pNode, dhtManager, downloadPath)
-      chunkManager = new ChunkManager(fileManager, databaseManager)
-
-      if (process.env.NODE_ENV === 'development' && ConnectionDebugger) {
-        connectionDebugger = new ConnectionDebugger(p2pNode)
-      }
-    }
-
-    await p2pNode.start()
-    await dhtManager.initialize()
-
-    if (connectionDebugger) {
-      connectionDebugger.enableVerboseLogging()
-      await connectionDebugger.testLocalConnectivity()
-    }
-
-    const nodeInfo = p2pNode.getNodeInfo()
-
-    if (nodeInfo && window) {
-      const shortPeerId = nodeInfo.peerId.slice(-8)
-      const processId = process.pid
-      window.setTitle(`P2P File Sharing - ${shortPeerId} (PID: ${processId})`)
-    }
-
-    if (window) {
-      window.webContents.send('p2p-node-started', {
-        success: true,
-        nodeInfo
-      })
-    }
-    console.log('P2P node auto-started successfully')
-  } catch (error) {
-    console.error('Failed to auto-start P2P node:', error)
-
-    if (window) {
-      window.webContents.send('p2p-node-started', {
-        success: false,
-        error: error.message
-      })
-    }
-  }
 }
 
 app.whenReady().then(async () => {
@@ -322,18 +268,102 @@ app.on('window-all-closed', async () => {
 })
 
 // Handle second instance (prevent multiple instances)
-const gotTheLock = app.requestSingleInstanceLock()
+// const gotTheLock = app.requestSingleInstanceLock()
 
-if (!gotTheLock) {
-  app.quit()
-} else {
-  app.on('second-instance', () => {
-    // Someone tried to run a second instance, focus main window instead
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore()
-      mainWindow.focus()
+// if (!gotTheLock) {
+//   app.quit()
+// } else {
+//   app.on('second-instance', () => {
+//     // Someone tried to run a second instance, focus main window instead
+//     if (mainWindow) {
+//       if (mainWindow.isMinimized()) mainWindow.restore()
+//       mainWindow.focus()
+//     }
+//   })
+// }
+
+// 生成实例ID
+function generateInstanceId() {
+  const processId = process.pid
+  const randomSuffix = crypto.randomBytes(4).toString('hex')
+  return `${processId}-${randomSuffix}`
+}
+
+// 为每个实例创建独立的数据目录
+function getInstanceDataDir() {
+  const instanceId = generateInstanceId()
+  const baseDir = path.join(os.tmpdir(), 'p2p-file-sharing')
+  return path.join(baseDir, `instance-${instanceId}`)
+}
+
+// 修改自动启动P2P节点函数，使用实例特定的配置
+async function autoStartP2PNode(window) {
+  try {
+    console.log('Auto-starting P2P node...')
+
+    if (!p2pNode) {
+      // 为每个实例使用不同的数据目录
+      const instanceDataDir = getInstanceDataDir()
+      const downloadPath = settingsManager ? 
+        settingsManager.get('downloadPath') : 
+        path.join(instanceDataDir, 'downloads')
+
+      p2pNode = new P2PNode({
+        // 让libp2p自动选择可用端口
+        listenAddresses: [
+          '/ip4/127.0.0.1/tcp/0',  // 端口0表示自动分配
+        ]
+      })
+      dhtManager = new DHTManager(p2pNode)
+
+      // 为每个实例使用独立的数据库
+      databaseManager = new DatabaseManager(path.join(instanceDataDir, 'data'))
+      await databaseManager.initialize()
+
+      fileManager = new FileManager(p2pNode, dhtManager, downloadPath)
+      chunkManager = new ChunkManager(fileManager, databaseManager)
+
+      if (process.env.NODE_ENV === 'development' && ConnectionDebugger) {
+        connectionDebugger = new ConnectionDebugger(p2pNode)
+      }
     }
-  })
+
+    await p2pNode.start()
+    await dhtManager.initialize()
+
+    if (connectionDebugger) {
+      connectionDebugger.enableVerboseLogging()
+      await connectionDebugger.testLocalConnectivity()
+    }
+
+    const nodeInfo = p2pNode.getNodeInfo()
+
+    if (nodeInfo && window) {
+      const shortPeerId = nodeInfo.peerId.slice(-8)
+      const processId = process.pid
+      // 在标题中显示端口信息
+      const listenAddrs = nodeInfo.addresses || []
+      const tcpPort = listenAddrs.find(addr => addr.includes('/tcp/'))?.match(/\/tcp\/(\d+)/)?.[1] || 'unknown'
+      window.setTitle(`P2P File Sharing - ${shortPeerId} (PID: ${processId}, Port: ${tcpPort})`)
+    }
+
+    if (window) {
+      window.webContents.send('p2p-node-started', {
+        success: true,
+        nodeInfo
+      })
+    }
+    console.log('P2P node auto-started successfully')
+  } catch (error) {
+    console.error('Failed to auto-start P2P node:', error)
+
+    if (window) {
+      window.webContents.send('p2p-node-started', {
+        success: false,
+        error: error.message
+      })
+    }
+  }
 }
 
 // Notify all windows of status changes
