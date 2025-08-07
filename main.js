@@ -6,11 +6,10 @@ import { fileURLToPath } from 'url';
 import os from 'os'
 import crypto from 'crypto'
 
-// Get __dirname in ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Import P2P and Settings modules
+// 导入增强的模块
 let P2PNode, DHTManager, ConnectionDebugger, FileManager, DatabaseManager, ChunkManager, SettingsManager
 let p2pNode = null
 let dhtManager = null
@@ -27,7 +26,6 @@ async function createWindow() {
   const processId = process.pid
   const nodeId = Math.random().toString(36).substr(2, 6)
 
-  // Get window behavior setting
   const startMinimized = settingsManager ? settingsManager.get('startMinimized', false) : false
 
   mainWindow = new BrowserWindow({
@@ -43,7 +41,6 @@ async function createWindow() {
     }
   })
 
-  // Handle window close based on settings
   mainWindow.on('close', (event) => {
     const windowBehavior = settingsManager ? settingsManager.get('windowBehavior', 'close') : 'close'
 
@@ -56,7 +53,6 @@ async function createWindow() {
   mainWindow.webContents.once('did-finish-load', () => {
     mainWindow.setTitle(`P2P File Sharing - Node ${nodeId} (PID: ${processId})`)
 
-    // Auto-start P2P node if enabled in settings
     const autoStartNode = settingsManager ? settingsManager.get('autoStartNode', true) : true
     if (autoStartNode) {
       setTimeout(async () => {
@@ -78,7 +74,6 @@ async function createWindow() {
   return mainWindow
 }
 
-// Create settings window
 async function createSettingsWindow() {
   if (settingsWindow) {
     settingsWindow.focus()
@@ -112,9 +107,8 @@ async function createSettingsWindow() {
   return settingsWindow
 }
 
-// Create system tray
 function createTray() {
-  const iconPath = path.join(__dirname, 'assets', 'tray-icon.png') // You'll need to add this icon
+  const iconPath = path.join(__dirname, 'assets', 'tray-icon.png')
 
   try {
     tray = new Tray(iconPath)
@@ -135,6 +129,16 @@ function createTray() {
           createSettingsWindow()
         }
       },
+      {
+        label: 'NAT Status',
+        click: () => {
+          if (p2pNode) {
+            const status = p2pNode.getNATTraversalStatus()
+            console.log('NAT Traversal Status:', status)
+            // 这里可以显示一个状态窗口
+          }
+        }
+      },
       { type: 'separator' },
       {
         label: 'Quit',
@@ -148,7 +152,6 @@ function createTray() {
     tray.setToolTip('P2P File Sharing')
     tray.setContextMenu(contextMenu)
 
-    // Double click to show window
     tray.on('double-click', () => {
       if (mainWindow) {
         mainWindow.show()
@@ -160,13 +163,9 @@ function createTray() {
   }
 }
 
-
-
-// Graceful shutdown
 async function gracefulShutdown() {
   console.log('Starting graceful shutdown...')
 
-  // Stop P2P node
   if (p2pNode) {
     try {
       await p2pNode.stop()
@@ -176,7 +175,6 @@ async function gracefulShutdown() {
     }
   }
 
-  // Save database
   if (databaseManager) {
     try {
       await databaseManager.saveAllData()
@@ -186,11 +184,10 @@ async function gracefulShutdown() {
     }
   }
 
-  // Save settings
   if (settingsManager) {
     try {
       await settingsManager.saveSettings()
-      console.log('Settings saved on app quit')
+      console.log('settings saved on app quit')
     } catch (error) {
       console.error('Error saving settings:', error)
     }
@@ -201,22 +198,22 @@ async function gracefulShutdown() {
 
 app.whenReady().then(async () => {
   try {
-    // Load modules
-    const p2pModule = await import('./src/p2p-node.js')
+    // 加载增强的模块
+    const P2pModule = await import('./src/p2p-node.js')
     const dhtModule = await import('./src/dht-manager.js')
     const fileModule = await import('./src/file-manager.js')
     const dbModule = await import('./src/database.js')
     const chunkModule = await import('./src/chunk-manager.js')
-    const settingsModule = await import('./src/settings-manager.js')
+    const SettingsModule = await import('./src/settings-manager.js')
 
-    P2PNode = p2pModule.P2PNode
+    P2PNode = P2pModule.P2PNode
     DHTManager = dhtModule.DHTManager
     FileManager = fileModule.FileManager
     DatabaseManager = dbModule.DatabaseManager
     ChunkManager = chunkModule.ChunkManager
-    SettingsManager = settingsModule.SettingsManager
+    SettingsManager = SettingsModule.SettingsManager
 
-    // Initialize settings first
+    // 初始化增强的设置管理器
     settingsManager = new SettingsManager('./settings')
     await settingsManager.initialize()
 
@@ -231,14 +228,7 @@ app.whenReady().then(async () => {
 
     console.log('P2P modules loaded successfully')
 
-    // Create main window
     await createWindow()
-
-    // Create system tray if window behavior is set to hide
-    const windowBehavior = settingsManager.get('windowBehavior', 'close')
-    // if (windowBehavior === 'hide') {
-    //   createTray()
-    // }
     createTray()
 
   } catch (error) {
@@ -255,7 +245,6 @@ app.whenReady().then(async () => {
 app.on('window-all-closed', async () => {
   const windowBehavior = settingsManager ? settingsManager.get('windowBehavior', 'close') : 'close'
 
-  // If set to hide to tray, don't quit the app
   if (windowBehavior === 'hide' && tray) {
     return
   }
@@ -267,56 +256,47 @@ app.on('window-all-closed', async () => {
   }
 })
 
-// Handle second instance (prevent multiple instances)
-// const gotTheLock = app.requestSingleInstanceLock()
-
-// if (!gotTheLock) {
-//   app.quit()
-// } else {
-//   app.on('second-instance', () => {
-//     // Someone tried to run a second instance, focus main window instead
-//     if (mainWindow) {
-//       if (mainWindow.isMinimized()) mainWindow.restore()
-//       mainWindow.focus()
-//     }
-//   })
-// }
-
-// 生成实例ID
 function generateInstanceId() {
   const processId = process.pid
   const randomSuffix = crypto.randomBytes(4).toString('hex')
   return `${processId}-${randomSuffix}`
 }
 
-// 为每个实例创建独立的数据目录
 function getInstanceDataDir() {
   const instanceId = generateInstanceId()
   const baseDir = path.join(os.tmpdir(), 'p2p-file-sharing')
   return path.join(baseDir, `instance-${instanceId}`)
 }
 
-// 修改自动启动P2P节点函数，使用实例特定的配置
+// 修改自动启动函数以使用增强的P2P节点
 async function autoStartP2PNode(window) {
   try {
     console.log('Auto-starting P2P node...')
 
     if (!p2pNode) {
-      // 为每个实例使用不同的数据目录
       const instanceDataDir = getInstanceDataDir()
       const downloadPath = settingsManager ? 
         settingsManager.get('downloadPath') : 
         path.join(instanceDataDir, 'downloads')
 
+      // 获取NAT穿透设置
+      const natSettings = settingsManager ? settingsManager.getNATTraversalSettings() : {}
+      
+      // 创建增强的P2P节点
       p2pNode = new P2PNode({
-        // 让libp2p自动选择可用端口
         listenAddresses: [
-          '/ip4/127.0.0.1/tcp/0',  // 端口0表示自动分配
-        ]
+          '/ip4/0.0.0.0/tcp/0',  // 监听所有接口
+          '/ip6/::/tcp/0'        // IPv6支持
+        ],
+        enableHolePunching: natSettings.holePunching?.enabled !== false,
+        enableUPnP: natSettings.upnp?.enabled !== false,
+        enableAutoRelay: natSettings.relay?.autoRelay !== false,
+        customBootstrapNodes: natSettings.customNodes?.bootstrapNodes || [],
+        customRelayNodes: natSettings.customNodes?.relayNodes || []
       })
+
       dhtManager = new DHTManager(p2pNode)
 
-      // 为每个实例使用独立的数据库
       databaseManager = new DatabaseManager(path.join(instanceDataDir, 'data'))
       await databaseManager.initialize()
 
@@ -341,16 +321,22 @@ async function autoStartP2PNode(window) {
     if (nodeInfo && window) {
       const shortPeerId = nodeInfo.peerId.slice(-8)
       const processId = process.pid
-      // 在标题中显示端口信息
       const listenAddrs = nodeInfo.addresses || []
-      const tcpPort = listenAddrs.find(addr => addr.includes('/tcp/'))?.match(/\/tcp\/(\d+)/)?.[1] || 'unknown'
-      window.setTitle(`P2P File Sharing - ${shortPeerId} (PID: ${processId}, Port: ${tcpPort})`)
+      const tcpPort = listenAddrs.find(addr => addr.includes('/tcp/'))?.match(/\/tcp\/(\d+)/)?.[1] || 'auto'
+      
+      // 添加NAT状态到标题
+      const natStatus = p2pNode.getNATTraversalStatus()
+      const natInfo = natStatus.isPublicNode ? 'Public' : 
+                      natStatus.reachability === 'private' ? 'NAT' : 'Unknown'
+      
+      window.setTitle(`P2P - ${shortPeerId} (${natInfo}, Port: ${tcpPort})`)
     }
 
     if (window) {
       window.webContents.send('p2p-node-started', {
         success: true,
-        nodeInfo
+        nodeInfo,
+        natStatus: p2pNode.getNATTraversalStatus()
       })
     }
     console.log('P2P node auto-started successfully')
@@ -366,7 +352,7 @@ async function autoStartP2PNode(window) {
   }
 }
 
-// Notify all windows of status changes
+// 通知所有窗口状态变化
 function notifyNodeStatusChange(success, nodeInfo = null, error = null) {
   const allWindows = BrowserWindow.getAllWindows()
   allWindows.forEach(window => {
@@ -374,11 +360,315 @@ function notifyNodeStatusChange(success, nodeInfo = null, error = null) {
       window.webContents.send('p2p-node-status-changed', {
         success,
         nodeInfo,
+        natStatus: p2pNode ? p2pNode.getNATTraversalStatus() : null,
         error
       })
     }
   })
 }
+
+// 增强的IPC处理器
+
+// 启动增强的P2P节点
+ipcMain.handle('start-p2p-node', async () => {
+  try {
+    if (p2pNode && p2pNode.isStarted) {
+      const nodeInfo = p2pNode.getNodeInfo()
+      const natStatus = p2pNode.getNATTraversalStatus()
+      return {
+        success: true,
+        nodeInfo,
+        natStatus,
+        message: 'node is already running'
+      }
+    }
+
+    if (!p2pNode) {
+      const natSettings = settingsManager ? settingsManager.getNATTraversalSettings() : {}
+      
+      p2pNode = new P2PNode({
+        enableHolePunching: natSettings.holePunching?.enabled !== false,
+        enableUPnP: natSettings.upnp?.enabled !== false,
+        enableAutoRelay: natSettings.relay?.autoRelay !== false,
+        customBootstrapNodes: natSettings.customNodes?.bootstrapNodes || [],
+        customRelayNodes: natSettings.customNodes?.relayNodes || []
+      })
+      
+      dhtManager = new DHTManager(p2pNode)
+
+      databaseManager = new DatabaseManager('./data')
+      await databaseManager.initialize()
+
+      fileManager = new FileManager(p2pNode, dhtManager, './downloads')
+      chunkManager = new ChunkManager(fileManager, databaseManager)
+
+      if (process.env.NODE_ENV === 'development' && ConnectionDebugger) {
+        connectionDebugger = new ConnectionDebugger(p2pNode)
+      }
+    }
+
+    await p2pNode.start()
+    await dhtManager.initialize()
+
+    if (connectionDebugger) {
+      connectionDebugger.enableVerboseLogging()
+      await connectionDebugger.testLocalConnectivity()
+    }
+
+    const nodeInfo = p2pNode.getNodeInfo()
+    const natStatus = p2pNode.getNATTraversalStatus()
+
+    const currentWindow = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
+    if (currentWindow && nodeInfo) {
+      const shortPeerId = nodeInfo.peerId.slice(-8)
+      const processId = process.pid
+      const natInfo = natStatus.isPublicNode ? 'Public' : 
+                      natStatus.reachability === 'private' ? 'NAT' : 'Unknown'
+      currentWindow.setTitle(`P2P - ${shortPeerId} (${natInfo})`)
+    }
+
+    notifyNodeStatusChange(true, nodeInfo)
+
+    return {
+      success: true,
+      nodeInfo,
+      natStatus
+    }
+  } catch (error) {
+    console.error('Error starting P2P node:', error)
+    notifyNodeStatusChange(false, null, error.message)
+
+    return {
+      success: false,
+      error: error.message
+    }
+  }
+})
+
+// 停止P2P节点
+ipcMain.handle('stop-p2p-node', async () => {
+  try {
+    if (p2pNode) {
+      await p2pNode.stop()
+      p2pNode = null
+      dhtManager = null
+      fileManager = null
+      chunkManager = null
+      connectionDebugger = null
+    }
+
+    if (databaseManager) {
+      await databaseManager.saveAllData()
+    }
+
+    const currentWindow = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
+    if (currentWindow) {
+      const processId = process.pid
+      const nodeId = Math.random().toString(36).substr(2, 6)
+      currentWindow.setTitle(`P2P - Node ${nodeId} (STOPPED)`)
+    }
+
+    notifyNodeStatusChange(true, null, null)
+
+    return { success: true }
+  } catch (error) {
+    console.error('Error stopping P2P node:', error)
+    return {
+      success: false,
+      error: error.message
+    }
+  }
+})
+
+// 获取增强的节点信息
+ipcMain.handle('get-node-info', async () => {
+  if (!p2pNode) {
+    return null
+  }
+
+  const nodeInfo = p2pNode.getNodeInfo()
+  const natStatus = p2pNode.getNATTraversalStatus()
+  
+  return {
+    ...nodeInfo,
+    natTraversal: natStatus
+  }
+})
+
+// 获取NAT穿透状态
+ipcMain.handle('get-nat-status', async () => {
+  if (!p2pNode) {
+    return null
+  }
+  return p2pNode.getNATTraversalStatus()
+})
+
+// 强制NAT检测
+ipcMain.handle('force-nat-detection', async () => {
+  if (!p2pNode) {
+    return { success: false, error: 'P2P node not started' }
+  }
+  
+  try {
+    const reachability = await p2pNode.forceNATDetection()
+    return {
+      success: true,
+      reachability,
+      natStatus: p2pNode.getNATTraversalStatus()
+    }
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+})
+
+// 刷新中继连接
+ipcMain.handle('refresh-relay-connections', async () => {
+  if (!p2pNode) {
+    return { success: false, error: 'P2P node not started' }
+  }
+  
+  try {
+    await p2pNode.refreshRelayConnections()
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+})
+
+// 连接到节点（支持中继连接）
+ipcMain.handle('connect-to-peer', async (event, multiaddr) => {
+  try {
+    if (!p2pNode) {
+      throw new Error('P2P node not started')
+    }
+
+    if (connectionDebugger && process.env.NODE_ENV === 'development') {
+      console.log('Running connection diagnosis...')
+      await connectionDebugger.diagnoseConnection(multiaddr)
+    }
+
+    await p2pNode.connectToPeer(multiaddr)
+    return { success: true }
+  } catch (error) {
+    console.error('Error connecting to peer:', error)
+    return {
+      success: false,
+      error: error.message
+    }
+  }
+})
+
+// 连接到发现的节点
+ipcMain.handle('connect-to-discovered-peer', async (event, peerId) => {
+  try {
+    if (!p2pNode) {
+      throw new Error('P2P node not started')
+    }
+
+    await p2pNode.connectToDiscoveredPeer(peerId)
+    return { success: true }
+  } catch (error) {
+    console.error('Error connecting to discovered peer:', error)
+    return {
+      success: false,
+      error: error.message
+    }
+  }
+})
+
+// 设置相关的IPC处理器（使用增强的设置管理器）
+ipcMain.handle('get-settings', async () => {
+  try {
+    if (!settingsManager) {
+      throw new Error('settings manager not initialized')
+    }
+    return settingsManager.getAll()
+  } catch (error) {
+    console.error('Error getting settings:', error)
+    throw error
+  }
+})
+
+ipcMain.handle('save-settings', async (event, settings) => {
+  try {
+    if (!settingsManager) {
+      throw new Error('settings manager not initialized')
+    }
+
+    await settingsManager.setMultiple(settings)
+    
+    // 如果NAT穿透设置改变了，重新配置节点
+    if (p2pNode && (
+      settings.hasOwnProperty('enableNATTraversal') ||
+      settings.hasOwnProperty('enableUPnP') ||
+      settings.hasOwnProperty('enableHolePunching') ||
+      settings.hasOwnProperty('enableAutoRelay')
+    )) {
+      console.log('NAT traversal settings changed, node restart may be required')
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error('Error saving settings:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+// 获取网络优化建议
+ipcMain.handle('get-network-recommendations', async () => {
+  try {
+    if (!settingsManager) {
+      return []
+    }
+    return settingsManager.getNetworkOptimizationRecommendations()
+  } catch (error) {
+    console.error('Error getting network recommendations:', error)
+    return []
+  }
+})
+
+// 获取网络配置摘要
+ipcMain.handle('get-network-config-summary', async () => {
+  try {
+    if (!settingsManager) {
+      return null
+    }
+    return settingsManager.getNetworkConfigSummary()
+  } catch (error) {
+    console.error('Error getting network config summary:', error)
+    return null
+  }
+})
+
+// 创建增强的设置备份
+ipcMain.handle('create-settings-backup', async () => {
+  try {
+    if (!settingsManager) {
+      throw new Error('settings manager not initialized')
+    }
+
+    const backupPath = await settingsManager.createBackup()
+    return { success: true, backupPath }
+  } catch (error) {
+    console.error('Error creating settings backup:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+// 恢复增强的设置备份
+ipcMain.handle('restore-settings-backup', async (event, backupPath) => {
+  try {
+    if (!settingsManager) {
+      throw new Error('settings manager not initialized')
+    }
+
+    await settingsManager.restoreFromBackup(backupPath)
+    return { success: true }
+  } catch (error) {
+    console.error('Error restoring settings backup:', error)
+    return { success: false, error: error.message }
+  }
+})
 
 // Settings IPC handlers
 ipcMain.handle('open-settings', async () => {
@@ -396,36 +686,6 @@ ipcMain.handle('close-settings', async () => {
     settingsWindow.close()
   }
   return { success: true }
-})
-
-ipcMain.handle('get-settings', async () => {
-  try {
-    if (!settingsManager) {
-      throw new Error('Settings manager not initialized')
-    }
-    return settingsManager.getAll()
-  } catch (error) {
-    console.error('Error getting settings:', error)
-    throw error
-  }
-})
-
-ipcMain.handle('save-settings', async (event, settings) => {
-  try {
-    if (!settingsManager) {
-      throw new Error('Settings manager not initialized')
-    }
-
-    await settingsManager.setMultiple(settings)
-
-    // Apply certain settings immediately
-    applySettings(settings)
-
-    return { success: true }
-  } catch (error) {
-    console.error('Error saving settings:', error)
-    return { success: false, error: error.message }
-  }
 })
 
 ipcMain.handle('reset-settings', async () => {
@@ -460,20 +720,6 @@ ipcMain.handle('select-folder', async (event, title = 'Select Folder') => {
   }
 })
 
-ipcMain.handle('create-settings-backup', async () => {
-  try {
-    if (!settingsManager) {
-      throw new Error('Settings manager not initialized')
-    }
-
-    const backupPath = await settingsManager.createBackup()
-    return { success: true, backupPath }
-  } catch (error) {
-    console.error('Error creating settings backup:', error)
-    return { success: false, error: error.message }
-  }
-})
-
 ipcMain.handle('get-available-backups', async () => {
   try {
     if (!settingsManager) {
@@ -484,20 +730,6 @@ ipcMain.handle('get-available-backups', async () => {
   } catch (error) {
     console.error('Error getting available backups:', error)
     return []
-  }
-})
-
-ipcMain.handle('restore-settings-backup', async (event, backupPath) => {
-  try {
-    if (!settingsManager) {
-      throw new Error('Settings manager not initialized')
-    }
-
-    await settingsManager.restoreFromBackup(backupPath)
-    return { success: true }
-  } catch (error) {
-    console.error('Error restoring settings backup:', error)
-    return { success: false, error: error.message }
   }
 })
 
@@ -599,135 +831,6 @@ function applySettings(settings) {
 }
 
 // IPC handlers
-ipcMain.handle('start-p2p-node', async () => {
-  try {
-    if (p2pNode && p2pNode.isStarted) {
-      const nodeInfo = p2pNode.getNodeInfo()
-      return {
-        success: true,
-        nodeInfo,
-        message: 'Node is already running'
-      }
-    }
-
-    if (!p2pNode) {
-      p2pNode = new P2PNode()
-      dhtManager = new DHTManager(p2pNode)
-
-      databaseManager = new DatabaseManager('./data')
-      await databaseManager.initialize()
-
-      fileManager = new FileManager(p2pNode, dhtManager, './downloads')
-      chunkManager = new ChunkManager(fileManager, databaseManager)
-
-      if (process.env.NODE_ENV === 'development' && ConnectionDebugger) {
-        connectionDebugger = new ConnectionDebugger(p2pNode)
-      }
-    }
-
-    await p2pNode.start()
-    await dhtManager.initialize()
-
-    if (connectionDebugger) {
-      connectionDebugger.enableVerboseLogging()
-      await connectionDebugger.testLocalConnectivity()
-    }
-
-    const nodeInfo = p2pNode.getNodeInfo()
-
-    const currentWindow = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
-    if (currentWindow && nodeInfo) {
-      const shortPeerId = nodeInfo.peerId.slice(-8)
-      const processId = process.pid
-      currentWindow.setTitle(`P2P File Sharing - ${shortPeerId} (PID: ${processId})`)
-    }
-
-    notifyNodeStatusChange(true, nodeInfo)
-
-    return {
-      success: true,
-      nodeInfo
-    }
-  } catch (error) {
-    console.error('Error starting P2P node:', error)
-    notifyNodeStatusChange(false, null, error.message)
-
-    return {
-      success: false,
-      error: error.message
-    }
-  }
-})
-
-ipcMain.handle('stop-p2p-node', async () => {
-  try {
-    if (p2pNode) {
-      await p2pNode.stop()
-      p2pNode = null
-      dhtManager = null
-      fileManager = null
-      chunkManager = null
-      connectionDebugger = null
-    }
-
-    if (databaseManager) {
-      await databaseManager.saveAllData()
-    }
-
-    const currentWindow = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0]
-    if (currentWindow) {
-      const processId = process.pid
-      const nodeId = Math.random().toString(36).substr(2, 6)
-      currentWindow.setTitle(`P2P File Sharing - Node ${nodeId} (PID: ${processId}) - STOPPED`)
-    }
-
-    notifyNodeStatusChange(true, null, null)
-
-    return { success: true }
-  } catch (error) {
-    console.error('Error stopping P2P node:', error)
-    return {
-      success: false,
-      error: error.message
-    }
-  }
-})
-
-ipcMain.handle('get-node-info', async () => {
-  if (!p2pNode) {
-    return null
-  }
-
-  const nodeInfo = p2pNode.getNodeInfo()
-  if (nodeInfo) {
-    const discoveredPeerIds = p2pNode.getDiscoveredPeers()
-    nodeInfo.discoveredPeerIds = discoveredPeerIds
-  }
-
-  return nodeInfo
-})
-
-ipcMain.handle('connect-to-peer', async (event, multiaddr) => {
-  try {
-    if (!p2pNode) {
-      throw new Error('P2P node not started')
-    }
-
-    if (connectionDebugger && process.env.NODE_ENV === 'development') {
-      console.log('Running connection diagnosis...')
-      await connectionDebugger.diagnoseConnection(multiaddr)
-    }
-
-    await p2pNode.connectToPeer(multiaddr)
-    return { success: true }
-  } catch (error) {
-    console.error('Error connecting to peer:', error)
-    return {
-      success: false,
-      error: error.message
-    }
-  }
-})
 
 ipcMain.handle('get-dht-stats', async () => {
   if (!dhtManager) {
@@ -849,23 +952,6 @@ ipcMain.handle('get-discovered-peers', async () => {
     }
   } catch (error) {
     console.error('Error getting discovered peers:', error)
-    return {
-      success: false,
-      error: error.message
-    }
-  }
-})
-
-ipcMain.handle('connect-to-discovered-peer', async (event, peerId) => {
-  try {
-    if (!p2pNode) {
-      throw new Error('P2P node not started')
-    }
-
-    await p2pNode.connectToDiscoveredPeer(peerId)
-    return { success: true }
-  } catch (error) {
-    console.error('Error connecting to discovered peer:', error)
     return {
       success: false,
       error: error.message

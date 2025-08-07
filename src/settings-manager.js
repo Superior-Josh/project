@@ -1,4 +1,5 @@
 // settings-manager.js
+
 import fs from 'fs/promises'
 import path from 'path'
 import os from 'os'
@@ -12,40 +13,86 @@ export class SettingsManager {
     
     this.defaultSettings = {
       // Window & UI Settings
-      windowBehavior: 'close', // 'close', 'hide'
+      windowBehavior: 'close',
       autoStartNode: true,
-      theme: 'system', // 默认设置为system主题
+      theme: 'system',
 
       // File & Download Settings
       downloadPath: path.join(os.homedir(), 'Downloads', 'P2P-Files'),
       autoCreateSubfolders: true,
       maxConcurrentDownloads: 3,
-      chunkSize: 256 * 1024, // 256KB
+      chunkSize: 256 * 1024,
       enableResumeDownload: true,
 
-      // Network Settings
+      // Network Settings with NAT Traversal
       autoConnectToPeers: true,
-      maxConnections: 50,
-      connectionTimeout: 30, // in seconds for UI display
-      enableUpnp: true,
+      maxConnections: 200, // 增加以支持更多中继连接
+      connectionTimeout: 45, // 增加超时时间以适应中继连接
+      
+      // NAT穿透设置
+      enableNATTraversal: true,
+      enableUPnP: true,
+      enableHolePunching: true,
+      enableAutoRelay: true,
+      enableCircuitRelay: true,
+      
+      // UPnP设置
+      upnpDiscoveryTimeout: 30, // 秒
+      upnpPortMappingTTL: 3600, // 1小时
+      enableUpnpIPv6: false,
+      
+      // 洞穿设置
+      holePunchTimeout: 30, // 秒
+      holePunchRetries: 3,
+      enableDCUtR: true, // Direct Connection Upgrade through Relay
+      
+      // 中继设置
+      maxRelayConnections: 5,
+      relayConnectionTimeout: 30,
+      enableRelayServer: false, // 是否作为中继服务器
+      relayBandwidthLimit: 1024, // KB/s，中继带宽限制
+      relayConnectionLimit: 50, // 作为中继时的最大连接数
+      
+      // 自定义引导节点和中继节点
       customBootstrapNodes: [],
+      customRelayNodes: [],
       
-      // // Privacy & Security
-      // enableEncryption: true,
-      // shareFileByDefault: false,
-      // autoAcceptConnections: true,
-      // logLevel: 'info', // 'debug', 'info', 'warn', 'error'
+      // 网络发现设置
+      enableMDNS: true,
+      mdnsInterval: 20, // 秒
+      enableDHTDiscovery: true,
+      dhtRandomWalkInterval: 300, // 秒
       
-      // Performance Settings
-      memoryLimit: 512, // MB
-      diskCacheSize: 1024, // MB
+      // 连接策略
+      preferDirectConnections: true,
+      maxRelayHops: 1,
+      connectionUpgradeTimeout: 10, // 从中继升级到直接连接的超时时间
+      
+      // 诊断和调试
+      enableConnectionDiagnostics: false,
+      natDetectionInterval: 300, // 秒，NAT类型检测间隔
+      logNetworkEvents: false,
+      
+      // 性能优化
+      connectionPooling: true,
+      reuseConnections: true,
+      enableQUIC: false, // QUIC支持（未来功能）
+      
+      // 安全设置
+      allowUnencryptedConnections: false,
+      trustedRelayNodes: [], // 信任的中继节点列表
+      blockSuspiciousConnections: true,
+      
+      // 原有的性能设置
+      memoryLimit: 512,
+      diskCacheSize: 1024,
       enableFileValidation: true,
       cleanupTempFiles: true,
       
-      // Backup & Sync
+      // 备份设置
       autoBackupSettings: true,
       autoBackupDatabase: true,
-      backupInterval: 24, // hours
+      backupInterval: 24,
       maxBackupFiles: 5
     }
   }
@@ -55,9 +102,8 @@ export class SettingsManager {
       await fs.mkdir(this.settingsDir, { recursive: true })
       await this.loadSettings()
       this.initialized = true
-      console.log('Settings manager initialized')
+      console.log('settings manager initialized')
       
-      // Setup auto-save
       this.setupAutoSave()
     } catch (error) {
       console.error('Error initializing settings manager:', error)
@@ -70,18 +116,18 @@ export class SettingsManager {
       const data = await fs.readFile(this.settingsFile, 'utf8')
       const loadedSettings = JSON.parse(data)
       
-      // Merge with defaults (in case new settings were added)
+      // 合并默认设置和加载的设置
       this.settings = new Map(Object.entries({
         ...this.defaultSettings,
         ...loadedSettings
       }))
       
-      console.log('Settings loaded successfully')
+      console.log('settings loaded successfully')
     } catch (error) {
-      // File doesn't exist or invalid, use defaults
+      // 使用默认设置
       this.settings = new Map(Object.entries(this.defaultSettings))
       await this.saveSettings()
-      console.log('Created default settings file with system theme')
+      console.log('Created default settings file')
     }
   }
 
@@ -89,7 +135,7 @@ export class SettingsManager {
     try {
       const settingsObj = Object.fromEntries(this.settings)
       await fs.writeFile(this.settingsFile, JSON.stringify(settingsObj, null, 2))
-      console.log('Settings saved successfully')
+      console.log('settings saved successfully')
     } catch (error) {
       console.error('Error saving settings:', error)
       throw error
@@ -97,7 +143,6 @@ export class SettingsManager {
   }
 
   setupAutoSave() {
-    // Auto-save every 5 minutes
     setInterval(() => {
       this.saveSettings().catch(error => {
         console.error('Auto-save settings failed:', error)
@@ -105,14 +150,11 @@ export class SettingsManager {
     }, 5 * 60 * 1000)
   }
 
-  // Get setting value
   get(key, defaultValue = null) {
     return this.settings.get(key) ?? defaultValue
   }
 
-  // Set setting value
   async set(key, value) {
-    // Validate setting before saving
     if (!this.validateSetting(key, value)) {
       throw new Error(`Invalid value for setting '${key}': ${value}`)
     }
@@ -120,29 +162,24 @@ export class SettingsManager {
     const oldValue = this.settings.get(key)
     this.settings.set(key, value)
     
-    // Handle special settings that need immediate application
     await this.handleSpecialSetting(key, value, oldValue)
-    
     await this.saveSettings()
   }
 
-  // Set multiple settings at once
   async setMultiple(settingsObj) {
-    // Validate all settings first
+    // 验证所有设置
     for (const [key, value] of Object.entries(settingsObj)) {
       if (!this.validateSetting(key, value)) {
         throw new Error(`Invalid value for setting '${key}': ${value}`)
       }
     }
     
-    // Apply all settings
     const oldValues = {}
     for (const [key, value] of Object.entries(settingsObj)) {
       oldValues[key] = this.settings.get(key)
       this.settings.set(key, value)
     }
     
-    // Handle special settings
     for (const [key, value] of Object.entries(settingsObj)) {
       await this.handleSpecialSetting(key, value, oldValues[key])
     }
@@ -150,29 +187,60 @@ export class SettingsManager {
     await this.saveSettings()
   }
 
-  // Handle special settings that need immediate application
   async handleSpecialSetting(key, newValue, oldValue) {
     switch (key) {
-      case 'theme':
-        if (newValue !== oldValue) {
-          console.log(`Theme changed from '${oldValue}' to '${newValue}'`)
-          // 主题应用逻辑在前端处理
-        }
-        break
-        
       case 'downloadPath':
         if (newValue !== oldValue) {
           await this.ensureDirectoryExists(newValue)
         }
         break
         
-      default:
-        // No special handling needed
+      case 'customBootstrapNodes':
+      case 'customRelayNodes':
+        if (newValue !== oldValue) {
+          console.log(`Updated ${key}:`, newValue)
+          // 验证节点地址格式
+          this.validateNodeAddresses(newValue, key)
+        }
+        break
+        
+      case 'enableNATTraversal':
+        if (newValue !== oldValue) {
+          console.log(`NAT traversal ${newValue ? 'enabled' : 'disabled'}`)
+          if (!newValue) {
+            // 如果禁用NAT穿透，也禁用相关功能
+            this.settings.set('enableUPnP', false)
+            this.settings.set('enableHolePunching', false)
+            this.settings.set('enableAutoRelay', false)
+          }
+        }
+        break
+        
+      case 'maxConnections':
+        if (newValue !== oldValue && newValue < 50) {
+          console.warn('Low max connections may affect NAT traversal performance')
+        }
         break
     }
   }
 
-  // Ensure directory exists
+  validateNodeAddresses(addresses, settingName) {
+    if (!Array.isArray(addresses)) {
+      throw new Error(`${settingName} must be an array`)
+    }
+    
+    for (const address of addresses) {
+      if (typeof address !== 'string' || !address.startsWith('/')) {
+        throw new Error(`Invalid multiaddr format in ${settingName}: ${address}`)
+      }
+      
+      // 基本的multiaddr格式验证
+      if (!address.includes('/p2p/')) {
+        console.warn(`Multiaddr may be incomplete (missing peer ID): ${address}`)
+      }
+    }
+  }
+
   async ensureDirectoryExists(dirPath) {
     try {
       await fs.mkdir(dirPath, { recursive: true })
@@ -182,18 +250,15 @@ export class SettingsManager {
     }
   }
 
-  // Get all settings
   getAll() {
     return Object.fromEntries(this.settings)
   }
 
-  // Reset to defaults
   async resetToDefaults() {
     this.settings = new Map(Object.entries(this.defaultSettings))
     await this.saveSettings()
   }
 
-  // Reset specific category
   async resetCategory(category) {
     const categorySettings = this.getSettingsByCategory(category)
     for (const key of Object.keys(categorySettings)) {
@@ -204,15 +269,46 @@ export class SettingsManager {
     await this.saveSettings()
   }
 
-  // Get settings by category
   getSettingsByCategory(category) {
     const categories = {
-      download: ['downloadPath', 'autoCreateSubfolders', 'maxConcurrentDownloads', 'chunkSize', 'enableResumeDownload'],
-      window: ['windowBehavior', 'autoStartNode', 'theme'],
-      network: ['autoConnectToPeers', 'maxConnections', 'connectionTimeout', 'enableUpnp', 'customBootstrapNodes'],
-      privacy: ['enableEncryption', 'shareFileByDefault', 'autoAcceptConnections', 'logLevel'],
-      performance: ['memoryLimit', 'diskCacheSize', 'enableFileValidation', 'cleanupTempFiles'],
-      backup: ['autoBackupSettings', 'autoBackupDatabase', 'backupInterval', 'maxBackupFiles']
+      download: [
+        'downloadPath', 'autoCreateSubfolders', 'maxConcurrentDownloads', 
+        'chunkSize', 'enableResumeDownload'
+      ],
+      window: [
+        'windowBehavior', 'autoStartNode', 'theme'
+      ],
+      network: [
+        'autoConnectToPeers', 'maxConnections', 'connectionTimeout',
+        'enableMDNS', 'mdnsInterval', 'enableDHTDiscovery', 'dhtRandomWalkInterval'
+      ],
+      natTraversal: [
+        'enableNATTraversal', 'enableUPnP', 'enableHolePunching', 'enableAutoRelay',
+        'enableCircuitRelay', 'upnpDiscoveryTimeout', 'upnpPortMappingTTL', 'enableUpnpIPv6',
+        'holePunchTimeout', 'holePunchRetries', 'enableDCUtR'
+      ],
+      relay: [
+        'maxRelayConnections', 'relayConnectionTimeout', 'enableRelayServer',
+        'relayBandwidthLimit', 'relayConnectionLimit', 'customRelayNodes',
+        'trustedRelayNodes'
+      ],
+      advanced: [
+        'customBootstrapNodes', 'preferDirectConnections', 'maxRelayHops',
+        'connectionUpgradeTimeout', 'connectionPooling', 'reuseConnections',
+        'enableQUIC'
+      ],
+      diagnostics: [
+        'enableConnectionDiagnostics', 'natDetectionInterval', 'logNetworkEvents'
+      ],
+      security: [
+        'allowUnencryptedConnections', 'blockSuspiciousConnections'
+      ],
+      performance: [
+        'memoryLimit', 'diskCacheSize', 'enableFileValidation', 'cleanupTempFiles'
+      ],
+      backup: [
+        'autoBackupSettings', 'autoBackupDatabase', 'backupInterval', 'maxBackupFiles'
+      ]
     }
 
     const categoryKeys = categories[category] || []
@@ -225,19 +321,48 @@ export class SettingsManager {
     return result
   }
 
-  // Validate setting value
   validateSetting(key, value) {
     const validators = {
+      // 基础设置验证
       downloadPath: (val) => typeof val === 'string' && val.length > 0,
-      maxConcurrentDownloads: (val) => Number.isInteger(val) && val >= 1 && val <= 10,
+      maxConcurrentDownloads: (val) => Number.isInteger(val) && val >= 1 && val <= 20,
       chunkSize: (val) => Number.isInteger(val) && val >= 1024 && val <= 10 * 1024 * 1024,
       windowBehavior: (val) => ['close', 'hide'].includes(val),
-      theme: (val) => ['light', 'dark', 'system'].includes(val), // 验证主题值
-      maxConnections: (val) => Number.isInteger(val) && val >= 1 && val <= 200,
-      connectionTimeout: (val) => Number.isInteger(val) && val >= 5 && val <= 120,
-      logLevel: (val) => ['debug', 'info', 'warn', 'error'].includes(val),
-      memoryLimit: (val) => Number.isInteger(val) && val >= 128 && val <= 4096,
-      diskCacheSize: (val) => Number.isInteger(val) && val >= 100 && val <= 10240,
+      theme: (val) => ['light', 'dark', 'system'].includes(val),
+      
+      // 网络设置验证
+      maxConnections: (val) => Number.isInteger(val) && val >= 10 && val <= 1000,
+      connectionTimeout: (val) => Number.isInteger(val) && val >= 5 && val <= 300,
+      
+      // NAT穿透设置验证
+      upnpDiscoveryTimeout: (val) => Number.isInteger(val) && val >= 5 && val <= 120,
+      upnpPortMappingTTL: (val) => Number.isInteger(val) && val >= 300 && val <= 86400,
+      holePunchTimeout: (val) => Number.isInteger(val) && val >= 5 && val <= 120,
+      holePunchRetries: (val) => Number.isInteger(val) && val >= 1 && val <= 10,
+      
+      // 中继设置验证
+      maxRelayConnections: (val) => Number.isInteger(val) && val >= 1 && val <= 20,
+      relayConnectionTimeout: (val) => Number.isInteger(val) && val >= 5 && val <= 120,
+      relayBandwidthLimit: (val) => Number.isInteger(val) && val >= 64 && val <= 10240,
+      relayConnectionLimit: (val) => Number.isInteger(val) && val >= 5 && val <= 500,
+      
+      // 发现设置验证
+      mdnsInterval: (val) => Number.isInteger(val) && val >= 5 && val <= 300,
+      dhtRandomWalkInterval: (val) => Number.isInteger(val) && val >= 60 && val <= 3600,
+      natDetectionInterval: (val) => Number.isInteger(val) && val >= 60 && val <= 3600,
+      
+      // 连接策略验证
+      maxRelayHops: (val) => Number.isInteger(val) && val >= 1 && val <= 5,
+      connectionUpgradeTimeout: (val) => Number.isInteger(val) && val >= 5 && val <= 60,
+      
+      // 数组设置验证
+      customBootstrapNodes: (val) => Array.isArray(val),
+      customRelayNodes: (val) => Array.isArray(val),
+      trustedRelayNodes: (val) => Array.isArray(val),
+      
+      // 性能设置验证
+      memoryLimit: (val) => Number.isInteger(val) && val >= 128 && val <= 8192,
+      diskCacheSize: (val) => Number.isInteger(val) && val >= 100 && val <= 20480,
       backupInterval: (val) => Number.isInteger(val) && val >= 1 && val <= 168,
       maxBackupFiles: (val) => Number.isInteger(val) && val >= 1 && val <= 50
     }
@@ -247,7 +372,7 @@ export class SettingsManager {
       return validator(value)
     }
     
-    // Default validation for boolean values
+    // 默认布尔值验证
     if (typeof this.defaultSettings[key] === 'boolean') {
       return typeof value === 'boolean'
     }
@@ -255,28 +380,170 @@ export class SettingsManager {
     return true
   }
 
-  // Create backup of current settings
+  // 获取NAT穿透相关设置
+  getNATTraversalSettings() {
+    return {
+      enabled: this.get('enableNATTraversal'),
+      upnp: {
+        enabled: this.get('enableUPnP'),
+        discoveryTimeout: this.get('upnpDiscoveryTimeout'),
+        portMappingTTL: this.get('upnpPortMappingTTL'),
+        enableIPv6: this.get('enableUpnpIPv6')
+      },
+      holePunching: {
+        enabled: this.get('enableHolePunching'),
+        timeout: this.get('holePunchTimeout'),
+        retries: this.get('holePunchRetries'),
+        enableDCUtR: this.get('enableDCUtR')
+      },
+      relay: {
+        autoRelay: this.get('enableAutoRelay'),
+        circuitRelay: this.get('enableCircuitRelay'),
+        maxConnections: this.get('maxRelayConnections'),
+        connectionTimeout: this.get('relayConnectionTimeout'),
+        enableServer: this.get('enableRelayServer'),
+        bandwidthLimit: this.get('relayBandwidthLimit'),
+        connectionLimit: this.get('relayConnectionLimit')
+      },
+      customNodes: {
+        bootstrapNodes: this.get('customBootstrapNodes'),
+        relayNodes: this.get('customRelayNodes'),
+        trustedRelayNodes: this.get('trustedRelayNodes')
+      }
+    }
+  }
+
+  // 获取网络优化建议
+  getNetworkOptimizationRecommendations() {
+    const recommendations = []
+    
+    if (!this.get('enableNATTraversal')) {
+      recommendations.push({
+        type: 'warning',
+        message: 'NAT traversal is disabled. This may limit connectivity to peers behind firewalls.',
+        action: 'Enable NAT traversal for better connectivity'
+      })
+    }
+    
+    if (!this.get('enableUPnP')) {
+      recommendations.push({
+        type: 'info',
+        message: 'UPnP is disabled. Manual port forwarding may be required for optimal connectivity.',
+        action: 'Enable UPnP for automatic port forwarding'
+      })
+    }
+    
+    if (!this.get('enableHolePunching')) {
+      recommendations.push({
+        type: 'info',
+        message: 'Hole punching is disabled. Direct connections may be limited.',
+        action: 'Enable hole punching for direct peer connections'
+      })
+    }
+    
+    if (!this.get('enableAutoRelay')) {
+      recommendations.push({
+        type: 'warning',
+        message: 'Auto relay is disabled. Connectivity behind restrictive NATs may be limited.',
+        action: 'Enable auto relay for fallback connectivity'
+      })
+    }
+    
+    if (this.get('maxConnections') < 50) {
+      recommendations.push({
+        type: 'info',
+        message: 'Low maximum connections limit may affect network performance.',
+        action: 'Consider increasing max connections to at least 50'
+      })
+    }
+    
+    if (this.get('maxRelayConnections') < 2) {
+      recommendations.push({
+        type: 'warning',
+        message: 'Very low relay connection limit may affect fallback connectivity.',
+        action: 'Consider increasing max relay connections to at least 2'
+      })
+    }
+    
+    const customBootstrap = this.get('customBootstrapNodes')
+    const customRelay = this.get('customRelayNodes')
+    
+    if (customBootstrap.length === 0 && customRelay.length === 0) {
+      recommendations.push({
+        type: 'info',
+        message: 'Using default bootstrap and relay nodes only.',
+        action: 'Consider adding custom nodes for better network resilience'
+      })
+    }
+    
+    return recommendations
+  }
+
+  // 生成网络配置摘要
+  getNetworkConfigSummary() {
+    const natSettings = this.getNATTraversalSettings()
+    
+    return {
+      connectivity: {
+        maxConnections: this.get('maxConnections'),
+        autoConnect: this.get('autoConnectToPeers'),
+        connectionTimeout: this.get('connectionTimeout')
+      },
+      natTraversal: {
+        enabled: natSettings.enabled,
+        methods: [
+          natSettings.upnp.enabled ? 'UPnP' : null,
+          natSettings.holePunching.enabled ? 'Hole Punching' : null,
+          natSettings.relay.autoRelay ? 'Auto Relay' : null
+        ].filter(Boolean)
+      },
+      discovery: {
+        mdns: this.get('enableMDNS'),
+        dht: this.get('enableDHTDiscovery'),
+        customBootstrap: this.get('customBootstrapNodes').length,
+        customRelay: this.get('customRelayNodes').length
+      },
+      performance: {
+        preferDirect: this.get('preferDirectConnections'),
+        connectionPooling: this.get('connectionPooling'),
+        reuseConnections: this.get('reuseConnections')
+      },
+      security: {
+        encryptedOnly: !this.get('allowUnencryptedConnections'),
+        blockSuspicious: this.get('blockSuspiciousConnections'),
+        trustedRelays: this.get('trustedRelayNodes').length
+      }
+    }
+  }
+
+  // 导出/导入增强功能
   async createBackup() {
     try {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
       const backupDir = path.join(this.settingsDir, 'backups')
       await fs.mkdir(backupDir, { recursive: true })
       
-      const backupFile = path.join(backupDir, `settings-backup-${timestamp}.json`)
+      const backupFile = path.join(backupDir, `-settings-backup-${timestamp}.json`)
       const currentSettings = Object.fromEntries(this.settings)
       
-      // Add metadata to backup
       const backupData = {
-        version: '1.0',
+        version: '2.0',
+        type: '-p2p-settings',
         createdAt: new Date().toISOString(),
         platform: process.platform,
         nodeVersion: process.version,
-        settings: currentSettings
+        features: {
+          natTraversal: true,
+          holePunching: true,
+          circuitRelay: true,
+          upnp: true
+        },
+        settings: currentSettings,
+        networkConfig: this.getNetworkConfigSummary()
       }
       
       await fs.writeFile(backupFile, JSON.stringify(backupData, null, 2))
       
-      // Clean up old backups
       await this.cleanupOldBackups(backupDir)
       
       return backupFile
@@ -286,45 +553,53 @@ export class SettingsManager {
     }
   }
 
-  // Restore from backup
   async restoreFromBackup(backupFile) {
     try {
       const data = await fs.readFile(backupFile, 'utf8')
       const backupData = JSON.parse(data)
       
-      // Handle both old format (direct settings) and new format (with metadata)
-      const backupSettings = backupData.settings || backupData
+      // 处理不同版本的备份格式
+      let backupSettings
+      if (backupData.version && backupData.settings) {
+        backupSettings = backupData.settings
+        console.log(`Restoring from ${backupData.type || 'unknown'} backup version ${backupData.version}`)
+      } else {
+        backupSettings = backupData
+        console.log('Restoring from legacy backup format')
+      }
       
-      // Validate backup settings
+      // 验证和过滤设置
+      const validSettings = {}
       for (const [key, value] of Object.entries(backupSettings)) {
-        if (!this.validateSetting(key, value)) {
-          console.warn(`Invalid setting in backup, skipping: ${key} = ${value}`)
-          delete backupSettings[key]
+        if (this.validateSetting(key, value)) {
+          validSettings[key] = value
+        } else {
+          console.warn(`Skipping invalid setting during restore: ${key} = ${value}`)
         }
       }
       
+      // 合并默认设置和有效的备份设置
       this.settings = new Map(Object.entries({
         ...this.defaultSettings,
-        ...backupSettings
+        ...validSettings
       }))
       
       await this.saveSettings()
       
-      console.log('Settings restored from backup successfully')
+      console.log('settings restored from backup successfully')
     } catch (error) {
       console.error('Error restoring from backup:', error)
       throw error
     }
   }
 
-  // Clean up old backup files
   async cleanupOldBackups(backupDir) {
     try {
       const files = await fs.readdir(backupDir)
       const backupFiles = []
       
       for (const file of files) {
-        if (file.startsWith('settings-backup-') && file.endsWith('.json')) {
+        if (file.startsWith('-settings-backup-') && file.endsWith('.json')) {
           const filePath = path.join(backupDir, file)
           const stats = await fs.stat(filePath)
           backupFiles.push({
@@ -335,10 +610,8 @@ export class SettingsManager {
         }
       }
       
-      // Sort by modification time (newest first)
       backupFiles.sort((a, b) => b.time - a.time)
       
-      // Keep only the specified number of backups
       const maxBackups = this.get('maxBackupFiles', 5)
       if (backupFiles.length > maxBackups) {
         const filesToDelete = backupFiles.slice(maxBackups)
@@ -351,131 +624,44 @@ export class SettingsManager {
     }
   }
 
-  // Get available backup files
-  async getAvailableBackups() {
-    try {
-      const backupDir = path.join(this.settingsDir, 'backups')
-      
-      try {
-        await fs.access(backupDir)
-      } catch {
-        // Backup directory doesn't exist
-        return []
-      }
-      
-      const files = await fs.readdir(backupDir)
-      const backupFiles = []
-      
-      for (const file of files) {
-        if (file.startsWith('settings-backup-') && file.endsWith('.json')) {
-          const filePath = path.join(backupDir, file)
-          const stats = await fs.stat(filePath)
-          
-          // Try to read backup metadata
-          let metadata = null
-          try {
-            const data = await fs.readFile(filePath, 'utf8')
-            const backupData = JSON.parse(data)
-            if (backupData.version && backupData.createdAt) {
-              metadata = {
-                version: backupData.version,
-                createdAt: backupData.createdAt,
-                platform: backupData.platform,
-                nodeVersion: backupData.nodeVersion
-              }
-            }
-          } catch {
-            // Backup is in old format, ignore metadata
-          }
-          
-          backupFiles.push({
-            name: file,
-            path: filePath,
-            created: stats.mtime,
-            size: stats.size,
-            metadata
-          })
-        }
-      }
-      
-      // Sort by creation time (newest first)
-      backupFiles.sort((a, b) => b.created - a.created)
-      
-      return backupFiles
-    } catch (error) {
-      console.error('Error getting available backups:', error)
-      return []
-    }
-  }
-
-  // Export settings to file
-  async exportSettings(exportPath) {
-    try {
-      const settings = Object.fromEntries(this.settings)
-      const exportData = {
-        version: '1.0',
-        exportedAt: new Date().toISOString(),
-        platform: process.platform,
-        nodeVersion: process.version,
-        appVersion: '1.0.0', // This could be read from package.json
-        settings
-      }
-      
-      await fs.writeFile(exportPath, JSON.stringify(exportData, null, 2))
-      console.log(`Settings exported to: ${exportPath}`)
-    } catch (error) {
-      console.error('Error exporting settings:', error)
-      throw error
-    }
-  }
-
-  // Import settings from file
-  async importSettings(importPath) {
-    try {
-      const data = await fs.readFile(importPath, 'utf8')
-      const importData = JSON.parse(data)
-      
-      // Handle both old format (direct settings) and new format (with metadata)
-      const importedSettings = importData.settings || importData
-      
-      if (!importedSettings || typeof importedSettings !== 'object') {
-        throw new Error('Invalid settings file format')
-      }
-      
-      // Validate imported settings
-      const validSettings = {}
-      for (const [key, value] of Object.entries(importedSettings)) {
-        if (this.validateSetting(key, value)) {
-          validSettings[key] = value
-        } else {
-          console.warn(`Skipping invalid setting during import: ${key} = ${value}`)
-        }
-      }
-      
-      // Merge with current settings
-      const mergedSettings = {
-        ...this.getAll(),
-        ...validSettings
-      }
-      
-      this.settings = new Map(Object.entries(mergedSettings))
-      
-      await this.saveSettings()
-      
-      console.log(`Settings imported from: ${importPath}`)
-    } catch (error) {
-      console.error('Error importing settings:', error)
-      throw error
-    }
-  }
-
-  // Get settings schema for UI generation (English only)
+  // 获取增强的设置模式（用于UI生成）
   getSettingsSchema() {
     return {
+      window: {
+        title: 'Window & Interface',
+        icon: 'window',
+        description: 'Application appearance and behavior',
+        settings: {
+          windowBehavior: {
+            type: 'select',
+            title: 'Window Close Behavior',
+            description: 'What happens when you close the main window',
+            options: [
+              { value: 'close', label: 'Exit Application' },
+              { value: 'hide', label: 'Hide to System Tray' }
+            ]
+          },
+          autoStartNode: {
+            type: 'boolean',
+            title: 'Auto Start P2P Node',
+            description: 'Automatically start the P2P node when app launches'
+          },
+          theme: {
+            type: 'select',
+            title: 'Theme',
+            description: 'Application theme',
+            options: [
+              { value: 'system', label: 'System Default' },
+              { value: 'light', label: 'Light' },
+              { value: 'dark', label: 'Dark' }
+            ]
+          }
+        }
+      },
       download: {
         title: 'Download & Files',
         icon: 'download',
-        description: 'Configure file download and storage settings',
+        description: 'File download and storage settings',
         settings: {
           downloadPath: {
             type: 'folder',
@@ -492,7 +678,7 @@ export class SettingsManager {
             title: 'Max Concurrent Downloads',
             description: 'Maximum number of files to download simultaneously',
             min: 1,
-            max: 10,
+            max: 20,
             step: 1
           },
           chunkSize: {
@@ -514,115 +700,131 @@ export class SettingsManager {
           }
         }
       },
-      window: {
-        title: 'Window & Interface',
-        icon: 'window',
-        description: 'Customize application appearance and behavior',
+      natTraversal: {
+        title: 'NAT Traversal',
+        icon: 'network',
+        description: 'Cross-network connectivity settings',
         settings: {
-          windowBehavior: {
-            type: 'select',
-            title: 'When Closing Window',
-            description: 'What happens when you close the main window',
-            options: [
-              { value: 'close', label: 'Exit Application' },
-              { value: 'hide', label: 'Hide to System Tray' }
-            ]
-          },
-          autoStartNode: {
+          enableNATTraversal: {
             type: 'boolean',
-            title: 'Auto Start P2P Node',
-            description: 'Automatically start the P2P node when app launches'
+            title: 'Enable NAT Traversal',
+            description: 'Enable features to connect across firewalls and NATs',
+            important: true
           },
-          theme: {
-            type: 'select',
-            title: 'Theme',
-            description: 'Application theme',
-            options: [
-              { value: 'system', label: 'System Default' },
-              { value: 'light', label: 'Light' },
-              { value: 'dark', label: 'Dark' }
-            ]
+          enableUPnP: {
+            type: 'boolean',
+            title: 'Enable UPnP',
+            description: 'Automatically configure router port forwarding',
+            dependsOn: 'enableNATTraversal'
           },
+          enableHolePunching: {
+            type: 'boolean',
+            title: 'Enable Hole Punching',
+            description: 'Attempt direct connections through NATs',
+            dependsOn: 'enableNATTraversal'
+          },
+          enableAutoRelay: {
+            type: 'boolean',
+            title: 'Enable Auto Relay',
+            description: 'Automatically use relay nodes when direct connection fails',
+            dependsOn: 'enableNATTraversal'
+          },
+          holePunchTimeout: {
+            type: 'range',
+            title: 'Hole Punch Timeout (seconds)',
+            description: 'How long to wait for hole punching attempts',
+            min: 5,
+            max: 120,
+            step: 5,
+            dependsOn: 'enableHolePunching'
+          },
+          maxRelayConnections: {
+            type: 'range',
+            title: 'Max Relay Connections',
+            description: 'Maximum number of relay connections to maintain',
+            min: 1,
+            max: 20,
+            step: 1,
+            dependsOn: 'enableAutoRelay'
+          }
         }
       },
       network: {
-        title: 'Network & Connections',
-        icon: 'network',
-        description: 'Configure P2P network settings',
+        title: 'Network & Discovery',
+        icon: 'globe',
+        description: 'Network connectivity and peer discovery',
         settings: {
+          maxConnections: {
+            type: 'range',
+            title: 'Max Total Connections',
+            description: 'Maximum number of peer connections (includes relay)',
+            min: 10,
+            max: 1000,
+            step: 10
+          },
+          connectionTimeout: {
+            type: 'range',
+            title: 'Connection Timeout (seconds)',
+            description: 'How long to wait for connections to establish',
+            min: 5,
+            max: 300,
+            step: 5
+          },
           autoConnectToPeers: {
             type: 'boolean',
             title: 'Auto Connect to Peers',
             description: 'Automatically connect to discovered peers'
           },
-          maxConnections: {
-            type: 'range',
-            title: 'Max Connections',
-            description: 'Maximum number of peer connections',
-            min: 1,
-            max: 200,
-            step: 1
-          },
-          connectionTimeout: {
-            type: 'range',
-            title: 'Connection Timeout',
-            description: 'Timeout for peer connections (seconds)',
-            min: 5,
-            max: 120,
-            step: 5,
-            unit: 's'
-          },
-          enableUpnp: {
+          enableMDNS: {
             type: 'boolean',
-            title: 'Enable UPnP',
-            description: 'Automatically configure router port forwarding'
+            title: 'Enable mDNS Discovery',
+            description: 'Discover peers on local network'
+          },
+          enableDHTDiscovery: {
+            type: 'boolean',
+            title: 'Enable DHT Discovery',
+            description: 'Discover peers through distributed hash table'
           }
         }
       },
-      privacy: {
-        title: 'Privacy & Security',
-        icon: 'shield',
-        description: 'Configure privacy and security options',
+      advanced: {
+        title: 'Advanced Settings',
+        icon: 'cog',
+        description: 'Advanced network and performance options',
         settings: {
-          enableEncryption: {
+          preferDirectConnections: {
             type: 'boolean',
-            title: 'Enable Encryption',
-            description: 'Encrypt all P2P communications'
+            title: 'Prefer Direct Connections',
+            description: 'Try to upgrade relay connections to direct when possible'
           },
-          shareFileByDefault: {
+          connectionPooling: {
             type: 'boolean',
-            title: 'Share Files by Default',
-            description: 'Automatically share new files with the network'
+            title: 'Enable Connection Pooling',
+            description: 'Reuse connections for better performance'
           },
-          autoAcceptConnections: {
+          enableConnectionDiagnostics: {
             type: 'boolean',
-            title: 'Auto Accept Connections',
-            description: 'Automatically accept incoming peer connections'
+            title: 'Enable Connection Diagnostics',
+            description: 'Log detailed connection information for troubleshooting'
           },
-          logLevel: {
-            type: 'select',
-            title: 'Log Level',
-            description: 'Application logging level',
-            options: [
-              { value: 'error', label: 'Error Only' },
-              { value: 'warn', label: 'Warnings' },
-              { value: 'info', label: 'Information' },
-              { value: 'debug', label: 'Debug (Verbose)' }
-            ]
+          logNetworkEvents: {
+            type: 'boolean',
+            title: 'Log Network Events',
+            description: 'Log network events for debugging (may impact performance)'
           }
         }
       },
       performance: {
         title: 'Performance',
         icon: 'gauge',
-        description: 'Optimize application performance',
+        description: 'Memory and performance optimization',
         settings: {
           memoryLimit: {
             type: 'range',
             title: 'Memory Limit (MB)',
             description: 'Maximum memory usage',
             min: 128,
-            max: 4096,
+            max: 8192,
             step: 64,
             unit: 'MB'
           },
@@ -631,7 +833,7 @@ export class SettingsManager {
             title: 'Disk Cache Size (MB)',
             description: 'Size of disk cache for files',
             min: 100,
-            max: 10240,
+            max: 20480,
             step: 100,
             unit: 'MB'
           },
@@ -650,7 +852,7 @@ export class SettingsManager {
       backup: {
         title: 'Backup & Import',
         icon: 'archive',
-        description: 'Manage settings and data backup',
+        description: 'Settings and data backup management',
         settings: {
           autoBackupSettings: {
             type: 'boolean',
@@ -682,71 +884,5 @@ export class SettingsManager {
         }
       }
     }
-  }
-
-  // Get setting metadata for validation and UI hints
-  getSettingMetadata(key) {
-    const metadata = {
-      downloadPath: {
-        type: 'string',
-        required: true,
-        category: 'download'
-      },
-      autoCreateSubfolders: {
-        type: 'boolean',
-        category: 'download'
-      },
-      maxConcurrentDownloads: {
-        type: 'number',
-        min: 1,
-        max: 10,
-        category: 'download'
-      },
-      chunkSize: {
-        type: 'number',
-        min: 1024,
-        max: 10 * 1024 * 1024,
-        category: 'download'
-      },
-      enableResumeDownload: {
-        type: 'boolean',
-        category: 'download'
-      },
-      windowBehavior: {
-        type: 'string',
-        enum: ['close', 'hide'],
-        category: 'window'
-      },
-      autoStartNode: {
-        type: 'boolean',
-        category: 'window'
-      },
-      theme: {
-        type: 'string',
-        enum: ['light', 'dark', 'system'],
-        category: 'window'
-      },
-    }
-    
-    return metadata[key] || { type: 'unknown' }
-  }
-
-  // Get settings validation report
-  getValidationReport() {
-    const report = {
-      valid: [],
-      invalid: [],
-      warnings: []
-    }
-    
-    for (const [key, value] of this.settings) {
-      if (this.validateSetting(key, value)) {
-        report.valid.push({ key, value })
-      } else {
-        report.invalid.push({ key, value, expected: this.getSettingMetadata(key) })
-      }
-    }
-    
-    return report
   }
 }
