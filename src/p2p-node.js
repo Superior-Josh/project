@@ -29,11 +29,16 @@ export class P2PNode {
     // 默认引导节点
     this.bootstrapNodes = options.bootstrapNodes || [
       '/dnsaddr/bootstrap.libp2p.io/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN',
-      '/dnsaddr/bootstrap.libp2p.io/p2p/QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa'
+      '/dnsaddr/bootstrap.libp2p.io/p2p/QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa',
+      // '/ip4/104.131.131.82/tcp/4001/p2p/QmaCpDMGvV2BGHeYERUEnRQAwe3N8SzbUtfsmvsqQLuvuJ',
+      // '/ip4/104.236.179.241/tcp/4001/p2p/QmSoLPppuBtQSGwKDZT2M73ULpjvfd3aZ6ha4oFGL1KrGM'
     ]
 
     // 公共中继节点
-    this.publicRelayNodes = options.publicRelayNodes || []
+    this.publicRelayNodes = [
+      // '/ip4/139.178.68.217/tcp/4002/p2p/12D3KooWAJjbRkp8FPF5MKgMU53aUTxWkqvDrs4zc1VMbwRwfsbE',
+      // '/ip4/147.75.83.83/tcp/4002/p2p/12D3KooWB3AVrKXRkCiTyNFh8TwxfcSeZn2pGePrqR8GqWKKLCw1'
+    ]
 
     // 提取对等节点ID
     this.bootstrapPeerIds = new Set()
@@ -773,7 +778,7 @@ export class P2PNode {
 
       // 刷新路由表
       await this.node.services.dht.refreshRoutingTable()
-      console.log('✓ DHT warmup completed')
+      console.log('DHT warmup completed')
 
     } catch (error) {
       console.error('DHT warmup failed:', error)
