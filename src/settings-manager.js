@@ -1,4 +1,4 @@
-// 重构的设置管理器 - 保留所有功能但简化代码结构
+// src/settings-manager.js
 
 import fs from 'fs/promises'
 import path from 'path'

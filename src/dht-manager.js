@@ -1,4 +1,4 @@
-// 重构的DHT管理器 - 保留所有功能但简化代码结构
+// src/dht-manager.js
 
 import { CID } from 'multiformats/cid'
 import { sha256 } from 'multiformats/hashes/sha2'

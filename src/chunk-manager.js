@@ -1,4 +1,4 @@
-// 重构的块管理器 - 保留所有功能但简化代码结构
+// src/chunk-manager.js
 
 import { createHash } from 'crypto'
 import fs from 'fs/promises'

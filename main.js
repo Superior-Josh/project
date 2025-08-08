@@ -1,4 +1,4 @@
-// 重构的主程序 - 保留所有功能但大幅简化代码
+// main.js
 
 import { app, BrowserWindow, ipcMain, Tray, Menu, dialog } from 'electron'
 import path from 'path'

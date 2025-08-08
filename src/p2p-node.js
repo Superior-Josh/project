@@ -1,4 +1,4 @@
-// p2p-node.js - 保留所有功能的简化版本
+// src/p2p-node.js
 
 import { createLibp2p } from 'libp2p'
 import { tcp } from '@libp2p/tcp'
