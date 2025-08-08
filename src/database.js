@@ -1,3 +1,5 @@
+// 重构的数据库管理器 - 保留所有功能但简化结构
+
 import fs from 'fs/promises'
 import path from 'path'
 

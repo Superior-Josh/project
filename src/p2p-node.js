@@ -1,4 +1,4 @@
-// p2p-node.js - Fixed version
+// p2p-node.js - 保留所有功能的简化版本
 
 import { createLibp2p } from 'libp2p'
 import { tcp } from '@libp2p/tcp'
@@ -25,24 +25,25 @@ export class P2PNode {
     this.isStarted = false
     this.discoveredPeers = new Set()
     this.peerInfoMap = new Map()
+    
+    // 默认引导节点
     this.bootstrapNodes = options.bootstrapNodes || [
       '/dnsaddr/bootstrap.libp2p.io/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN',
-      '/dnsaddr/bootstrap.libp2p.io/p2p/QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa',
-      // '/ip4/104.131.131.82/tcp/4001/p2p/QmaCpDMGvV2BGHeYERUEnRQAwe3N8SzbUtfsmvsqQLuvuJ',
-      // '/ip4/104.236.179.241/tcp/4001/p2p/QmSoLPppuBtQSGwKDZT2M73ULpjvfd3aZ6ha4oFGL1KrGM'
+      '/dnsaddr/bootstrap.libp2p.io/p2p/QmQCU2EcMqAqQPR2i9bChDtGNJchTbq5TbXJJ16u19uLTa'
     ]
 
-    this.publicRelayNodes = options.publicRelayNodes || [
-      // '/ip4/139.178.68.217/tcp/4002/p2p/12D3KooWAJjbRkp8FPF5MKgMU53aUTxWkqvDrs4zc1VMbwRwfsbE',
-      // '/ip4/147.75.83.83/tcp/4002/p2p/12D3KooWB3AVrKXRkCiTyNFh8TwxfcSeZn2pGePrqR8GqWKKLCw1'
-    ]
+    // 公共中继节点
+    this.publicRelayNodes = options.publicRelayNodes || []
 
+    // 提取对等节点ID
     this.bootstrapPeerIds = new Set()
     this.relayPeerIds = new Set()
     this.extractBootstrapPeerIds()
-    this.connectionManager = null
+    
+    // 节点实例ID
     this.nodeInstanceId = this.generateNodeInstanceId()
-    this.natManager = null
+    
+    // NAT穿透设置
     this.holePunchingEnabled = options.enableHolePunching !== false
     this.upnpEnabled = options.enableUPnP !== false
     this.autoRelayEnabled = options.enableAutoRelay !== false
@@ -50,7 +51,7 @@ export class P2PNode {
     this.natType = 'unknown'
     this.reachability = 'unknown'
 
-    // Connection statistics
+    // 连接统计
     this.connectionStats = {
       directConnections: 0,
       relayedConnections: 0,
@@ -71,9 +72,7 @@ export class P2PNode {
       try {
         const ma = multiaddr(bootstrapAddr)
         const peerId = ma.getPeerId()
-        if (peerId) {
-          this.bootstrapPeerIds.add(peerId)
-        }
+        if (peerId) this.bootstrapPeerIds.add(peerId)
       } catch (error) {
         console.debug('Invalid bootstrap node address:', bootstrapAddr)
       }
@@ -83,9 +82,7 @@ export class P2PNode {
       try {
         const ma = multiaddr(relayAddr)
         const peerId = ma.getPeerId()
-        if (peerId) {
-          this.relayPeerIds.add(peerId)
-        }
+        if (peerId) this.relayPeerIds.add(peerId)
       } catch (error) {
         console.debug('Invalid relay node address:', relayAddr)
       }
@@ -109,10 +106,8 @@ export class P2PNode {
         const content = msg.data ? msg.data.toString() : ''
         const sender = msg.from ? msg.from.toString() : 'unknown'
         const seqno = msg.seqno ? Array.from(msg.seqno).join('') : Date.now().toString()
-
         const uniqueStr = `${content}-${sender}-${seqno}`
         const hash = createHash('sha256').update(uniqueStr).digest('hex')
-
         return new TextEncoder().encode(hash.substring(0, 32))
       } catch (error) {
         console.debug('Error generating message ID:', error)
@@ -126,9 +121,7 @@ export class P2PNode {
     try {
       this.node = await createLibp2p({
         addresses: {
-          listen: [
-            '/ip4/0.0.0.0/tcp/0'
-          ]
+          listen: ['/ip4/0.0.0.0/tcp/0']
         },
         transports: [
           tcp(),
@@ -140,12 +133,8 @@ export class P2PNode {
             reservationCompletionTimeout: 30000
           })
         ],
-        connectionEncrypters: [
-          noise()
-        ],
-        streamMuxers: [
-          yamux()
-        ],
+        connectionEncrypters: [noise()],
+        streamMuxers: [yamux()],
         peerDiscovery: [
           mdns({
             interval: 20e3,
@@ -166,7 +155,7 @@ export class P2PNode {
           })
         ],
         services: {
-          // AutoNAT service with correct configuration
+          // AutoNAT服务
           autoNAT: autoNAT({
             protocolPrefix: 'libp2p',
             timeout: 30000,
@@ -174,7 +163,7 @@ export class P2PNode {
             maxOutboundStreams: 32
           }),
 
-          // DCUtR for hole punching
+          // DCUtR用于洞穿
           dcutr: dcutr({
             protocolPrefix: 'libp2p',
             timeout: 30000,
@@ -239,9 +228,7 @@ export class P2PNode {
           inboundUpgradeTimeout: 30000,
           outboundUpgradeTimeout: 30000,
           connectionGater: {
-            denyDialMultiaddr: (multiaddr) => {
-              return multiaddr.toString().includes('/p2p-circuit') ? false : false
-            },
+            denyDialMultiaddr: () => false,
             denyDialPeer: () => false,
             denyInboundConnection: () => false,
             denyOutboundConnection: () => false,
@@ -249,20 +236,20 @@ export class P2PNode {
             denyOutboundEncryptedConnection: () => false,
             denyInboundUpgradedConnection: () => false,
             denyOutboundUpgradedConnection: () => false,
-            filterMultiaddrForPeer: (peer, multiaddr) => true
+            filterMultiaddrForPeer: () => true
           }
         },
-        connectionProtector: undefined,
         transportManager: {
           faultTolerance: 5
         }
       })
 
-      // Setup event listeners
-      this.setupEventListeners()
+      // 注册DHT数据广播协议
+      this.node.handle('/p2p-file-sharing/dht-broadcast/1.0.0', ({ stream, connection }) => {
+        this.handleDHTBroadcast(stream, connection)
+      })
 
-      // Initialize connection manager
-      this.connectionManager = new ConnectionManager(this.node, this)
+      this.setupEventListeners()
 
       console.log('P2P node created successfully')
       console.log('Node ID:', this.node.peerId.toString())
@@ -276,14 +263,6 @@ export class P2PNode {
       console.error('Error creating P2P node:', error)
       throw error
     }
-    // 注册DHT数据广播协议
-    this.node.handle('/p2p-file-sharing/dht-broadcast/1.0.0', ({ stream, connection }) => {
-      this.handleDHTBroadcast(stream, connection)
-    })
-
-    this.setupEventListeners()
-    console.log('P2P node created successfully')
-    return this.node
   }
 
   // 处理DHT广播消息
@@ -315,14 +294,14 @@ export class P2PNode {
   }
 
   setupEventListeners() {
-    // Connection events
+    // 连接事件
     this.node.addEventListener('peer:connect', (evt) => {
       const peerId = evt.detail.toString()
       const connection = this.node.getConnections(evt.detail)[0]
 
       console.log('Connected to peer:', peerId)
 
-      // Track connection type
+      // 跟踪连接类型
       if (connection && connection.remoteAddr.toString().includes('/p2p-circuit')) {
         this.connectionStats.relayedConnections++
         console.log('Relayed connection established with:', peerId)
@@ -331,7 +310,7 @@ export class P2PNode {
         console.log('Direct connection established with:', peerId)
       }
 
-      // Only add non-infrastructure nodes to discovery list
+      // 只将非基础设施节点添加到发现列表
       if (!this.isBootstrapPeer(peerId) && !this.isRelayPeer(peerId)) {
         this.discoveredPeers.add(peerId)
 
@@ -345,7 +324,7 @@ export class P2PNode {
       }
     })
 
-    // Disconnect events
+    // 断开连接事件
     this.node.addEventListener('peer:disconnect', (evt) => {
       const peerId = evt.detail.toString()
       console.log('Disconnected from peer:', peerId)
@@ -359,11 +338,11 @@ export class P2PNode {
       }
     })
 
-    // Peer discovery events
+    // 对等节点发现事件
     this.node.addEventListener('peer:discovery', (evt) => {
       const peerId = evt.detail.id.toString()
 
-      // Filter out infrastructure nodes
+      // 过滤掉基础设施节点
       if (this.isBootstrapPeer(peerId) || this.isRelayPeer(peerId)) {
         return
       }
@@ -388,16 +367,15 @@ export class P2PNode {
         type: 'regular'
       })
 
-      // Auto-attempt connection
+      // 自动尝试连接
       this.attemptConnection(evt.detail)
     })
 
-    // Note: AutoNAT events are handled differently in newer versions
-    // We'll use the connectionManager to check reachability periodically
+    // 开始可达性检查
     this.startReachabilityCheck()
   }
 
-  // Periodically check reachability using identify service
+  // 定期检查可达性
   startReachabilityCheck() {
     setInterval(async () => {
       try {
@@ -405,7 +383,7 @@ export class P2PNode {
       } catch (error) {
         console.debug('Reachability check failed:', error.message)
       }
-    }, 60000) // Check every minute
+    }, 60000) // 每分钟检查一次
   }
 
   async checkReachability() {
@@ -413,7 +391,7 @@ export class P2PNode {
       const connections = this.node.getConnections()
       const listenAddrs = this.node.getMultiaddrs()
 
-      // Simple heuristic: if we have listening addresses that are public IPs, we're likely public
+      // 简单的启发式：如果我们有公共IP的监听地址，我们可能是公共的
       const hasPublicAddress = listenAddrs.some(addr => {
         const addrStr = addr.toString()
         return !addrStr.includes('127.0.0.1') &&
@@ -422,7 +400,7 @@ export class P2PNode {
           !addrStr.includes('172.16.')
       })
 
-      // Check if we can accept inbound connections
+      // 检查我们是否可以接受入站连接
       const hasInboundConnections = connections.some(conn => {
         try {
           return conn.stat?.direction === 'inbound'
@@ -437,7 +415,7 @@ export class P2PNode {
       console.log('Reachability status:', this.reachability)
       console.log('Is public node:', this.isPublicNode)
 
-      // If private and auto-relay enabled, ensure relay connections
+      // 如果是私有节点且启用了自动中继，确保中继连接
       if (this.reachability === 'private' && this.autoRelayEnabled) {
         await this.enableAutoRelay()
       }
@@ -451,14 +429,14 @@ export class P2PNode {
     try {
       console.log('Enabling auto relay for private node...')
 
-      // Connect to public relay nodes
+      // 连接到公共中继节点
       for (const relayAddr of this.publicRelayNodes) {
         try {
           const ma = multiaddr(relayAddr)
           const connections = this.node.getConnections()
           const peerId = ma.getPeerId()
 
-          // Check if already connected
+          // 检查是否已经连接
           const isConnected = connections.some(conn =>
             conn.remotePeer.toString() === peerId
           )
@@ -480,7 +458,7 @@ export class P2PNode {
     try {
       const peerId = peer.id.toString()
 
-      // Skip infrastructure nodes
+      // 跳过基础设施节点
       if (this.isBootstrapPeer(peerId) || this.isRelayPeer(peerId)) {
         return
       }
@@ -493,7 +471,7 @@ export class P2PNode {
         return
       }
 
-      // Check if already connected
+      // 检查是否已经连接
       const isConnected = connections.some(conn =>
         conn.remotePeer.toString() === peerId
       )
@@ -519,7 +497,7 @@ export class P2PNode {
           } catch (directError) {
             console.debug(`Direct connection failed for ${peerId}:`, directError.message)
 
-            // Try relay connection
+            // 尝试中继连接
             if (this.autoRelayEnabled) {
               await this.attemptRelayConnection(peerId)
             }
@@ -533,7 +511,7 @@ export class P2PNode {
 
   async attemptRelayConnection(peerId) {
     try {
-      // Find available relay nodes
+      // 查找可用的中继节点
       const relayConnections = this.node.getConnections().filter(conn =>
         this.isRelayPeer(conn.remotePeer.toString())
       )
@@ -574,7 +552,7 @@ export class P2PNode {
         const maObj = typeof ma === 'string' ? multiaddr(ma) : ma
         const protocols = maObj.protos()
 
-        // Check for valid transport protocols
+        // 检查有效的传输协议
         const hasValidTransport = protocols.some(p =>
           p.name === 'tcp' || p.name === 'ws' || p.name === 'wss'
         )
@@ -583,7 +561,7 @@ export class P2PNode {
 
         const maStr = maObj.toString()
 
-        // Filter out invalid addresses
+        // 过滤掉无效地址
         if (maStr.includes('/ip4/0.0.0.0') ||
           maStr.includes('/ip4/255.255.255.255') ||
           maStr.includes('/ip6/::') ||
@@ -598,7 +576,7 @@ export class P2PNode {
     })
   }
 
-  // Manual peer connection with relay support
+  // 手动对等节点连接，支持中继
   async connectToPeer(multiaddrString) {
     if (!this.node) {
       throw new Error('Node not initialized')
@@ -618,7 +596,7 @@ export class P2PNode {
       const isCircuitRelay = ma.toString().includes('/p2p-circuit')
 
       if (peerIdStr) {
-        // Check if already connected
+        // 检查是否已经连接
         const connections = this.node.getConnections()
         const isAlreadyConnected = connections.some(conn =>
           conn.remotePeer.toString() === peerIdStr
@@ -639,10 +617,10 @@ export class P2PNode {
 
           const connection = await Promise.race([dialPromise, timeoutPromise])
 
-          // Wait for connection to stabilize
+          // 等待连接稳定
           await new Promise(resolve => setTimeout(resolve, 2000))
 
-          // Verify connection
+          // 验证连接
           const currentConnections = this.node.getConnections()
           const activeConnection = currentConnections.find(conn =>
             conn.remotePeer.toString() === peerIdStr
@@ -652,7 +630,7 @@ export class P2PNode {
             throw new Error('Connection was established but immediately dropped')
           }
 
-          // Update stats
+          // 更新统计
           if (isCircuitRelay) {
             this.connectionStats.relayedConnections++
           } else {
@@ -709,16 +687,17 @@ export class P2PNode {
       console.log('  ', addr.toString())
     })
 
-    // Start peer discovery and reachability check
+    // 开始对等节点发现和可达性检查
     setTimeout(() => {
       this.discoverPeers().catch(error => {
         console.debug('Peer discovery error:', error.message)
       })
 
-      // Start reachability checking
+      // 开始可达性检查
       this.checkReachability()
     }, 5000)
 
+    // DHT预热和同步
     setTimeout(async () => {
       try {
         // 强制DHT随机游走以发现更多节点
@@ -750,15 +729,17 @@ export class P2PNode {
         console.error('DHT sync failed:', error)
       }
     }, 10000) // 启动后10秒开始同步
+
     setTimeout(async () => {
       await this.warmUpDHT()
     }, 5000)
-    return this.node
 
+    return this.node
   }
+
   async warmUpDHT() {
     try {
-      console.log('🔥 Warming up DHT...')
+      console.log('Warming up DHT...')
 
       if (!this.node.services.dht) {
         console.warn('DHT service not available')
@@ -809,12 +790,12 @@ export class P2PNode {
     }
   }
 
-  // Active peer discovery
+  // 主动对等节点发现
   async discoverPeers() {
     try {
       console.log('Starting peer discovery...')
 
-      // DHT peer discovery
+      // DHT对等节点发现
       const randomKey = new Uint8Array(32)
       crypto.getRandomValues(randomKey)
 
@@ -822,7 +803,7 @@ export class P2PNode {
       for await (const peer of this.node.services.dht.getClosestPeers(randomKey)) {
         const peerId = peer.toString()
 
-        // Skip infrastructure nodes
+        // 跳过基础设施节点
         if (this.isBootstrapPeer(peerId) || this.isRelayPeer(peerId)) {
           continue
         }
@@ -840,7 +821,7 @@ export class P2PNode {
         await this.attemptConnection({ id: peer })
 
         discoveredCount++
-        if (discoveredCount >= 10) break // Limit discovery
+        if (discoveredCount >= 10) break // 限制发现数量
       }
 
       console.log(`Discovery completed: ${this.discoveredPeers.size} peers`)
@@ -849,7 +830,7 @@ export class P2PNode {
     }
   }
 
-  // Connect to discovered peer with relay fallback
+  // 连接到发现的对等节点，支持中继回退
   async connectToDiscoveredPeer(peerId) {
     try {
       console.log(`Attempting to connect to discovered peer: ${peerId}`)
@@ -858,7 +839,7 @@ export class P2PNode {
         throw new Error(`Cannot connect to infrastructure node ${peerId}`)
       }
 
-      // Check if already connected
+      // 检查是否已经连接
       const connections = this.node.getConnections()
       const isAlreadyConnected = connections.some(conn =>
         conn.remotePeer.toString() === peerId
@@ -872,7 +853,7 @@ export class P2PNode {
       const peerInfo = this.peerInfoMap.get(peerId)
       let connectionSuccessful = false
 
-      // Method 1: Try direct connection
+      // 方法1：尝试直接连接
       if (peerInfo && peerInfo.multiaddrs && peerInfo.multiaddrs.length > 0) {
         console.log(`Trying direct connection with stored multiaddrs`)
 
@@ -905,14 +886,14 @@ export class P2PNode {
         }
       }
 
-      // Method 2: Try relay connection
+      // 方法2：尝试中继连接
       if (!connectionSuccessful && this.autoRelayEnabled) {
         console.log('Direct connection failed, trying relay connection...')
 
         try {
           await this.attemptRelayConnection(peerId)
 
-          // Check if relay connection succeeded
+          // 检查中继连接是否成功
           const currentConnections = this.node.getConnections()
           const relayConnection = currentConnections.find(conn =>
             conn.remotePeer.toString() === peerId &&
@@ -934,7 +915,7 @@ export class P2PNode {
         }
       }
 
-      // Method 3: Try peer ID direct dial
+      // 方法3：尝试对等节点ID直接拨号
       if (!connectionSuccessful) {
         console.log('Trying direct peer ID connection...')
 
@@ -973,7 +954,7 @@ export class P2PNode {
     }
   }
 
-  // Get connected peers (excluding infrastructure nodes)
+  // 获取连接的对等节点（排除基础设施节点）
   getConnectedPeers() {
     if (!this.node) return []
     return this.node.getPeers().filter(peerId =>
@@ -982,14 +963,14 @@ export class P2PNode {
     )
   }
 
-  // Get discovered peers
+  // 获取发现的对等节点
   getDiscoveredPeers() {
     return Array.from(this.discoveredPeers).filter(peerId =>
       !this.isBootstrapPeer(peerId) && !this.isRelayPeer(peerId)
     )
   }
 
-  // Get enhanced node info
+  // 获取增强的节点信息
   getNodeInfo() {
     if (!this.node) return null
 
@@ -997,7 +978,7 @@ export class P2PNode {
     const discoveredPeers = this.getDiscoveredPeers()
     const allConnections = this.node.getConnections()
 
-    // Count connection types
+    // 计算连接类型
     const directConnections = allConnections.filter(conn =>
       !conn.remoteAddr.toString().includes('/p2p-circuit')
     ).length
@@ -1014,7 +995,7 @@ export class P2PNode {
       discoveredPeerIds: discoveredPeers,
       isStarted: this.isStarted,
       instanceId: this.nodeInstanceId,
-      // Enhanced info
+      // 增强信息
       reachability: this.reachability,
       isPublicNode: this.isPublicNode,
       natType: this.natType,
@@ -1030,7 +1011,7 @@ export class P2PNode {
     }
   }
 
-  // Get NAT traversal status
+  // 获取NAT穿透状态
   getNATTraversalStatus() {
     return {
       reachability: this.reachability,
@@ -1047,7 +1028,7 @@ export class P2PNode {
     }
   }
 
-  // Force NAT detection
+  // 强制NAT检测
   async forceNATDetection() {
     console.log('Starting forced NAT detection...')
     try {
@@ -1059,7 +1040,7 @@ export class P2PNode {
     }
   }
 
-  // Refresh relay connections
+  // 刷新中继连接
   async refreshRelayConnections() {
     if (!this.autoRelayEnabled) {
       console.log('Auto relay is disabled')
@@ -1068,13 +1049,13 @@ export class P2PNode {
 
     console.log('Refreshing relay connections...')
 
-    // Reconnect to public relay nodes
+    // 重新连接到公共中继节点
     for (const relayAddr of this.publicRelayNodes) {
       try {
         const ma = multiaddr(relayAddr)
         const peerId = ma.getPeerId()
 
-        // Check if already connected
+        // 检查是否已经连接
         const isConnected = this.node.getConnections().some(conn =>
           conn.remotePeer.toString() === peerId
         )
@@ -1087,166 +1068,5 @@ export class P2PNode {
         console.warn('Failed to refresh relay connection:', relayAddr, error.message)
       }
     }
-  }
-}
-
-// Enhanced connection manager
-class ConnectionManager {
-  constructor(node, p2pNode) {
-    this.node = node
-    this.p2pNode = p2pNode
-    this.connectionStats = new Map()
-    this.startMonitoring()
-  }
-
-  startMonitoring() {
-    // Monitor connections every 30 seconds
-    setInterval(() => {
-      this.monitorConnections().catch(error => {
-        console.debug('Connection monitoring error:', error.message)
-      })
-    }, 30000)
-
-    // Optimize connections every 5 minutes
-    setInterval(() => {
-      this.optimizeConnections().catch(error => {
-        console.debug('Connection optimization error:', error.message)
-      })
-    }, 5 * 60 * 1000)
-  }
-
-  async monitorConnections() {
-    try {
-      const connections = this.node.getConnections()
-      const now = Date.now()
-
-      // Update connection statistics
-      connections.forEach(conn => {
-        const peerId = conn.remotePeer.toString()
-        const isRelay = conn.remoteAddr.toString().includes('/p2p-circuit')
-
-        if (!this.connectionStats.has(peerId)) {
-          this.connectionStats.set(peerId, {
-            firstConnected: now,
-            lastSeen: now,
-            connectionCount: 1,
-            totalRelayTime: 0,
-            totalDirectTime: 0,
-            currentConnectionType: isRelay ? 'relay' : 'direct',
-            connectionTypeChangeTime: now
-          })
-        } else {
-          const stats = this.connectionStats.get(peerId)
-          stats.lastSeen = now
-
-          // Track connection type changes
-          if (stats.currentConnectionType !== (isRelay ? 'relay' : 'direct')) {
-            const timeDiff = now - stats.connectionTypeChangeTime
-
-            if (stats.currentConnectionType === 'relay') {
-              stats.totalRelayTime += timeDiff
-            } else {
-              stats.totalDirectTime += timeDiff
-            }
-
-            stats.currentConnectionType = isRelay ? 'relay' : 'direct'
-            stats.connectionTypeChangeTime = now
-
-            console.log(`Connection type changed for ${peerId}: ${stats.currentConnectionType}`)
-          }
-        }
-      })
-
-      // Clean up old stats
-      this.cleanupOldStats()
-    } catch (error) {
-      console.debug('Error monitoring connections:', error.message)
-    }
-  }
-
-  async optimizeConnections() {
-    try {
-      console.log('Optimizing connections...')
-
-      const connections = this.node.getConnections()
-      const relayConnections = connections.filter(conn =>
-        conn.remoteAddr.toString().includes('/p2p-circuit')
-      )
-
-      // If private node with insufficient relay connections, refresh
-      if (this.p2pNode.reachability === 'private' && relayConnections.length < 2) {
-        console.log('Private node with insufficient relay connections, refreshing...')
-        await this.p2pNode.refreshRelayConnections()
-      }
-
-    } catch (error) {
-      console.debug('Error optimizing connections:', error.message)
-    }
-  }
-
-  cleanupOldStats() {
-    const now = Date.now()
-    const maxAge = 24 * 60 * 60 * 1000 // 24 hours
-
-    for (const [peerId, stats] of this.connectionStats) {
-      if (now - stats.lastSeen > maxAge) {
-        this.connectionStats.delete(peerId)
-      }
-    }
-  }
-
-  getConnectionStats() {
-    return Array.from(this.connectionStats.entries()).map(([peerId, stats]) => ({
-      peerId,
-      ...stats,
-      isCurrentlyConnected: this.node.getConnections().some(conn =>
-        conn.remotePeer.toString() === peerId
-      )
-    }))
-  }
-
-  getNetworkHealth() {
-    const connections = this.node.getConnections()
-    const directConnections = connections.filter(conn =>
-      !conn.remoteAddr.toString().includes('/p2p-circuit')
-    ).length
-    const relayConnections = connections.filter(conn =>
-      conn.remoteAddr.toString().includes('/p2p-circuit')
-    ).length
-
-    const totalAttempts = this.p2pNode.connectionStats.holePunchAttempts
-    const successRate = totalAttempts > 0 ?
-      (this.p2pNode.connectionStats.holePunchSuccesses / totalAttempts) * 100 : 0
-
-    return {
-      totalConnections: connections.length,
-      directConnections,
-      relayConnections,
-      holePunchSuccessRate: Math.round(successRate),
-      networkReachability: this.p2pNode.reachability,
-      recommendedActions: this.getRecommendedActions(directConnections, relayConnections)
-    }
-  }
-
-  getRecommendedActions(directConnections, relayConnections) {
-    const actions = []
-
-    if (directConnections === 0 && relayConnections === 0) {
-      actions.push('No connections found. Check network connectivity and firewall settings.')
-    }
-
-    if (directConnections === 0 && relayConnections > 0) {
-      actions.push('Only relay connections available. Consider enabling UPnP or manual port forwarding for better performance.')
-    }
-
-    if (this.p2pNode.reachability === 'private' && !this.p2pNode.upnpEnabled) {
-      actions.push('Private node detected. Consider enabling UPnP for automatic port forwarding.')
-    }
-
-    if (relayConnections > directConnections * 2) {
-      actions.push('High ratio of relay connections. Network performance may be impacted.')
-    }
-
-    return actions
   }
 }

@@ -1,22 +1,24 @@
+// 重构的块管理器 - 保留所有功能但简化代码结构
+
 import { createHash } from 'crypto'
 import fs from 'fs/promises'
 import path from 'path'
 
 const DEFAULT_CHUNK_SIZE = 256 * 1024 // 256KB
-const MAX_CONCURRENT_CHUNKS = 5 // Simultaneous chunk downloads
-const RETRY_ATTEMPTS = 3 // Number of retries
+const MAX_CONCURRENT_CHUNKS = 5 // 同时下载的块数
+const RETRY_ATTEMPTS = 3 // 重试次数
 
 export class ChunkManager {
   constructor(fileManager, databaseManager) {
     this.fileManager = fileManager
     this.db = databaseManager
-    this.activeDownloads = new Map() // Active download tasks
-    this.chunkCache = new Map() // Chunk cache
-    this.downloadQueue = new Map() // Download queue
-    this.speedCalculator = new Map() // Speed calculation data
+    this.activeDownloads = new Map() // 活跃的下载任务
+    this.chunkCache = new Map() // 块缓存
+    this.downloadQueue = new Map() // 下载队列
+    this.speedCalculator = new Map() // 速度计算数据
   }
 
-  // Create file chunk information
+  // 创建文件块信息
   async createChunkInfo(filePath, chunkSize = DEFAULT_CHUNK_SIZE) {
     try {
       const fileStats = await fs.stat(filePath)
@@ -66,7 +68,7 @@ export class ChunkManager {
     }
   }
 
-  // Start chunked download
+  // 开始分块下载
   async startChunkedDownload(fileHash, fileName, providers) {
     try {
       console.log(`Starting chunked download: ${fileName}`)
@@ -121,7 +123,7 @@ export class ChunkManager {
     }
   }
 
-  // Download chunks in parallel
+  // 并行下载块
   async downloadChunksInParallel(download) {
     const { totalChunks, providers } = download
     const downloadPromises = []
@@ -153,7 +155,7 @@ export class ChunkManager {
     }
   }
 
-  // Chunk download worker
+  // 块下载工作器
   async chunkDownloadWorker(download, chunkQueue, providers) {
     while (chunkQueue.length > 0) {
       const chunkIndex = chunkQueue.shift()
@@ -188,15 +190,15 @@ export class ChunkManager {
     }
   }
 
-  // Download single chunk
+  // 下载单个块
   async downloadSingleChunk(download, chunkIndex, provider) {
     const chunkPath = path.join(download.tempDir, `chunk_${chunkIndex}`)
     
     try {
       await fs.access(chunkPath)
-      return // Chunk already exists
+      return // 块已存在
     } catch {
-      // Chunk doesn't exist, need to download
+      // 块不存在，需要下载
     }
 
     const chunk = await this.fileManager.requestChunk(
@@ -218,7 +220,7 @@ export class ChunkManager {
     download.downloadedBytes += chunk.data.length
   }
 
-  // Assemble chunked file
+  // 组装分块文件
   async assembleChunkedFile(download) {
     const { tempDir, downloadPath, totalChunks } = download
     
@@ -244,7 +246,7 @@ export class ChunkManager {
     console.log(`File assembled successfully: ${downloadPath}`)
   }
 
-  // Update download progress
+  // 更新下载进度
   updateDownloadProgress(download) {
     const completedCount = download.completedChunks.size
     const totalCount = download.totalChunks
@@ -282,7 +284,7 @@ export class ChunkManager {
     }
   }
 
-  // Cleanup temporary files
+  // 清理临时文件
   async cleanupTempFiles(tempDir) {
     try {
       await fs.rm(tempDir, { recursive: true, force: true })
@@ -292,7 +294,7 @@ export class ChunkManager {
     }
   }
 
-  // Pause download
+  // 暂停下载
   async pauseDownload(downloadId) {
     const download = this.activeDownloads.get(downloadId)
     if (download) {
@@ -301,7 +303,7 @@ export class ChunkManager {
     }
   }
 
-  // Resume download
+  // 恢复下载
   async resumeDownload(downloadId) {
     const download = this.activeDownloads.get(downloadId)
     if (download && download.status === 'paused') {
@@ -310,7 +312,7 @@ export class ChunkManager {
     }
   }
 
-  // Cancel download
+  // 取消下载
   async cancelDownload(downloadId) {
     const download = this.activeDownloads.get(downloadId)
     if (download) {
@@ -324,12 +326,12 @@ export class ChunkManager {
     }
   }
 
-  // Get download status
+  // 获取下载状态
   getDownloadStatus(downloadId) {
     return this.activeDownloads.get(downloadId)
   }
 
-  // Get all active downloads
+  // 获取所有活跃下载
   getAllActiveDownloads() {
     return Array.from(this.activeDownloads.values()).map(download => ({
       id: download.id,
@@ -350,7 +352,7 @@ export class ChunkManager {
     }))
   }
 
-  // Optimize chunk allocation strategy
+  // 优化块分配策略
   optimizeChunkAllocation(providers, totalChunks) {
     const allocation = new Map()
     
@@ -367,7 +369,7 @@ export class ChunkManager {
     return allocation
   }
 
-  // Handle chunk deduplication
+  // 处理块去重
   async deduplicateChunks(chunks) {
     const uniqueChunks = new Map()
     const duplicateMap = new Map()

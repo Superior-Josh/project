@@ -2008,38 +2008,3 @@ window.importSettings = importSettings
 window.updateRangeValue = updateRangeValue
 window.updateAllRangeValues = updateAllRangeValues
 window.hasUnsavedChanges = false
-
-// 在页面加载完成后添加调试按钮
-if (process.env.NODE_ENV === 'development') {
-  const debugContainer = document.createElement('div')
-  debugContainer.style.position = 'fixed'
-  debugContainer.style.bottom = '10px'
-  debugContainer.style.right = '10px'
-  debugContainer.style.zIndex = '9999'
-  
-  const testDHTBtn = document.createElement('button')
-  testDHTBtn.textContent = 'Test DHT'
-  testDHTBtn.onclick = async () => {
-    console.log('=== DHT Debug Test ===')
-    
-    const nodeInfo = await window.electronAPI.getNodeInfo()
-    const dhtStats = await window.electronAPI.getDHTStats()
-    const localFiles = await window.electronAPI.getLocalFiles()
-    
-    console.log('Connected Peers:', nodeInfo.connectedPeers)
-    console.log('DHT Routing Table:', dhtStats.routingTableSize)
-    console.log('Local Files:', localFiles.length)
-    
-    // 测试搜索
-    if (localFiles.length > 0) {
-      const testFileName = localFiles[0].name
-      console.log(`Testing search for: ${testFileName}`)
-      
-      const searchResult = await window.electronAPI.searchFiles(testFileName)
-      console.log('Search Result:', searchResult)
-    }
-  }
-  
-  debugContainer.appendChild(testDHTBtn)
-  document.body.appendChild(debugContainer)
-}

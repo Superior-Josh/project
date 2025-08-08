@@ -1,3 +1,5 @@
+// 重构的DHT管理器 - 保留所有功能但简化代码结构
+
 import { CID } from 'multiformats/cid'
 import { sha256 } from 'multiformats/hashes/sha2'
 import * as raw from 'multiformats/codecs/raw'
@@ -30,24 +32,20 @@ export class DHTManager {
     }, 10000)
   }
 
-  // 移到单独的方法
+  // DHT功能测试
   async testDHTFunctionality() {
     try {
       console.log('Testing DHT functionality...')
-
       const testKey = new TextEncoder().encode('dht-test-key')
       const testValue = new TextEncoder().encode('dht-test-value')
-
       await this.dht.put(testKey, testValue)
-      console.log('✓ DHT PUT operation successful')
-
+      console.log('DHT PUT operation successful')
     } catch (dhtTestError) {
       console.debug('DHT functionality test failed:', dhtTestError)
     }
   }
 
-
-  // 在 publishFile 方法中添加验证和重试
+  // 发布文件到DHT
   async publishFile(fileHash, fileMetadata) {
     try {
       console.log(`Publishing file: ${fileMetadata.name} (${fileHash})`)
@@ -77,16 +75,14 @@ export class DHTManager {
       // 发布搜索索引 - 确保其他节点能搜索到
       await this.publishSearchIndices(fileMetadata.name, fileInfo)
 
-      // 验证发布是否成功
+      // 验证发布
       setTimeout(() => this.verifyPublication(fileHash, cid), 5000)
-      // 在 publishFile 方法的最后添加
+
+      // DHT验证测试
       setTimeout(async () => {
         console.log('=== DHT Verification Test ===')
-
-        // 尝试从DHT获取刚发布的数据
         const searchKeyString = `file-search:${fileMetadata.name.toLowerCase().split(/\s+/)[0]}`
         const searchKey = await this.createCID(searchKeyString)
-
         console.log(`Verifying search key: ${searchKey.toString()}`)
 
         const verifyResults = this.dht.get(searchKey.bytes)
@@ -106,15 +102,15 @@ export class DHTManager {
 
         console.log(`Self-verification ${foundSelf ? 'PASSED' : 'FAILED'}`)
       }, 8000) // 8秒后验证
+
       return cid
     } catch (error) {
       console.error('Error publishing file to DHT:', error)
       throw error
     }
-
   }
 
-  // 修改 publishSearchIndices 方法
+  // 发布搜索索引
   async publishSearchIndices(fileName, fileInfo) {
     const words = fileName.toLowerCase()
       .replace(/[^\w\s]/g, ' ')
@@ -153,8 +149,10 @@ export class DHTManager {
     console.log('DHT propagation wait completed')
   }
 
+  // DHT关键字搜索
   async searchDHTKey(word) {
     const results = []
+    const maxWaitTime = 10000 // 10秒最大等待时间
 
     try {
       // 检查DHT状态
@@ -252,7 +250,7 @@ export class DHTManager {
     return results
   }
 
-  // 修改 searchFiles 方法中的调用
+  // 搜索文件
   async searchFiles(query, options = {}) {
     const { timeout = 15000, maxResults = 20 } = options
     console.log(`Starting search for: "${query}"`)
@@ -276,12 +274,11 @@ export class DHTManager {
     if (searchWords.length > 0) {
       console.log(`Searching DHT for words: ${searchWords.join(', ')}`)
 
-      // 在 searchFiles 方法中修改超时逻辑
       for (const word of searchWords) {
         try {
           console.log(`Starting DHT search for word: "${word}"`)
 
-          // 创建一个更精确的超时控制
+          // 创建超时控制
           const searchPromise = new Promise(async (resolve, reject) => {
             const timeoutId = setTimeout(() => {
               reject(new Error('DHT search timeout'))
@@ -321,8 +318,7 @@ export class DHTManager {
     return results
   }
 
-
-  // 新增：验证发布
+  // 验证发布
   async verifyPublication(fileHash, cid) {
     try {
       console.log(`Verifying publication of ${fileHash}...`)
@@ -347,11 +343,12 @@ export class DHTManager {
     }
   }
 
+  // 查找文件
   async findFile(fileHash) {
     try {
       console.log(`Starting file search: ${fileHash}`)
 
-      // First check local index
+      // 首先检查本地索引
       const localFile = this.fileIndex.get(fileHash)
       if (localFile) {
         console.log('File found in local index:', localFile.name)
@@ -362,8 +359,8 @@ export class DHTManager {
       const cid = await this.createCID(fileHash)
       console.log('Querying CID:', cid.toString())
 
-      // Set reasonable timeout
-      const searchTimeout = 15000 // 15 second timeout
+      // 设置合理的超时
+      const searchTimeout = 15000 // 15秒超时
       const startTime = Date.now()
       let found = false
 
@@ -385,7 +382,7 @@ export class DHTManager {
             }
           }
 
-          // Check timeout
+          // 检查超时
           if (Date.now() - startTime > searchTimeout) {
             console.log('DHT query timeout')
             break
@@ -410,10 +407,8 @@ export class DHTManager {
   async provideFile(fileHash) {
     try {
       const cid = await this.createCID(fileHash)
-
       // 宣告提供文件
       await this.dht.provide(cid)
-
       console.log(`Announced as provider for file: ${fileHash}`)
     } catch (error) {
       console.error('Error providing file:', error)
@@ -421,7 +416,19 @@ export class DHTManager {
     }
   }
 
-  // 新增：专门的DHT搜索方法
+  // 查找文件提供者
+  async findProviders(fileHash) {
+    const cid = await this.createCID(fileHash)
+    const providers = []
+    
+    for await (const provider of this.dht.findProviders(cid)) {
+      providers.push({ peerId: provider.id.toString() })
+    }
+    
+    return providers
+  }
+
+  // 专门的DHT搜索方法
   async searchDHT(query, maxResults, signal) {
     const results = []
     const searchTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 2)
@@ -467,6 +474,7 @@ export class DHTManager {
     return Array.from(this.fileIndex.values())
   }
 
+  // 创建CID
   async createCID(data) {
     let bytes
     if (typeof data === 'string') {
