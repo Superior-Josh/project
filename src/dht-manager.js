@@ -420,11 +420,11 @@ export class DHTManager {
   async findProviders(fileHash) {
     const cid = await this.createCID(fileHash)
     const providers = []
-    
+
     for await (const provider of this.dht.findProviders(cid)) {
       providers.push({ peerId: provider.id.toString() })
     }
-    
+
     return providers
   }
 

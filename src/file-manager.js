@@ -15,7 +15,7 @@ export class FileManager {
     this.downloadDir = downloadDir
     this.activeTransfers = new Map() // 活跃的传输
     this.fileChunks = new Map() // 文件分块信息
-    
+
     this.initializeProtocol()
     this.ensureDownloadDir()
   }
@@ -66,13 +66,13 @@ export class FileManager {
     const fileData = await fs.readFile(filePath)
     const chunks = []
     const totalChunks = Math.ceil(fileData.length / CHUNK_SIZE)
-    
+
     for (let i = 0; i < totalChunks; i++) {
       const start = i * CHUNK_SIZE
       const end = Math.min(start + CHUNK_SIZE, fileData.length)
       const chunk = fileData.slice(start, end)
       const chunkHash = createHash('sha256').update(chunk).digest('hex')
-      
+
       chunks.push({
         index: i,
         data: chunk,
@@ -80,7 +80,7 @@ export class FileManager {
         size: chunk.length
       })
     }
-    
+
     return chunks
   }
 
@@ -90,10 +90,10 @@ export class FileManager {
       const fileName = path.basename(filePath)
       const fileStats = await fs.stat(filePath)
       const fileHash = await this.calculateFileHash(filePath)
-      
+
       // 分割文件为块
       const chunks = await this.splitFileIntoChunks(filePath)
-      
+
       // 存储文件块信息
       this.fileChunks.set(fileHash, {
         filePath,
@@ -135,7 +135,7 @@ export class FileManager {
   async downloadFile(fileHash, fileName) {
     try {
       console.log(`Starting download for file: ${fileName} (${fileHash})`)
-      
+
       // 查找文件提供者
       const providers = await this.dhtManager.findProviders(fileHash)
       if (providers.length === 0) {
@@ -174,7 +174,7 @@ export class FileManager {
 
       this.activeTransfers.delete(fileHash)
       console.log(`Download completed successfully: ${fileName}`)
-      
+
       return {
         success: true,
         filePath: downloadPath
@@ -193,21 +193,21 @@ export class FileManager {
   // 从提供者下载块
   async downloadFromProviders(transfer) {
     const { fileHash, providers, totalChunks } = transfer
-    
+
     console.log(`Starting download from providers for ${totalChunks} chunks`)
-    
+
     for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
       let chunkDownloaded = false
       let lastError = null
-      
+
       console.log(`Downloading chunk ${chunkIndex + 1}/${totalChunks}`)
-      
+
       // 尝试从不同的提供者下载这个块
       for (const provider of providers) {
         try {
           console.log(`Requesting chunk ${chunkIndex} from provider: ${provider.peerId}`)
           const chunk = await this.requestChunk(provider.peerId, fileHash, chunkIndex)
-          
+
           if (chunk && this.verifyChunk(chunk)) {
             transfer.chunks.set(chunkIndex, chunk)
             transfer.downloadedChunks++
@@ -222,12 +222,12 @@ export class FileManager {
           lastError = error
         }
       }
-      
+
       if (!chunkDownloaded) {
         throw new Error(`Failed to download chunk ${chunkIndex}. Last error: ${lastError?.message || 'Unknown error'}`)
       }
     }
-    
+
     console.log(`All ${totalChunks} chunks downloaded successfully`)
   }
 
@@ -235,7 +235,7 @@ export class FileManager {
   async requestChunk(peerId, fileHash, chunkIndex) {
     try {
       console.log(`Requesting chunk ${chunkIndex} for file ${fileHash} from peer ${peerId}`)
-      
+
       // 确保节点已启动
       if (!this.p2pNode.node) {
         throw new Error('P2P node not initialized')
@@ -243,7 +243,7 @@ export class FileManager {
 
       console.log(`Dialing protocol ${PROTOCOL_ID} to peer ${peerId}`)
       const stream = await this.p2pNode.node.dialProtocol(peerId, PROTOCOL_ID)
-      
+
       const request = {
         type: 'CHUNK_REQUEST',
         fileHash,
@@ -255,11 +255,11 @@ export class FileManager {
       // 发送请求
       const requestData = JSON.stringify(request)
       const requestBuffer = Buffer.from(requestData)
-      
+
       // 发送长度和数据
       const lengthBuffer = Buffer.allocUnsafe(4)
       lengthBuffer.writeUInt32BE(requestBuffer.length, 0)
-      
+
       await stream.sink(async function* () {
         yield lengthBuffer
         yield requestBuffer
@@ -301,13 +301,13 @@ export class FileManager {
                 cleanup()
                 const responseBuffer = Buffer.concat(responseData).slice(0, expectedLength)
                 const response = JSON.parse(responseBuffer.toString())
-                
+
                 console.log(`Received response for chunk ${chunkIndex}:`, {
                   success: response.success,
                   hasData: !!response.data,
                   error: response.error
                 })
-                
+
                 if (response.success) {
                   resolve({
                     index: chunkIndex,
@@ -363,7 +363,7 @@ export class FileManager {
         if (expectedLength !== null && receivedLength >= expectedLength) {
           const requestBuffer = Buffer.concat(requestData).slice(0, expectedLength)
           const request = JSON.parse(requestBuffer.toString())
-          
+
           await this.processFileRequest(request, stream)
           break
         }
@@ -384,7 +384,7 @@ export class FileManager {
     try {
       if (request.type === 'CHUNK_REQUEST') {
         const { fileHash, chunkIndex } = request
-        
+
         const fileInfo = this.fileChunks.get(fileHash)
         if (!fileInfo) {
           const errorResponse = {
@@ -428,11 +428,11 @@ export class FileManager {
   async sendResponse(stream, response) {
     const responseData = JSON.stringify(response)
     const responseBuffer = Buffer.from(responseData)
-    
+
     // 发送长度和数据
     const lengthBuffer = Buffer.allocUnsafe(4)
     lengthBuffer.writeUInt32BE(responseBuffer.length, 0)
-    
+
     stream.sink(async function* () {
       yield lengthBuffer
       yield responseBuffer
@@ -448,10 +448,10 @@ export class FileManager {
   // 组装文件
   async assembleFile(transfer) {
     const { downloadPath, chunks, totalChunks } = transfer
-    
+
     console.log(`Assembling file: ${transfer.fileName}`)
     console.log(`Total chunks to assemble: ${totalChunks}`)
-    
+
     // 按索引排序块
     const sortedChunks = Array.from(chunks.entries())
       .sort(([a], [b]) => a - b)
@@ -466,7 +466,7 @@ export class FileManager {
     // 写入文件
     const fileBuffer = Buffer.concat(sortedChunks.map(chunk => chunk.data))
     await fs.writeFile(downloadPath, fileBuffer)
-    
+
     console.log(`File assembly completed: ${downloadPath}`)
     console.log(`Final file size: ${fileBuffer.length} bytes`)
   }

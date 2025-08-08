@@ -24,21 +24,21 @@ export class ChunkManager {
       const fileStats = await fs.stat(filePath)
       const fileSize = fileStats.size
       const totalChunks = Math.ceil(fileSize / chunkSize)
-      
+
       const chunks = []
       const file = await fs.open(filePath, 'r')
-      
+
       try {
         for (let i = 0; i < totalChunks; i++) {
           const start = i * chunkSize
           const end = Math.min(start + chunkSize, fileSize)
           const actualSize = end - start
-          
+
           const buffer = Buffer.alloc(actualSize)
           await file.read(buffer, 0, actualSize, start)
-          
+
           const hash = createHash('sha256').update(buffer).digest('hex')
-          
+
           chunks.push({
             index: i,
             start,
@@ -72,7 +72,7 @@ export class ChunkManager {
   async startChunkedDownload(fileHash, fileName, providers) {
     try {
       console.log(`Starting chunked download: ${fileName}`)
-      
+
       const fileInfo = await this.db.getFileInfo(fileHash)
       if (!fileInfo) {
         throw new Error('File metadata not found')
@@ -81,7 +81,7 @@ export class ChunkManager {
       const downloadId = `${fileHash}-${Date.now()}`
       const downloadPath = path.join(this.fileManager.downloadDir, fileName)
       const tempDir = path.join(this.fileManager.downloadDir, 'temp', downloadId)
-      
+
       await fs.mkdir(tempDir, { recursive: true })
 
       const download = {
@@ -107,15 +107,15 @@ export class ChunkManager {
       }
 
       this.activeDownloads.set(downloadId, download)
-      
+
       this.speedCalculator.set(downloadId, {
         samples: [],
         lastUpdate: Date.now(),
         lastBytes: 0
       })
-      
+
       await this.downloadChunksInParallel(download)
-      
+
       return downloadId
     } catch (error) {
       console.error('Error starting chunked download:', error)
@@ -127,22 +127,22 @@ export class ChunkManager {
   async downloadChunksInParallel(download) {
     const { totalChunks, providers } = download
     const downloadPromises = []
-    
+
     const chunkQueue = Array.from({ length: totalChunks }, (_, i) => i)
-    
+
     for (let i = 0; i < Math.min(MAX_CONCURRENT_CHUNKS, providers.length); i++) {
       downloadPromises.push(this.chunkDownloadWorker(download, chunkQueue, providers))
     }
 
     try {
       await Promise.all(downloadPromises)
-      
+
       await this.assembleChunkedFile(download)
       await this.cleanupTempFiles(download.tempDir)
-      
+
       download.status = 'completed'
       download.progress = 100
-      
+
       console.log(`Download completed: ${download.fileName}`)
     } catch (error) {
       download.status = 'failed'
@@ -166,24 +166,24 @@ export class ChunkManager {
 
       while (!downloadSuccess && attempts < RETRY_ATTEMPTS) {
         attempts++
-        
+
         const provider = providers[chunkIndex % providers.length]
-        
+
         try {
           await this.downloadSingleChunk(download, chunkIndex, provider)
           downloadSuccess = true
           download.completedChunks.add(chunkIndex)
-          
+
           this.updateDownloadProgress(download)
-          
+
         } catch (error) {
           console.error(`Failed to download chunk ${chunkIndex} (attempt ${attempts}):`, error)
-          
+
           if (attempts >= RETRY_ATTEMPTS) {
             download.failedChunks.add(chunkIndex)
             throw new Error(`Failed to download chunk ${chunkIndex} after ${RETRY_ATTEMPTS} attempts`)
           }
-          
+
           await new Promise(resolve => setTimeout(resolve, 1000 * attempts))
         }
       }
@@ -193,7 +193,7 @@ export class ChunkManager {
   // 下载单个块
   async downloadSingleChunk(download, chunkIndex, provider) {
     const chunkPath = path.join(download.tempDir, `chunk_${chunkIndex}`)
-    
+
     try {
       await fs.access(chunkPath)
       return // 块已存在
@@ -202,8 +202,8 @@ export class ChunkManager {
     }
 
     const chunk = await this.fileManager.requestChunk(
-      provider.peerId, 
-      download.fileHash, 
+      provider.peerId,
+      download.fileHash,
       chunkIndex
     )
 
@@ -223,15 +223,15 @@ export class ChunkManager {
   // 组装分块文件
   async assembleChunkedFile(download) {
     const { tempDir, downloadPath, totalChunks } = download
-    
+
     console.log(`Assembling file: ${download.fileName}`)
-    
+
     const outputFile = await fs.open(downloadPath, 'w')
-    
+
     try {
       for (let i = 0; i < totalChunks; i++) {
         const chunkPath = path.join(tempDir, `chunk_${i}`)
-        
+
         try {
           const chunkData = await fs.readFile(chunkPath)
           await outputFile.write(chunkData)
@@ -251,33 +251,33 @@ export class ChunkManager {
     const completedCount = download.completedChunks.size
     const totalCount = download.totalChunks
     const progress = (completedCount / totalCount) * 100
-    
+
     download.progress = Math.round(progress * 100) / 100
-    
+
     const speedData = this.speedCalculator.get(download.id)
     if (speedData) {
       const now = Date.now()
       const timeDiff = (now - speedData.lastUpdate) / 1000
-      
+
       if (timeDiff >= 1) {
         const bytesDiff = download.downloadedBytes - speedData.lastBytes
         const currentSpeed = bytesDiff / timeDiff
-        
+
         speedData.samples.push(currentSpeed)
         if (speedData.samples.length > 10) {
           speedData.samples.shift()
         }
-        
+
         const averageSpeed = speedData.samples.reduce((a, b) => a + b, 0) / speedData.samples.length
-        
+
         download.currentSpeed = currentSpeed
         download.averageSpeed = averageSpeed
-        
+
         const remainingBytes = download.fileSize - download.downloadedBytes
         if (averageSpeed > 0 && remainingBytes > 0) {
           download.estimatedTime = Math.round(remainingBytes / averageSpeed)
         }
-        
+
         speedData.lastUpdate = now
         speedData.lastBytes = download.downloadedBytes
       }
@@ -317,9 +317,9 @@ export class ChunkManager {
     const download = this.activeDownloads.get(downloadId)
     if (download) {
       download.status = 'cancelled'
-      
+
       await this.cleanupTempFiles(download.tempDir)
-      
+
       this.activeDownloads.delete(downloadId)
       this.speedCalculator.delete(downloadId)
       console.log(`Download cancelled: ${download.fileName}`)
@@ -355,17 +355,17 @@ export class ChunkManager {
   // 优化块分配策略
   optimizeChunkAllocation(providers, totalChunks) {
     const allocation = new Map()
-    
+
     providers.forEach((provider, index) => {
       const chunksToAssign = []
-      
+
       for (let i = index; i < totalChunks; i += providers.length) {
         chunksToAssign.push(i)
       }
-      
+
       allocation.set(provider.peerId, chunksToAssign)
     })
-    
+
     return allocation
   }
 
@@ -373,7 +373,7 @@ export class ChunkManager {
   async deduplicateChunks(chunks) {
     const uniqueChunks = new Map()
     const duplicateMap = new Map()
-    
+
     for (const chunk of chunks) {
       if (uniqueChunks.has(chunk.hash)) {
         const originalIndex = uniqueChunks.get(chunk.hash)
@@ -382,7 +382,7 @@ export class ChunkManager {
         uniqueChunks.set(chunk.hash, chunk.index)
       }
     }
-    
+
     return {
       uniqueChunks: uniqueChunks.size,
       totalChunks: chunks.length,

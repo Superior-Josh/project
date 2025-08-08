@@ -25,7 +25,7 @@ export class P2PNode {
     this.isStarted = false
     this.discoveredPeers = new Set()
     this.peerInfoMap = new Map()
-    
+
     // 默认引导节点
     this.bootstrapNodes = options.bootstrapNodes || [
       '/dnsaddr/bootstrap.libp2p.io/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN',
@@ -39,10 +39,10 @@ export class P2PNode {
     this.bootstrapPeerIds = new Set()
     this.relayPeerIds = new Set()
     this.extractBootstrapPeerIds()
-    
+
     // 节点实例ID
     this.nodeInstanceId = this.generateNodeInstanceId()
-    
+
     // NAT穿透设置
     this.holePunchingEnabled = options.enableHolePunching !== false
     this.upnpEnabled = options.enableUPnP !== false
@@ -121,7 +121,9 @@ export class P2PNode {
     try {
       this.node = await createLibp2p({
         addresses: {
-          listen: ['/ip4/0.0.0.0/tcp/0']
+          listen: [
+            '/ip4/0.0.0.0/tcp/0'
+          ]
         },
         transports: [
           tcp(),

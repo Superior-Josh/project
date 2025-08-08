@@ -13,7 +13,7 @@ export class DatabaseManager {
       config: path.join(dataDir, 'config.json'),
       transfers: path.join(dataDir, 'transfers.json')
     }
-    
+
     this.cache = {
       nodes: new Map(),
       files: new Map(),
@@ -21,7 +21,7 @@ export class DatabaseManager {
       config: new Map(),
       transfers: new Map()
     }
-    
+
     this.initialized = false
   }
 
@@ -29,13 +29,13 @@ export class DatabaseManager {
     try {
       // 确保数据目录存在
       await fs.mkdir(this.dataDir, { recursive: true })
-      
+
       // 加载所有数据
       await this.loadAllData()
-      
+
       // 设置自动保存
       this.setupAutoSave()
-      
+
       this.initialized = true
       console.log('Database manager initialized')
     } catch (error) {
@@ -49,14 +49,14 @@ export class DatabaseManager {
       try {
         const data = await fs.readFile(filePath, 'utf8')
         const parsed = JSON.parse(data)
-        
+
         // 将数组转换为Map（如果需要）
         if (Array.isArray(parsed)) {
           this.cache[type] = new Map(parsed)
         } else {
           this.cache[type] = new Map(Object.entries(parsed))
         }
-        
+
         console.log(`Loaded ${this.cache[type].size} ${type} records`)
       } catch (error) {
         // 文件不存在或无法读取，初始化为空Map
@@ -143,7 +143,7 @@ export class DatabaseManager {
   async searchFiles(query) {
     const results = []
     const lowerQuery = query.toLowerCase()
-    
+
     for (const [hash, fileInfo] of this.cache.files) {
       if (fileInfo.name && fileInfo.name.toLowerCase().includes(lowerQuery)) {
         results.push({
@@ -152,7 +152,7 @@ export class DatabaseManager {
         })
       }
     }
-    
+
     return results
   }
 

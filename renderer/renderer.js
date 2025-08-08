@@ -1,16 +1,68 @@
-// renderer/renderer.js
+// renderer/renderer.js - 重构版本：保留所有功能但改进代码结构
+
+// ==========================================
+// 1. 全局状态和变量
+// ==========================================
 
 let currentSearchAbort = null
 let searchTimeout = null
+let currentInterface = 'main'
+let hasUnsavedChanges = false
+let isNodeStarted = false
+let selectedFiles = []
+let downloadInterval = null
+let isAutoStarting = false
+let currentSettings = {}
+let pageTransitionManager = null
 
-// Message Manager for UI notifications
+// DOM元素缓存
+const elements = {
+  // 主要控制元素
+  startNode: null,
+  stopNode: null,
+  openSettings: null,
+  nodeStatus: null,
+  nodeInfo: null,
+  
+  // 连接相关
+  peerAddress: null,
+  connectPeer: null,
+  
+  // DHT和统计
+  dhtStats: null,
+  refreshStats: null,
+  
+  // 文件相关
+  selectFiles: null,
+  shareSelected: null,
+  selectedFiles: null,
+  searchInput: null,
+  searchFiles: null,
+  localFiles: null,
+  searchResults: null,
+  
+  // 下载相关
+  activeDownloads: null,
+  refreshDownloads: null,
+  
+  // 数据库相关
+  databaseStats: null,
+  refreshDatabaseStats: null,
+  cleanupDatabase: null,
+  exportData: null,
+  importData: null
+}
+
+// ==========================================
+// 2. 消息管理系统
+// ==========================================
+
 class MessageManager {
   constructor() {
     this.messages = new Map()
     this.messageCount = 0
     this.maxMessages = 5
     this.defaultDuration = 5000
-
     this.createMessageContainer()
   }
 
@@ -35,7 +87,6 @@ class MessageManager {
     }
 
     const messageEl = this.createMessageElement(message, type, messageId)
-
     this.container.appendChild(messageEl)
 
     this.messages.set(messageId, {
@@ -49,7 +100,6 @@ class MessageManager {
       const timer = setTimeout(() => {
         this.remove(messageId)
       }, actualDuration)
-
       this.messages.get(messageId).timer = timer
     }
 
@@ -58,7 +108,6 @@ class MessageManager {
     })
 
     console.log(`[${type.toUpperCase()}] ${message}`)
-
     return messageId
   }
 
@@ -142,10 +191,13 @@ class MessageManager {
   }
 }
 
-// Create global message manager instance
+// 创建全局消息管理器实例
 const messageManager = new MessageManager()
 
-// Message functions
+// ==========================================
+// 3. 消息接口函数
+// ==========================================
+
 function showMessage(message, type = 'info', duration = null) {
   return messageManager.show(message, type, duration)
 }
@@ -182,336 +234,30 @@ function closeMessage(messageId) {
   messageManager.remove(messageId)
 }
 
-// Export for compatibility
-window.showMessage = showMessage
-window.showSuccess = showSuccess
-window.showError = showError
-window.showWarning = showWarning
-window.showInfo = showInfo
-window.clearAllMessages = clearAllMessages
-window.showPersistent = showPersistent
-window.updateMessage = updateMessage
-window.closeMessage = closeMessage
-
-// Global state
-let currentInterface = 'main'
-let hasUnsavedChanges = false
-let isNodeStarted = false
-let selectedFiles = []
-let downloadInterval = null
-let isAutoStarting = false
-
-// DOM elements
-const elements = {
-  startNode: null,
-  stopNode: null,
-  openSettings: null,
-  nodeStatus: null,
-  nodeInfo: null,
-  peerAddress: null,
-  connectPeer: null,
-  dhtStats: null,
-  refreshStats: null,
-  selectFiles: null,
-  shareSelected: null,
-  selectedFiles: null,
-  searchInput: null,
-  searchFiles: null,
-  localFiles: null,
-  searchResults: null,
-  activeDownloads: null,
-  refreshDownloads: null,
-  databaseStats: null,
-  refreshDatabaseStats: null,
-  cleanupDatabase: null,
-  exportData: null,
-  importData: null
-}
-
-// Initialize DOM elements after page load
-function initializeDOMElements() {
-  // Re-query elements in case they weren't ready before
-  Object.keys(elements).forEach(key => {
-    const element = document.getElementById(key)
-    if (element) {
-      elements[key] = element
-    }
-  })
-}
-
-// Navigation functionality
-function initializeNavigation() {
-  // Main interface navigation
-  const mainNavItems = document.querySelectorAll('#mainInterface .nav-item')
-  const contentSections = document.querySelectorAll('.content-section')
-
-  mainNavItems.forEach(item => {
-    item.addEventListener('click', () => {
-      const sectionId = item.dataset.section
-
-      // Update navigation
-      mainNavItems.forEach(nav => nav.classList.remove('active'))
-      item.classList.add('active')
-
-      // Update content
-      contentSections.forEach(section => section.classList.remove('active'))
-      const targetSection = document.getElementById(`${sectionId}-section`)
-      if (targetSection) {
-        targetSection.classList.add('active')
-      }
-    })
-  })
-
-  // Settings navigation
-  const settingsNavItems = document.querySelectorAll('#settingsInterface .nav-item')
-
-  settingsNavItems.forEach(item => {
-    item.addEventListener('click', () => {
-      const category = item.dataset.category
-
-      // Update navigation
-      settingsNavItems.forEach(nav => nav.classList.remove('active'))
-      item.classList.add('active')
-
-      // Update panels - will be handled by loadSettingsContent
-      switchSettingsPanel(category)
-    })
-  })
-}
-
-// Interface switching
-function showSettings() {
-  document.getElementById('mainInterface').style.display = 'none'
-  document.getElementById('settingsInterface').style.display = 'flex'
-  currentInterface = 'settings'
-
-  // Load settings content
-  loadSettingsContent()
-}
-
-function goBackToMain() {
-  hideSettings()
-}
-
-function hideSettings() {
-  document.getElementById('settingsInterface').style.display = 'none'
-  document.getElementById('mainInterface').style.display = 'flex'
-  currentInterface = 'main'
-  hasUnsavedChanges = false
-}
-
-// Load settings content dynamically
-async function loadSettingsContent() {
-  const settingsContent = document.getElementById('settingsContent')
-
-  try {
-    // Load settings.html content
-
-    const response = await fetch('settings.html')
-    const html = await response.text()
-    settingsContent.innerHTML = html
-
-    // Setup settings functionality
-    setupSettingsNavigation()
-    await loadSettings()
-  } catch (error) {
-    console.error('Error loading settings content:', error)
-    // Fallback: create basic settings panels
-    createFallbackSettings(settingsContent)
-  }
-}
-
-function createFallbackSettings(container) {
-  container.innerHTML = `
-    <div class="settings-panel active" id="window-panel">
-      <div class="panel-header">
-        <h2>Settings</h2>
-        <p>Basic settings panel</p>
-      </div>
-      <div class="settings-group">
-        <p>Settings content could not be loaded.</p>
-      </div>
-    </div>
-  `
-}
-
-function switchSettingsPanel(category) {
-  const panels = document.querySelectorAll('#settingsContent .settings-panel')
-  panels.forEach(panel => panel.classList.remove('active'))
-
-  const targetPanel = document.getElementById(`${category}-panel`)
-  if (targetPanel) {
-    targetPanel.classList.add('active')
-  }
-}
-
-// Page load initialization
-document.addEventListener('DOMContentLoaded', async () => {
-  if (!messageManager.container) {
-    messageManager.createMessageContainer()
-  }
-
-  console.log('P2P File Sharing System loaded')
-
-  // Initialize DOM elements
-  initializeDOMElements()
-
-  // Initialize navigation
-  initializeNavigation()
-
-  // Define global functions immediately when page loads
-  window.removeSelectedFile = removeSelectedFile
-  window.pauseDownload = pauseDownload
-  window.resumeDownload = resumeDownload
-  window.cancelDownload = cancelDownload
-  window.connectToDiscoveredPeer = connectToDiscoveredPeer
-  window.refreshDiscoveredPeers = refreshDiscoveredPeers
-  window.goBackToMain = goBackToMain
-  window.markUnsaved = markUnsaved
-  window.saveAllSettings = saveAllSettings
-  window.resetAllSettings = resetAllSettings
-  window.selectDownloadPath = selectDownloadPath
-  window.createBackup = createBackup
-  window.showBackupList = showBackupList
-  window.exportSettings = exportSettings
-  window.importSettings = importSettings
-
-  // Setup event listeners
-  setupEventListeners()
-
-  updateSelectedFilesDisplay()
-  refreshDatabaseStats()
-
-  // Set auto-starting state
-  isAutoStarting = true
-  if (elements.startNode) {
-    elements.startNode.disabled = true
-    elements.startNode.textContent = 'Auto-starting...'
-  }
-  if (elements.stopNode) {
-    elements.stopNode.disabled = true
-  }
-  updateNodeStatus('connecting')
+// 导出消息函数到全局作用域
+Object.assign(window, {
+  showMessage, showSuccess, showError, showWarning, showInfo,
+  clearAllMessages, showPersistent, updateMessage, closeMessage
 })
 
-// Setup event listeners
-function setupEventListeners() {
-  if (elements.startNode) elements.startNode.addEventListener('click', startNode)
-  if (elements.stopNode) elements.stopNode.addEventListener('click', stopNode)
-  if (elements.openSettings) elements.openSettings.addEventListener('click', openSettings)
-  if (elements.connectPeer) elements.connectPeer.addEventListener('click', connectToPeer)
-  if (elements.refreshStats) elements.refreshStats.addEventListener('click', refreshStats)
-  if (elements.selectFiles) elements.selectFiles.addEventListener('click', selectFiles)
-  if (elements.shareSelected) elements.shareSelected.addEventListener('click', shareSelectedFiles)
-  if (elements.searchFiles) elements.searchFiles.addEventListener('click', searchFiles)
-  if (elements.refreshDownloads) elements.refreshDownloads.addEventListener('click', refreshDownloads)
-  if (elements.refreshDatabaseStats) elements.refreshDatabaseStats.addEventListener('click', refreshDatabaseStats)
-  if (elements.cleanupDatabase) elements.cleanupDatabase.addEventListener('click', cleanupDatabase)
-  if (elements.exportData) elements.exportData.addEventListener('click', exportData)
-  if (elements.importData) elements.importData.addEventListener('click', importData)
+// ==========================================
+// 4. 页面切换动画管理器
+// ==========================================
 
-  // Search input enter key
-  if (elements.searchInput) {
-    elements.searchInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        searchFiles()
-      }
-    })
-  }
-
-  // Peer address input enter key
-  if (elements.peerAddress) {
-    elements.peerAddress.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        connectToPeer()
-      }
-    })
-  }
-}
-
-// Update button states
-function updateButtonStates(nodeStarted) {
-  isNodeStarted = nodeStarted
-
-  if (nodeStarted) {
-    if (elements.startNode) {
-      elements.startNode.disabled = true
-      elements.startNode.textContent = 'Start Node'
-    }
-    if (elements.stopNode) {
-      elements.stopNode.disabled = false
-      elements.stopNode.textContent = 'Stop Node'
-    }
-    updateNodeStatus('online')
-  } else {
-    if (elements.startNode) {
-      elements.startNode.disabled = false
-      elements.startNode.textContent = 'Start Node'
-    }
-    if (elements.stopNode) {
-      elements.stopNode.disabled = true
-      elements.stopNode.textContent = 'Stop Node'
-    }
-    updateNodeStatus('offline')
-  }
-}
-
-// Listen for auto-start events
-if (window.electronAPI) {
-  window.electronAPI.onP2PNodeStarted((result) => {
-    console.log('Received auto-start result:', result)
-
-    isAutoStarting = false
-
-    if (result.success) {
-      updateButtonStates(true)
-      updateNodeInfo(result.nodeInfo)
-      startStatsRefresh()
-      showMessage('P2P node auto-started successfully', 'success')
-    } else {
-      updateButtonStates(false)
-      elements.nodeInfo.innerHTML = '<p>Auto-start failed</p>'
-      showMessage(`Auto-start failed: ${result.error}`, 'error')
-    }
-  })
-
-  // Listen for node status change events
-  window.electronAPI.onP2PNodeStatusChanged((result) => {
-    console.log('Received node status change:', result)
-
-    if (result.success && result.nodeInfo) {
-      updateButtonStates(true)
-      updateNodeInfo(result.nodeInfo)
-    } else if (result.success && !result.nodeInfo) {
-      updateButtonStates(false)
-      elements.nodeInfo.innerHTML = '<p>Node stopped</p>'
-      elements.dhtStats.innerHTML = '<p>DHT not running</p>'
-    } else if (!result.success && result.error) {
-      showMessage(`Node operation failed: ${result.error}`, 'error')
-    }
-  })
-}
-
-// 修复后的页面切换动画管理器
 class PageTransitionManager {
   constructor() {
     this.isTransitioning = false
     this.currentPage = 'main'
     this.transitionDuration = 400 // ms
-
     this.init()
   }
 
   init() {
-    // 创建页面遮罩
     this.createPageOverlay()
-
-    // 预设页面状态
     this.setupInitialStates()
   }
 
   createPageOverlay() {
-    // 检查是否已存在遮罩
     if (document.querySelector('.page-overlay')) return
 
     const overlay = document.createElement('div')
@@ -525,13 +271,11 @@ class PageTransitionManager {
 
     if (mainInterface) {
       mainInterface.style.display = 'flex'
-      // 清除所有动画类
       mainInterface.classList.remove('slide-out-left', 'slide-in-left')
     }
 
     if (settingsInterface) {
       settingsInterface.style.display = 'none'
-      // 清除所有动画类
       settingsInterface.classList.remove('slide-in-right', 'slide-out-right')
     }
   }
@@ -622,10 +366,8 @@ class PageTransitionManager {
 
     } catch (error) {
       console.error('Error during settings transition:', error)
-      // 错误时直接切换
       this.forceSwitch('settings')
     } finally {
-      // 清理
       this.isTransitioning = false
       document.body.classList.remove('page-transitioning')
 
@@ -699,10 +441,8 @@ class PageTransitionManager {
 
     } catch (error) {
       console.error('Error during main transition:', error)
-      // 错误时直接切换
       this.forceSwitch('main')
     } finally {
-      // 清理
       this.isTransitioning = false
       document.body.classList.remove('page-transitioning')
 
@@ -721,7 +461,7 @@ class PageTransitionManager {
     })
   }
 
-  // 动画辅助函数 - 重写为更可靠的版本
+  // 动画辅助函数
   animateElement(element, transformFn) {
     return new Promise((resolve) => {
       if (!element) {
@@ -732,7 +472,6 @@ class PageTransitionManager {
       let resolved = false
 
       const handleTransitionEnd = (e) => {
-        // 确保事件来自目标元素且是transform或opacity变化
         if (e.target === element && (e.propertyName === 'transform' || e.propertyName === 'opacity')) {
           if (!resolved) {
             resolved = true
@@ -743,11 +482,9 @@ class PageTransitionManager {
       }
 
       element.addEventListener('transitionend', handleTransitionEnd)
-
-      // 执行变换
       transformFn()
 
-      // 超时保护 - 确保动画不会卡死
+      // 超时保护
       setTimeout(() => {
         if (!resolved) {
           resolved = true
@@ -770,7 +507,7 @@ class PageTransitionManager {
       }
       if (settingsInterface) {
         settingsInterface.style.display = 'flex'
-        this.resetElementState(settingsInterface, false) // 重置为正常状态
+        this.resetElementState(settingsInterface, false)
       }
       this.currentPage = 'settings'
     } else {
@@ -779,27 +516,115 @@ class PageTransitionManager {
       }
       if (mainInterface) {
         mainInterface.style.display = 'flex'
-        this.resetElementState(mainInterface, false) // 重置为正常状态
+        this.resetElementState(mainInterface, false)
       }
       this.currentPage = 'main'
     }
   }
 
-  // 获取当前页面
   getCurrentPage() {
     return this.currentPage
   }
 
-  // 检查是否正在切换
   isTransitioningNow() {
     return this.isTransitioning
   }
 }
 
-// 创建全局页面切换管理器实例
-let pageTransitionManager = null
+// ==========================================
+// 5. 初始化和DOM管理
+// ==========================================
 
-// 修改现有的接口切换函数
+// 初始化DOM元素
+function initializeDOMElements() {
+  Object.keys(elements).forEach(key => {
+    const element = document.getElementById(key)
+    if (element) {
+      elements[key] = element
+    }
+  })
+}
+
+// 初始化导航功能
+function initializeNavigation() {
+  // 主界面导航
+  const mainNavItems = document.querySelectorAll('#mainInterface .nav-item')
+  const contentSections = document.querySelectorAll('.content-section')
+
+  mainNavItems.forEach(item => {
+    item.addEventListener('click', () => {
+      const sectionId = item.dataset.section
+
+      // 更新导航
+      mainNavItems.forEach(nav => nav.classList.remove('active'))
+      item.classList.add('active')
+
+      // 更新内容
+      contentSections.forEach(section => section.classList.remove('active'))
+      const targetSection = document.getElementById(`${sectionId}-section`)
+      if (targetSection) {
+        targetSection.classList.add('active')
+      }
+    })
+  })
+
+  // 设置导航
+  const settingsNavItems = document.querySelectorAll('#settingsInterface .nav-item')
+
+  settingsNavItems.forEach(item => {
+    item.addEventListener('click', () => {
+      const category = item.dataset.category
+
+      // 更新导航
+      settingsNavItems.forEach(nav => nav.classList.remove('active'))
+      item.classList.add('active')
+
+      // 更新面板
+      switchSettingsPanel(category)
+    })
+  })
+}
+
+// 设置事件监听器
+function setupEventListeners() {
+  if (elements.startNode) elements.startNode.addEventListener('click', startNode)
+  if (elements.stopNode) elements.stopNode.addEventListener('click', stopNode)
+  if (elements.openSettings) elements.openSettings.addEventListener('click', openSettings)
+  if (elements.connectPeer) elements.connectPeer.addEventListener('click', connectToPeer)
+  if (elements.refreshStats) elements.refreshStats.addEventListener('click', refreshStats)
+  if (elements.selectFiles) elements.selectFiles.addEventListener('click', selectFiles)
+  if (elements.shareSelected) elements.shareSelected.addEventListener('click', shareSelectedFiles)
+  if (elements.searchFiles) elements.searchFiles.addEventListener('click', searchFiles)
+  if (elements.refreshDownloads) elements.refreshDownloads.addEventListener('click', refreshDownloads)
+  if (elements.refreshDatabaseStats) elements.refreshDatabaseStats.addEventListener('click', refreshDatabaseStats)
+  if (elements.cleanupDatabase) elements.cleanupDatabase.addEventListener('click', cleanupDatabase)
+  if (elements.exportData) elements.exportData.addEventListener('click', exportData)
+  if (elements.importData) elements.importData.addEventListener('click', importData)
+
+  // 搜索输入回车键
+  if (elements.searchInput) {
+    elements.searchInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        searchFiles()
+      }
+    })
+  }
+
+  // 对等节点地址输入回车键
+  if (elements.peerAddress) {
+    elements.peerAddress.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        connectToPeer()
+      }
+    })
+  }
+}
+
+// ==========================================
+// 6. 界面切换功能
+// ==========================================
+
+// 显示设置界面
 function showSettings() {
   if (!pageTransitionManager) {
     pageTransitionManager = new PageTransitionManager()
@@ -807,9 +632,7 @@ function showSettings() {
 
   console.log('showSettings called, current page:', pageTransitionManager.getCurrentPage())
 
-  // 使用动画切换到设置页面
   pageTransitionManager.showSettings().then(() => {
-    // 切换完成后加载设置内容
     currentInterface = 'settings'
     loadSettingsContent()
   }).catch(error => {
@@ -822,6 +645,7 @@ function showSettings() {
   })
 }
 
+// 返回主界面
 function goBackToMain() {
   if (!pageTransitionManager) {
     pageTransitionManager = new PageTransitionManager()
@@ -829,32 +653,28 @@ function goBackToMain() {
 
   console.log('goBackToMain called, current page:', pageTransitionManager.getCurrentPage())
 
-  // 使用动画切换到主页面
   pageTransitionManager.showMain().then(() => {
     currentInterface = 'main'
     hasUnsavedChanges = false
   }).catch(error => {
     console.error('Failed to show main with animation:', error)
-    // 降级到原来的切换方式
     hideSettings()
   })
 }
 
-// 修改现有的 hideSettings 函数作为降级方案
+// 隐藏设置界面（降级方案）
 function hideSettings() {
   const mainInterface = document.getElementById('mainInterface')
   const settingsInterface = document.getElementById('settingsInterface')
 
   if (settingsInterface) {
     settingsInterface.style.display = 'none'
-    // 清理所有样式
     settingsInterface.style.transform = ''
     settingsInterface.style.opacity = ''
   }
 
   if (mainInterface) {
     mainInterface.style.display = 'flex'
-    // 清理所有样式
     mainInterface.style.transform = ''
     mainInterface.style.opacity = ''
   }
@@ -867,48 +687,11 @@ function hideSettings() {
   }
 }
 
-// 页面加载完成后初始化动画管理器
-document.addEventListener('DOMContentLoaded', () => {
-  // 延迟初始化，确保所有元素都已加载
-  setTimeout(() => {
-    console.log('Initializing page transition manager')
-    if (!pageTransitionManager) {
-      pageTransitionManager = new PageTransitionManager()
-    }
-  }, 100)
-})
+// ==========================================
+// 7. P2P节点控制功能
+// ==========================================
 
-// 添加调试函数
-window.debugPageTransition = () => {
-  if (pageTransitionManager) {
-    console.log('Current page:', pageTransitionManager.getCurrentPage())
-    console.log('Is transitioning:', pageTransitionManager.isTransitioningNow())
-
-    const mainInterface = document.getElementById('mainInterface')
-    const settingsInterface = document.getElementById('settingsInterface')
-
-    console.log('Main interface:', {
-      display: mainInterface?.style.display,
-      transform: mainInterface?.style.transform,
-      opacity: mainInterface?.style.opacity,
-      classes: mainInterface?.className
-    })
-
-    console.log('Settings interface:', {
-      display: settingsInterface?.style.display,
-      transform: settingsInterface?.style.transform,
-      opacity: settingsInterface?.style.opacity,
-      classes: settingsInterface?.className
-    })
-  }
-}
-
-// 导出函数供全局使用
-window.showSettings = showSettings
-window.goBackToMain = goBackToMain
-window.pageTransitionManager = pageTransitionManager
-
-// Open settings
+// 打开设置
 async function openSettings() {
   try {
     showSettings()
@@ -919,7 +702,7 @@ async function openSettings() {
   }
 }
 
-// Start node
+// 启动节点
 async function startNode() {
   if (isAutoStarting) {
     showWarning('Node is auto-starting, please wait')
@@ -953,7 +736,7 @@ async function startNode() {
   }
 }
 
-// Stop node
+// 停止节点
 async function stopNode() {
   if (!isNodeStarted) {
     showMessage('Please start P2P node first')
@@ -992,12 +775,38 @@ async function stopNode() {
   }
 }
 
-// Update node status
+// 更新按钮状态
+function updateButtonStates(nodeStarted) {
+  isNodeStarted = nodeStarted
+
+  if (nodeStarted) {
+    if (elements.startNode) {
+      elements.startNode.disabled = true
+      elements.startNode.textContent = 'Start Node'
+    }
+    if (elements.stopNode) {
+      elements.stopNode.disabled = false
+      elements.stopNode.textContent = 'Stop Node'
+    }
+    updateNodeStatus('online')
+  } else {
+    if (elements.startNode) {
+      elements.startNode.disabled = false
+      elements.startNode.textContent = 'Start Node'
+    }
+    if (elements.stopNode) {
+      elements.stopNode.disabled = true
+      elements.stopNode.textContent = 'Stop Node'
+    }
+    updateNodeStatus('offline')
+  }
+}
+
+// 更新节点状态
 function updateNodeStatus(status) {
   if (elements.nodeStatus) {
     elements.nodeStatus.className = `node-status ${status}`
 
-    // Use fixed status texts
     const statusTexts = {
       'online': 'Online',
       'offline': 'Offline',
@@ -1007,7 +816,7 @@ function updateNodeStatus(status) {
   }
 }
 
-// Update node information
+// 更新节点信息
 function updateNodeInfo(nodeInfo) {
   if (nodeInfo && elements.nodeInfo) {
     elements.nodeInfo.innerHTML = `
@@ -1022,7 +831,11 @@ function updateNodeInfo(nodeInfo) {
   }
 }
 
-// Check if is bootstrap peer
+// ==========================================
+// 8. 连接管理功能
+// ==========================================
+
+// 检查是否是引导节点
 function isBootstrapPeerId(peerId) {
   const bootstrapPeerIds = [
     'QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN',
@@ -1031,7 +844,7 @@ function isBootstrapPeerId(peerId) {
   return bootstrapPeerIds.includes(peerId)
 }
 
-// Connect to peer
+// 连接到对等节点
 async function connectToPeer() {
   if (!isNodeStarted) {
     showWarning('Please start P2P node first')
@@ -1065,7 +878,54 @@ async function connectToPeer() {
   }
 }
 
-// Refresh statistics
+// 连接到发现的对等节点
+async function connectToDiscoveredPeer(peerId) {
+  try {
+    if (isBootstrapPeerId(peerId)) {
+      showMessage('Cannot connect to bootstrap node. Bootstrap nodes are infrastructure nodes used for network discovery, direct connection not supported. Please try connecting to other discovered peers.', 'warning')
+      return
+    }
+
+    const result = await window.electronAPI.connectToDiscoveredPeer(peerId)
+
+    if (result.success) {
+      showMessage(`Successfully connected to peer: ${peerId.slice(-8)}`, 'success')
+      await refreshStats()
+    } else {
+      let errorMessage = result.error
+      if (errorMessage.includes('bootstrap node')) {
+        errorMessage = 'Cannot connect to bootstrap node. Please try connecting to other discovered peers.'
+      } else if (errorMessage.includes('offline or unreachable')) {
+        errorMessage = 'Peer offline or unreachable. Please try connecting to other peers.'
+      }
+      showMessage(`Connection failed: ${errorMessage}`, 'error')
+    }
+  } catch (error) {
+    showMessage(`Connection error: ${error.message}`, 'error')
+  }
+}
+
+// 刷新发现的对等节点
+async function refreshDiscoveredPeers() {
+  try {
+    const result = await window.electronAPI.getDiscoveredPeers()
+
+    if (result.success) {
+      await refreshStats()
+      showMessage(`Refresh completed, discovered ${result.peers.length} peers`, 'info')
+    } else {
+      showMessage(`Refresh failed: ${result.error}`, 'error')
+    }
+  } catch (error) {
+    showMessage(`Refresh error: ${error.message}`, 'error')
+  }
+}
+
+// ==========================================
+// 9. 统计和DHT功能
+// ==========================================
+
+// 刷新统计信息
 async function refreshStats() {
   if (!isNodeStarted) return
 
@@ -1091,7 +951,7 @@ async function refreshStats() {
   }
 }
 
-// Start stats refresh
+// 开始统计刷新
 function startStatsRefresh() {
   if (downloadInterval) {
     clearInterval(downloadInterval)
@@ -1102,7 +962,11 @@ function startStatsRefresh() {
   setInterval(refreshDownloads, 5000)
 }
 
-// Select files
+// ==========================================
+// 10. 文件管理功能
+// ==========================================
+
+// 选择文件
 async function selectFiles() {
   try {
     const result = await window.electronAPI.selectFiles()
@@ -1117,9 +981,9 @@ async function selectFiles() {
   }
 }
 
-// Update selected files display
+// 更新已选择文件显示
 function updateSelectedFilesDisplay() {
-  if (!elements.selectedFiles) return;
+  if (!elements.selectedFiles) return
 
   if (selectedFiles.length === 0) {
     elements.selectedFiles.innerHTML = '<p>No files selected</p>'
@@ -1141,14 +1005,14 @@ function updateSelectedFilesDisplay() {
   }
 }
 
-// Remove selected file
+// 移除选择的文件
 function removeSelectedFile(filePath) {
   selectedFiles = selectedFiles.filter(path => path !== filePath)
   updateSelectedFilesDisplay()
   elements.shareSelected.disabled = selectedFiles.length === 0
 }
 
-// Share selected files
+// 分享选择的文件
 async function shareSelectedFiles() {
   if (selectedFiles.length === 0) {
     showMessage('Please select files to share first', 'warning')
@@ -1174,7 +1038,7 @@ async function shareSelectedFiles() {
 
         if (result.success) {
           successCount++
-          // 添加延迟确保DHT传播
+          const fileName = filePath.split(/[/\\]/).pop()
           console.log(`File shared: ${fileName}, waiting for DHT sync...`)
           await new Promise(resolve => setTimeout(resolve, 3000))
 
@@ -1204,7 +1068,7 @@ async function shareSelectedFiles() {
     }
 
     if (errorCount > 0) {
-      showMessage(`${errorCount} files failed to share:\n${errors.join('\n')}`, 'error') ////
+      showMessage(`${errorCount} files failed to share:\n${errors.join('\n')}`, 'error')
     }
 
     selectedFiles = []
@@ -1219,37 +1083,46 @@ async function shareSelectedFiles() {
   }
 }
 
-// Search files
-// async function searchFiles() {
-//   const query = elements.searchInput.value.trim()
-//   if (!query) {
-//     showMessage('Please enter search keywords', 'warning')
-//     return
-//   }
+// 刷新本地文件
+async function refreshLocalFiles() {
+  try {
+    const files = await window.electronAPI.getLocalFiles()
 
-//   if (!isNodeStarted) {
-//     showMessage('Please start P2P node first', 'warning')
-//     return
-//   }
+    if (files.length === 0) {
+      if (elements.localFiles) {
+        elements.localFiles.innerHTML = '<p>No local files</p>'
+      }
+    } else {
+      const localCountText = `Local Files (${files.length}):`
 
-//   try {
-//     elements.searchFiles.disabled = true
-//     elements.searchFiles.textContent = 'Searching...'
+      const fileList = files.map(file => `
+        <div class="file-item">
+          <div class="file-info">
+            <h4>${file.name}</h4>
+            <p>Size: ${formatFileSize(file.size)}</p>
+            <p>Hash: ${file.hash}</p>
+            <p>Shared Time: ${formatRelativeTime(file.sharedAt || file.timestamp || file.savedAt)}</p>
+          </div>
+        </div>
+      `).join('')
 
-//     const result = await window.electronAPI.searchFiles(query)
+      if (elements.localFiles) {
+        elements.localFiles.innerHTML = `
+          <p>${localCountText}</p>
+          ${fileList}
+        `
+      }
+    }
+  } catch (error) {
+    console.error('Error refreshing local files:', error)
+  }
+}
 
-//     if (result.success) {
-//       displaySearchResults(result.results)
-//     } else {
-//       showMessage(`Search failed: ${result.error}`, 'error')
-//     }
-//   } catch (error) {
-//     showMessage(`Search error: ${error.message}`, 'error')
-//   } finally {
-//     elements.searchFiles.disabled = false
-//     elements.searchFiles.textContent = 'Search'
-//   }
-// }
+// ==========================================
+// 11. 搜索功能
+// ==========================================
+
+// 搜索文件
 async function searchFiles() {
   const query = elements.searchInput.value.trim()
   if (!query) {
@@ -1323,32 +1196,7 @@ async function searchFiles() {
   }
 }
 
-// Display search results
-// function displaySearchResults(results) {
-//   if (results.length === 0) {
-//     elements.searchResults.innerHTML = '<p>No matching files found</p>'
-//   } else {
-//     const resultList = results.map(file => `
-//       <div class="file-item">
-//         <div class="file-info">
-//           <h4>${file.name}</h4>
-//           <p>Size: ${formatFileSize(file.size)}</p>
-//           <p>Hash: ${file.hash}</p>
-//           <p>Provider: ${file.provider || 'Unknown'}</p>
-//           <p>Time: ${new Date(file.timestamp || file.savedAt || Date.now()).toLocaleString()}</p>
-//         </div>
-//         <div class="file-actions">
-//           <button onclick="window.downloadFile('${file.hash}', '${file.name}')">Download</button>
-//         </div>
-//       </div>
-//     `).join('')
-
-//     elements.searchResults.innerHTML = `
-//       <p>Found ${results.length} files:</p>
-//       ${resultList}
-//     `
-//   }
-// }
+// 显示搜索结果
 function displaySearchResults(results, searchTime, sources) {
   if (results.length === 0) {
     elements.searchResults.innerHTML = '<p>No matching files found</p>'
@@ -1376,34 +1224,11 @@ function displaySearchResults(results, searchTime, sources) {
   }
 }
 
-function displaySearchResults(results, searchTime, sources) {
-  if (results.length === 0) {
-    elements.searchResults.innerHTML = '<p>No matching files found</p>'
-  } else {
-    const sourceInfo = sources ? 
-      `<p class="search-info">Found ${results.length} files in ${searchTime}ms (Local: ${sources.local}, Network: ${sources.network})</p>` 
-      : ''
-    
-    const resultList = results.map(file => `
-      <div class="file-item ${file.source === 'local' ? 'local-file' : 'network-file'}">
-        <div class="file-info">
-          <h4>${file.name} ${file.source === 'local' ? '📁' : '🌐'}</h4>
-          <p>Size: ${formatFileSize(file.size)}</p>
-          <p>Hash: ${file.hash}</p>
-          <p>Source: ${file.source || 'unknown'}</p>
-          <p>Time: ${new Date(file.timestamp || file.savedAt || Date.now()).toLocaleString()}</p>
-        </div>
-        <div class="file-actions">
-          <button onclick="window.downloadFile('${file.hash}', '${file.name}')">Download</button>
-        </div>
-      </div>
-    `).join('')
+// ==========================================
+// 12. 下载管理功能
+// ==========================================
 
-    elements.searchResults.innerHTML = sourceInfo + resultList
-  }
-}
-
-// Download file
+// 下载文件
 window.downloadFile = async function (fileHash, fileName) {
   console.log('Download button clicked:', { fileHash, fileName })
 
@@ -1448,42 +1273,7 @@ window.downloadFile = async function (fileHash, fileName) {
   }
 }
 
-// Refresh local files
-async function refreshLocalFiles() {
-  try {
-    const files = await window.electronAPI.getLocalFiles()
-
-    if (files.length === 0) {
-      if (elements.localFiles) {
-        elements.localFiles.innerHTML = '<p>No local files</p>'
-      }
-    } else {
-      const localCountText = `Local Files (${files.length}):`
-
-      const fileList = files.map(file => `
-        <div class="file-item">
-          <div class="file-info">
-            <h4>${file.name}</h4>
-            <p>Size: ${formatFileSize(file.size)}</p>
-            <p>Hash: ${file.hash}</p>
-            <p>Shared Time: ${formatRelativeTime(file.sharedAt || file.timestamp || file.savedAt)}</p>
-          </div>
-        </div>
-      `).join('')
-
-      if (elements.localFiles) {
-        elements.localFiles.innerHTML = `
-          <p>${localCountText}</p>
-          ${fileList}
-        `
-      }
-    }
-  } catch (error) {
-    console.error('Error refreshing local files:', error)
-  }
-}
-
-// Refresh download status
+// 刷新下载状态
 async function refreshDownloads() {
   try {
     const downloads = await window.electronAPI.getActiveDownloads()
@@ -1524,7 +1314,7 @@ async function refreshDownloads() {
   }
 }
 
-// Pause download
+// 暂停下载
 async function pauseDownload(downloadId) {
   try {
     const result = await window.electronAPI.pauseDownload(downloadId)
@@ -1539,7 +1329,7 @@ async function pauseDownload(downloadId) {
   }
 }
 
-// Resume download
+// 恢复下载
 async function resumeDownload(downloadId) {
   try {
     const result = await window.electronAPI.resumeDownload(downloadId)
@@ -1554,7 +1344,7 @@ async function resumeDownload(downloadId) {
   }
 }
 
-// Cancel download
+// 取消下载
 async function cancelDownload(downloadId) {
   if (confirm('Are you sure you want to cancel this download?')) {
     try {
@@ -1571,50 +1361,11 @@ async function cancelDownload(downloadId) {
   }
 }
 
-// Connect to discovered peer
-async function connectToDiscoveredPeer(peerId) {
-  try {
-    if (isBootstrapPeerId(peerId)) {
-      showMessage('Cannot connect to bootstrap node. Bootstrap nodes are infrastructure nodes used for network discovery, direct connection not supported. Please try connecting to other discovered peers.', 'warning')
-      return
-    }
+// ==========================================
+// 13. 数据库管理功能
+// ==========================================
 
-    const result = await window.electronAPI.connectToDiscoveredPeer(peerId)
-
-    if (result.success) {
-      showMessage(`Successfully connected to peer: ${peerId.slice(-8)}`, 'success')
-      await refreshStats()
-    } else {
-      let errorMessage = result.error
-      if (errorMessage.includes('bootstrap node')) {
-        errorMessage = 'Cannot connect to bootstrap node. Please try connecting to other discovered peers.'
-      } else if (errorMessage.includes('offline or unreachable')) {
-        errorMessage = 'Peer offline or unreachable. Please try connecting to other peers.'
-      }
-      showMessage(`Connection failed: ${errorMessage}`, 'error')
-    }
-  } catch (error) {
-    showMessage(`Connection error: ${error.message}`, 'error')
-  }
-}
-
-// Refresh discovered peers
-async function refreshDiscoveredPeers() {
-  try {
-    const result = await window.electronAPI.getDiscoveredPeers()
-
-    if (result.success) {
-      await refreshStats()
-      showMessage(`Refresh completed, discovered ${result.peers.length} peers`, 'info')
-    } else {
-      showMessage(`Refresh failed: ${result.error}`, 'error')
-    }
-  } catch (error) {
-    showMessage(`Refresh error: ${error.message}`, 'error')
-  }
-}
-
-// Refresh database stats
+// 刷新数据库统计
 async function refreshDatabaseStats() {
   try {
     const stats = await window.electronAPI.getDatabaseStats()
@@ -1636,7 +1387,7 @@ async function refreshDatabaseStats() {
   }
 }
 
-// Cleanup database
+// 清理数据库
 async function cleanupDatabase() {
   if (confirm('Are you sure you want to cleanup old database records? This will delete records older than 30 days.')) {
     try {
@@ -1660,7 +1411,7 @@ async function cleanupDatabase() {
   }
 }
 
-// Export data
+// 导出数据
 async function exportData() {
   try {
     elements.exportData.disabled = true
@@ -1683,7 +1434,7 @@ async function exportData() {
   }
 }
 
-// Import data
+// 导入数据
 async function importData() {
   if (confirm('Importing data will overwrite current database content, are you sure you want to continue?')) {
     try {
@@ -1710,10 +1461,124 @@ async function importData() {
   }
 }
 
-// Settings functionality
-let currentSettings = {}
+// ==========================================
+// 14. 设置管理功能
+// ==========================================
 
-// Settings functions
+// 加载设置内容
+async function loadSettingsContent() {
+  const settingsContent = document.getElementById('settingsContent')
+
+  try {
+    const response = await fetch('settings.html')
+    const html = await response.text()
+    settingsContent.innerHTML = html
+
+    setupSettingsNavigation()
+    await loadSettings()
+  } catch (error) {
+    console.error('Error loading settings content:', error)
+    createFallbackSettings(settingsContent)
+  }
+}
+
+// 创建后备设置
+function createFallbackSettings(container) {
+  container.innerHTML = `
+    <div class="settings-panel active" id="window-panel">
+      <div class="panel-header">
+        <h2>Settings</h2>
+        <p>Basic settings panel</p>
+      </div>
+      <div class="settings-group">
+        <p>Settings content could not be loaded.</p>
+      </div>
+    </div>
+  `
+}
+
+// 切换设置面板
+function switchSettingsPanel(category) {
+  const panels = document.querySelectorAll('#settingsContent .settings-panel')
+  panels.forEach(panel => panel.classList.remove('active'))
+
+  const targetPanel = document.getElementById(`${category}-panel`)
+  if (targetPanel) {
+    targetPanel.classList.add('active')
+  }
+}
+
+// 设置设置导航
+function setupSettingsNavigation() {
+  console.log('Setting up settings navigation...')
+
+  const navItems = document.querySelectorAll('#settingsInterface .nav-item')
+  const panels = document.querySelectorAll('#settingsContent .settings-panel')
+
+  console.log('Found nav items:', navItems.length)
+  console.log('Found panels:', panels.length)
+
+  // 移除旧事件监听器并重新绑定
+  navItems.forEach((item, index) => {
+    const newItem = item.cloneNode(true)
+    item.parentNode.replaceChild(newItem, item)
+  })
+
+  // 重新查询导航项
+  const newNavItems = document.querySelectorAll('#settingsInterface .nav-item')
+
+  newNavItems.forEach((item) => {
+    item.addEventListener('click', () => {
+      const category = item.dataset.category
+      console.log('Nav item clicked:', category)
+
+      if (!category) {
+        console.error('No category found for nav item')
+        return
+      }
+
+      // 更新导航状态
+      newNavItems.forEach(nav => nav.classList.remove('active'))
+      item.classList.add('active')
+
+      // 更新面板显示
+      panels.forEach(panel => panel.classList.remove('active'))
+      const targetPanel = document.getElementById(`${category}-panel`)
+      if (targetPanel) {
+        targetPanel.classList.add('active')
+        console.log(`Switched to panel: ${category}`)
+      } else {
+        console.error(`Panel not found: ${category}-panel`)
+      }
+    })
+  })
+
+  setupFormEventListeners()
+}
+
+// 设置表单事件监听器
+function setupFormEventListeners() {
+  console.log('Setting up form event listeners...')
+
+  // 范围输入
+  const rangeInputs = document.querySelectorAll('#settingsContent input[type="range"]')
+  rangeInputs.forEach(input => {
+    input.addEventListener('input', updateRangeValue)
+    input.addEventListener('change', markUnsaved)
+  })
+
+  // 其他输入
+  const inputs = document.querySelectorAll('#settingsContent input, #settingsContent select')
+  inputs.forEach(input => {
+    if (input.type !== 'range') {
+      input.addEventListener('change', markUnsaved)
+    }
+  })
+
+  updateAllRangeValues()
+}
+
+// 加载设置
 async function loadSettings() {
   try {
     const settings = await window.electronAPI.getSettings()
@@ -1725,8 +1590,9 @@ async function loadSettings() {
   }
 }
 
+// 填充设置表单
 function populateSettingsForm(settings) {
-  // Download settings
+  // 下载设置
   const downloadPath = document.getElementById('downloadPath')
   if (downloadPath) downloadPath.value = settings.downloadPath || ''
 
@@ -1742,7 +1608,7 @@ function populateSettingsForm(settings) {
   const enableResumeDownload = document.getElementById('enableResumeDownload')
   if (enableResumeDownload) enableResumeDownload.checked = settings.enableResumeDownload !== false
 
-  // Window settings
+  // 窗口设置
   const windowBehavior = document.getElementById('windowBehavior')
   if (windowBehavior) windowBehavior.value = settings.windowBehavior || 'close'
 
@@ -1750,86 +1616,14 @@ function populateSettingsForm(settings) {
   if (autoStartNode) autoStartNode.checked = settings.autoStartNode !== false
 }
 
-function setupSettingsNavigation() {
-  console.log('Setting up settings navigation...')
-
-  const navItems = document.querySelectorAll('#settingsInterface .nav-item')
-  const panels = document.querySelectorAll('#settingsContent .settings-panel')
-
-  console.log('Found nav items:', navItems.length)
-  console.log('Found panels:', panels.length)
-
-  // Remove old event listeners and rebind
-  navItems.forEach((item, index) => {
-    // Clone node to remove old event listeners
-    const newItem = item.cloneNode(true)
-    item.parentNode.replaceChild(newItem, item)
-  })
-
-  // Re-query navigation items
-  const newNavItems = document.querySelectorAll('#settingsInterface .nav-item')
-
-  newNavItems.forEach((item) => {
-    item.addEventListener('click', () => {
-      const category = item.dataset.category
-      console.log('Nav item clicked:', category)
-
-      if (!category) {
-        console.error('No category found for nav item')
-        return
-      }
-
-      // Update navigation state
-      newNavItems.forEach(nav => nav.classList.remove('active'))
-      item.classList.add('active')
-
-      // Update panel display
-      panels.forEach(panel => panel.classList.remove('active'))
-      const targetPanel = document.getElementById(`${category}-panel`)
-      if (targetPanel) {
-        targetPanel.classList.add('active')
-        console.log(`Switched to panel: ${category}`)
-      } else {
-        console.error(`Panel not found: ${category}-panel`)
-      }
-    })
-  })
-
-  // Setup form event listeners
-  setupFormEventListeners()
-}
-
-// Setup form event listeners
-function setupFormEventListeners() {
-  console.log('Setting up form event listeners...')
-
-  // Range inputs
-  const rangeInputs = document.querySelectorAll('#settingsContent input[type="range"]')
-  rangeInputs.forEach(input => {
-    input.addEventListener('input', updateRangeValue)
-    input.addEventListener('change', markUnsaved)
-  })
-
-  // Other inputs
-  const inputs = document.querySelectorAll('#settingsContent input, #settingsContent select')
-  inputs.forEach(input => {
-    if (input.type !== 'range') {
-      input.addEventListener('change', markUnsaved)
-    }
-  })
-
-  // Update all range value displays
-  updateAllRangeValues()
-}
-
-// Update range value display
+// 更新范围值显示
 function updateRangeValue(event) {
   const input = event.target
   const valueSpan = input.parentNode.querySelector('.range-value')
   if (valueSpan) {
     let value = input.value
 
-    // Format specific values
+    // 格式化特定值
     if (input.id === 'connectionTimeout') {
       value = `${value}s`
     } else if (input.id === 'memoryLimit' || input.id === 'diskCacheSize') {
@@ -1843,7 +1637,7 @@ function updateRangeValue(event) {
   markUnsaved()
 }
 
-// Update all range values
+// 更新所有范围值
 function updateAllRangeValues() {
   const rangeInputs = document.querySelectorAll('#settingsContent input[type="range"]')
   rangeInputs.forEach(input => {
@@ -1851,12 +1645,13 @@ function updateAllRangeValues() {
   })
 }
 
-// Mark as unsaved
+// 标记为未保存
 function markUnsaved() {
   hasUnsavedChanges = true
   window.hasUnsavedChanges = true
 }
 
+// 保存所有设置
 async function saveAllSettings() {
   console.log('Starting to save settings...')
 
@@ -1867,12 +1662,10 @@ async function saveAllSettings() {
     const result = await window.electronAPI.saveSettings(settings)
     console.log('Save result:', result)
 
-    // Check save result - fix duplicate message issue
     if (result && result.success === false) {
       throw new Error(result.error || 'Settings save failed')
     }
 
-    // Save successful
     hasUnsavedChanges = false
     window.hasUnsavedChanges = false
 
@@ -1887,6 +1680,7 @@ async function saveAllSettings() {
   }
 }
 
+// 从表单收集设置
 function collectSettingsFromForm() {
   return {
     downloadPath: document.getElementById('downloadPath')?.value || '',
@@ -1899,6 +1693,7 @@ function collectSettingsFromForm() {
   }
 }
 
+// 重置所有设置
 async function resetAllSettings() {
   const confirmMessage = 'This will reset all settings to their default values. This action cannot be undone.'
 
@@ -1927,6 +1722,7 @@ async function resetAllSettings() {
   }
 }
 
+// 选择下载路径
 async function selectDownloadPath() {
   try {
     const result = await window.electronAPI.selectFolder('Select Download Location')
@@ -1943,7 +1739,7 @@ async function selectDownloadPath() {
   }
 }
 
-// Placeholder functions for backup and import
+// 备份和导入占位符函数
 function createBackup() {
   showMessage('Creating backup...', 'info')
 }
@@ -1960,7 +1756,11 @@ function importSettings() {
   showMessage('Opening import dialog...', 'info')
 }
 
-// Utility functions
+// ==========================================
+// 15. 工具函数
+// ==========================================
+
+// 格式化文件大小
 function formatFileSize(bytes) {
   if (bytes === 0) return '0 B'
   const k = 1024
@@ -1969,12 +1769,14 @@ function formatFileSize(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
+// 格式化时间
 function formatTime(seconds) {
   if (seconds < 60) return `${seconds}s`
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m${seconds % 60}s`
   return `${Math.floor(seconds / 3600)}h${Math.floor((seconds % 3600) / 60)}m`
 }
 
+// 格式化相对时间
 function formatRelativeTime(timestamp) {
   const now = Date.now()
   const diff = now - timestamp
@@ -1986,6 +1788,7 @@ function formatRelativeTime(timestamp) {
   return `${Math.floor(seconds / 86400)} days ago`
 }
 
+// 获取状态文本
 function getStatusText(status) {
   const statusMap = {
     'downloading': 'Downloading',
@@ -1997,14 +1800,140 @@ function getStatusText(status) {
   return statusMap[status] || status
 }
 
-window.goBackToMain = goBackToMain
-window.markUnsaved = markUnsaved
-window.saveAllSettings = saveAllSettings
-window.selectDownloadPath = selectDownloadPath
-window.createBackup = createBackup
-window.showBackupList = showBackupList
-window.exportSettings = exportSettings
-window.importSettings = importSettings
-window.updateRangeValue = updateRangeValue
-window.updateAllRangeValues = updateAllRangeValues
-window.hasUnsavedChanges = false
+// ==========================================
+// 16. 事件监听器设置
+// ==========================================
+
+// 监听自动启动事件
+if (window.electronAPI) {
+  window.electronAPI.onP2PNodeStarted((result) => {
+    console.log('Received auto-start result:', result)
+
+    isAutoStarting = false
+
+    if (result.success) {
+      updateButtonStates(true)
+      updateNodeInfo(result.nodeInfo)
+      startStatsRefresh()
+      showMessage('P2P node auto-started successfully', 'success')
+    } else {
+      updateButtonStates(false)
+      elements.nodeInfo.innerHTML = '<p>Auto-start failed</p>'
+      showMessage(`Auto-start failed: ${result.error}`, 'error')
+    }
+  })
+
+  // 监听节点状态变化事件
+  window.electronAPI.onP2PNodeStatusChanged((result) => {
+    console.log('Received node status change:', result)
+
+    if (result.success && result.nodeInfo) {
+      updateButtonStates(true)
+      updateNodeInfo(result.nodeInfo)
+    } else if (result.success && !result.nodeInfo) {
+      updateButtonStates(false)
+      elements.nodeInfo.innerHTML = '<p>Node stopped</p>'
+      elements.dhtStats.innerHTML = '<p>DHT not running</p>'
+    } else if (!result.success && result.error) {
+      showMessage(`Node operation failed: ${result.error}`, 'error')
+    }
+  })
+}
+
+// ==========================================
+// 17. 全局函数导出和页面初始化
+// ==========================================
+
+// 导出全局函数
+Object.assign(window, {
+  removeSelectedFile,
+  pauseDownload,
+  resumeDownload,
+  cancelDownload,
+  connectToDiscoveredPeer,
+  refreshDiscoveredPeers,
+  goBackToMain,
+  markUnsaved,
+  saveAllSettings,
+  resetAllSettings,
+  selectDownloadPath,
+  createBackup,
+  showBackupList,
+  exportSettings,
+  importSettings,
+  updateRangeValue,
+  updateAllRangeValues,
+  showSettings,
+  pageTransitionManager,
+  hasUnsavedChanges: false
+})
+
+// 调试函数
+window.debugPageTransition = () => {
+  if (pageTransitionManager) {
+    console.log('Current page:', pageTransitionManager.getCurrentPage())
+    console.log('Is transitioning:', pageTransitionManager.isTransitioningNow())
+
+    const mainInterface = document.getElementById('mainInterface')
+    const settingsInterface = document.getElementById('settingsInterface')
+
+    console.log('Main interface:', {
+      display: mainInterface?.style.display,
+      transform: mainInterface?.style.transform,
+      opacity: mainInterface?.style.opacity,
+      classes: mainInterface?.className
+    })
+
+    console.log('Settings interface:', {
+      display: settingsInterface?.style.display,
+      transform: settingsInterface?.style.transform,
+      opacity: settingsInterface?.style.opacity,
+      classes: settingsInterface?.className
+    })
+  }
+}
+
+// ==========================================
+// 18. 页面加载事件处理
+// ==========================================
+
+document.addEventListener('DOMContentLoaded', async () => {
+  console.log('P2P File Sharing System loaded')
+
+  // 确保消息容器存在
+  if (!messageManager.container) {
+    messageManager.createMessageContainer()
+  }
+
+  // 初始化DOM元素
+  initializeDOMElements()
+
+  // 初始化导航
+  initializeNavigation()
+
+  // 设置事件监听器
+  setupEventListeners()
+
+  // 初始化页面状态
+  updateSelectedFilesDisplay()
+  refreshDatabaseStats()
+
+  // 设置自动启动状态
+  isAutoStarting = true
+  if (elements.startNode) {
+    elements.startNode.disabled = true
+    elements.startNode.textContent = 'Auto-starting...'
+  }
+  if (elements.stopNode) {
+    elements.stopNode.disabled = true
+  }
+  updateNodeStatus('connecting')
+
+  // 延迟初始化页面切换管理器
+  setTimeout(() => {
+    console.log('Initializing page transition manager')
+    if (!pageTransitionManager) {
+      pageTransitionManager = new PageTransitionManager()
+    }
+  }, 100)
+})
