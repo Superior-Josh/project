@@ -1,4 +1,7 @@
-// 移除了主题管理器 - 使用固定的浅色主题
+// renderer/renderer.js
+
+let currentSearchAbort = null
+let searchTimeout = null
 
 // Message Manager for UI notifications
 class MessageManager {
@@ -245,11 +248,11 @@ function initializeNavigation() {
   mainNavItems.forEach(item => {
     item.addEventListener('click', () => {
       const sectionId = item.dataset.section
-      
+
       // Update navigation
       mainNavItems.forEach(nav => nav.classList.remove('active'))
       item.classList.add('active')
-      
+
       // Update content
       contentSections.forEach(section => section.classList.remove('active'))
       const targetSection = document.getElementById(`${sectionId}-section`)
@@ -265,11 +268,11 @@ function initializeNavigation() {
   settingsNavItems.forEach(item => {
     item.addEventListener('click', () => {
       const category = item.dataset.category
-      
+
       // Update navigation
       settingsNavItems.forEach(nav => nav.classList.remove('active'))
       item.classList.add('active')
-      
+
       // Update panels - will be handled by loadSettingsContent
       switchSettingsPanel(category)
     })
@@ -281,13 +284,13 @@ function showSettings() {
   document.getElementById('mainInterface').style.display = 'none'
   document.getElementById('settingsInterface').style.display = 'flex'
   currentInterface = 'settings'
-  
+
   // Load settings content
   loadSettingsContent()
 }
 
 function goBackToMain() {
-    hideSettings()
+  hideSettings()
 }
 
 function hideSettings() {
@@ -303,7 +306,7 @@ async function loadSettingsContent() {
 
   try {
     // Load settings.html content
-  
+
     const response = await fetch('settings.html')
     const html = await response.text()
     settingsContent.innerHTML = html
@@ -335,7 +338,7 @@ function createFallbackSettings(container) {
 function switchSettingsPanel(category) {
   const panels = document.querySelectorAll('#settingsContent .settings-panel')
   panels.forEach(panel => panel.classList.remove('active'))
-  
+
   const targetPanel = document.getElementById(`${category}-panel`)
   if (targetPanel) {
     targetPanel.classList.add('active')
@@ -495,58 +498,58 @@ class PageTransitionManager {
     this.isTransitioning = false
     this.currentPage = 'main'
     this.transitionDuration = 400 // ms
-    
+
     this.init()
   }
-  
+
   init() {
     // 创建页面遮罩
     this.createPageOverlay()
-    
+
     // 预设页面状态
     this.setupInitialStates()
   }
-  
+
   createPageOverlay() {
     // 检查是否已存在遮罩
     if (document.querySelector('.page-overlay')) return
-    
+
     const overlay = document.createElement('div')
     overlay.className = 'page-overlay'
     document.body.appendChild(overlay)
   }
-  
+
   setupInitialStates() {
     const mainInterface = document.getElementById('mainInterface')
     const settingsInterface = document.getElementById('settingsInterface')
-    
+
     if (mainInterface) {
       mainInterface.style.display = 'flex'
       // 清除所有动画类
       mainInterface.classList.remove('slide-out-left', 'slide-in-left')
     }
-    
+
     if (settingsInterface) {
       settingsInterface.style.display = 'none'
       // 清除所有动画类
       settingsInterface.classList.remove('slide-in-right', 'slide-out-right')
     }
   }
-  
+
   // 重置元素到初始状态
   resetElementState(element, isSettings = false) {
     if (!element) return
-    
+
     // 移除所有动画类
     element.classList.remove('slide-out-left', 'slide-in-left', 'slide-in-right', 'slide-out-right')
-    
+
     // 重置transform和opacity
     element.style.transform = ''
     element.style.opacity = ''
-    
+
     // 强制重绘
     element.offsetHeight
-    
+
     if (isSettings) {
       // 设置界面重置到右侧位置
       element.style.transform = 'translateX(100%)'
@@ -556,41 +559,41 @@ class PageTransitionManager {
       element.style.transform = 'translateX(0)'
       element.style.opacity = '1'
     }
-    
+
     // 再次强制重绘
     element.offsetHeight
   }
-  
+
   // 切换到设置页面（向右滑入）
   async showSettings() {
     if (this.isTransitioning || this.currentPage === 'settings') return
-    
+
     console.log('Starting transition to settings page')
     this.isTransitioning = true
     document.body.classList.add('page-transitioning')
-    
+
     const mainInterface = document.getElementById('mainInterface')
     const settingsInterface = document.getElementById('settingsInterface')
     const overlay = document.querySelector('.page-overlay')
-    
+
     try {
       // 显示遮罩
       if (overlay) {
         overlay.classList.add('active')
       }
-      
+
       // 重置设置界面状态
       this.resetElementState(settingsInterface, true)
-      
+
       // 显示设置界面
       settingsInterface.style.display = 'flex'
-      
+
       // 等待一帧确保display生效
       await this.waitForNextFrame()
-      
+
       // 开始动画
       const animationPromises = []
-      
+
       // 主界面向左滑出
       if (mainInterface) {
         animationPromises.push(this.animateElement(mainInterface, () => {
@@ -598,7 +601,7 @@ class PageTransitionManager {
           mainInterface.style.opacity = '0.8'
         }))
       }
-      
+
       // 设置界面从右滑入
       if (settingsInterface) {
         animationPromises.push(this.animateElement(settingsInterface, () => {
@@ -606,17 +609,17 @@ class PageTransitionManager {
           settingsInterface.style.opacity = '1'
         }))
       }
-      
+
       await Promise.all(animationPromises)
-      
+
       // 隐藏主界面
       if (mainInterface) {
         mainInterface.style.display = 'none'
       }
-      
+
       this.currentPage = 'settings'
       console.log('Transition to settings completed')
-      
+
     } catch (error) {
       console.error('Error during settings transition:', error)
       // 错误时直接切换
@@ -625,49 +628,49 @@ class PageTransitionManager {
       // 清理
       this.isTransitioning = false
       document.body.classList.remove('page-transitioning')
-      
+
       if (overlay) {
         overlay.classList.remove('active')
       }
     }
   }
-  
+
   // 切换到主页面（向左滑入）
   async showMain() {
     if (this.isTransitioning || this.currentPage === 'main') return
-    
+
     console.log('Starting transition to main page')
     this.isTransitioning = true
     document.body.classList.add('page-transitioning')
-    
+
     const mainInterface = document.getElementById('mainInterface')
     const settingsInterface = document.getElementById('settingsInterface')
     const overlay = document.querySelector('.page-overlay')
-    
+
     try {
       // 显示遮罩
       if (overlay) {
         overlay.classList.add('active')
       }
-      
+
       // 重置主界面状态（从左侧位置开始）
       this.resetElementState(mainInterface, false)
       if (mainInterface) {
         mainInterface.style.transform = 'translateX(-100%)'
         mainInterface.style.opacity = '0.8'
       }
-      
+
       // 显示主界面
       if (mainInterface) {
         mainInterface.style.display = 'flex'
       }
-      
+
       // 等待一帧确保display生效
       await this.waitForNextFrame()
-      
+
       // 开始动画
       const animationPromises = []
-      
+
       // 设置界面向右滑出
       if (settingsInterface) {
         animationPromises.push(this.animateElement(settingsInterface, () => {
@@ -675,7 +678,7 @@ class PageTransitionManager {
           settingsInterface.style.opacity = '0'
         }))
       }
-      
+
       // 主界面从左滑入
       if (mainInterface) {
         animationPromises.push(this.animateElement(mainInterface, () => {
@@ -683,17 +686,17 @@ class PageTransitionManager {
           mainInterface.style.opacity = '1'
         }))
       }
-      
+
       await Promise.all(animationPromises)
-      
+
       // 隐藏设置界面
       if (settingsInterface) {
         settingsInterface.style.display = 'none'
       }
-      
+
       this.currentPage = 'main'
       console.log('Transition to main completed')
-      
+
     } catch (error) {
       console.error('Error during main transition:', error)
       // 错误时直接切换
@@ -702,13 +705,13 @@ class PageTransitionManager {
       // 清理
       this.isTransitioning = false
       document.body.classList.remove('page-transitioning')
-      
+
       if (overlay) {
         overlay.classList.remove('active')
       }
     }
   }
-  
+
   // 等待下一帧
   waitForNextFrame() {
     return new Promise(resolve => {
@@ -717,7 +720,7 @@ class PageTransitionManager {
       })
     })
   }
-  
+
   // 动画辅助函数 - 重写为更可靠的版本
   animateElement(element, transformFn) {
     return new Promise((resolve) => {
@@ -725,9 +728,9 @@ class PageTransitionManager {
         resolve()
         return
       }
-      
+
       let resolved = false
-      
+
       const handleTransitionEnd = (e) => {
         // 确保事件来自目标元素且是transform或opacity变化
         if (e.target === element && (e.propertyName === 'transform' || e.propertyName === 'opacity')) {
@@ -738,12 +741,12 @@ class PageTransitionManager {
           }
         }
       }
-      
+
       element.addEventListener('transitionend', handleTransitionEnd)
-      
+
       // 执行变换
       transformFn()
-      
+
       // 超时保护 - 确保动画不会卡死
       setTimeout(() => {
         if (!resolved) {
@@ -755,12 +758,12 @@ class PageTransitionManager {
       }, this.transitionDuration + 200)
     })
   }
-  
+
   // 强制切换（无动画）
   forceSwitch(targetPage) {
     const mainInterface = document.getElementById('mainInterface')
     const settingsInterface = document.getElementById('settingsInterface')
-    
+
     if (targetPage === 'settings') {
       if (mainInterface) {
         mainInterface.style.display = 'none'
@@ -781,12 +784,12 @@ class PageTransitionManager {
       this.currentPage = 'main'
     }
   }
-  
+
   // 获取当前页面
   getCurrentPage() {
     return this.currentPage
   }
-  
+
   // 检查是否正在切换
   isTransitioningNow() {
     return this.isTransitioning
@@ -801,9 +804,9 @@ function showSettings() {
   if (!pageTransitionManager) {
     pageTransitionManager = new PageTransitionManager()
   }
-  
+
   console.log('showSettings called, current page:', pageTransitionManager.getCurrentPage())
-  
+
   // 使用动画切换到设置页面
   pageTransitionManager.showSettings().then(() => {
     // 切换完成后加载设置内容
@@ -823,9 +826,9 @@ function goBackToMain() {
   if (!pageTransitionManager) {
     pageTransitionManager = new PageTransitionManager()
   }
-  
+
   console.log('goBackToMain called, current page:', pageTransitionManager.getCurrentPage())
-  
+
   // 使用动画切换到主页面
   pageTransitionManager.showMain().then(() => {
     currentInterface = 'main'
@@ -841,24 +844,24 @@ function goBackToMain() {
 function hideSettings() {
   const mainInterface = document.getElementById('mainInterface')
   const settingsInterface = document.getElementById('settingsInterface')
-  
+
   if (settingsInterface) {
     settingsInterface.style.display = 'none'
     // 清理所有样式
     settingsInterface.style.transform = ''
     settingsInterface.style.opacity = ''
   }
-  
+
   if (mainInterface) {
     mainInterface.style.display = 'flex'
     // 清理所有样式
     mainInterface.style.transform = ''
     mainInterface.style.opacity = ''
   }
-  
+
   currentInterface = 'main'
   hasUnsavedChanges = false
-  
+
   if (pageTransitionManager) {
     pageTransitionManager.currentPage = 'main'
   }
@@ -880,17 +883,17 @@ window.debugPageTransition = () => {
   if (pageTransitionManager) {
     console.log('Current page:', pageTransitionManager.getCurrentPage())
     console.log('Is transitioning:', pageTransitionManager.isTransitioningNow())
-    
+
     const mainInterface = document.getElementById('mainInterface')
     const settingsInterface = document.getElementById('settingsInterface')
-    
+
     console.log('Main interface:', {
       display: mainInterface?.style.display,
       transform: mainInterface?.style.transform,
       opacity: mainInterface?.style.opacity,
       classes: mainInterface?.className
     })
-    
+
     console.log('Settings interface:', {
       display: settingsInterface?.style.display,
       transform: settingsInterface?.style.transform,
@@ -1171,6 +1174,21 @@ async function shareSelectedFiles() {
 
         if (result.success) {
           successCount++
+          // 添加延迟确保DHT传播
+          console.log(`File shared: ${fileName}, waiting for DHT sync...`)
+          await new Promise(resolve => setTimeout(resolve, 3000))
+
+          // 验证文件是否可以被搜索到
+          try {
+            const searchTest = await window.electronAPI.searchFiles(fileName.split('.')[0])
+            if (searchTest.success && searchTest.results.length > 0) {
+              console.log(`✓ File ${fileName} is searchable in DHT`)
+            } else {
+              console.warn(`⚠ File ${fileName} may not be properly indexed`)
+            }
+          } catch (error) {
+            console.debug('Search verification failed:', error)
+          }
         } else {
           errorCount++
           errors.push(`${filePath}: ${result.error}`)
@@ -1186,7 +1204,7 @@ async function shareSelectedFiles() {
     }
 
     if (errorCount > 0) {
-      showMessage(`${errorCount} files failed to share:\n${errors.join('\n')}`, 'error')
+      showMessage(`${errorCount} files failed to share:\n${errors.join('\n')}`, 'error') ////
     }
 
     selectedFiles = []
@@ -1202,6 +1220,36 @@ async function shareSelectedFiles() {
 }
 
 // Search files
+// async function searchFiles() {
+//   const query = elements.searchInput.value.trim()
+//   if (!query) {
+//     showMessage('Please enter search keywords', 'warning')
+//     return
+//   }
+
+//   if (!isNodeStarted) {
+//     showMessage('Please start P2P node first', 'warning')
+//     return
+//   }
+
+//   try {
+//     elements.searchFiles.disabled = true
+//     elements.searchFiles.textContent = 'Searching...'
+
+//     const result = await window.electronAPI.searchFiles(query)
+
+//     if (result.success) {
+//       displaySearchResults(result.results)
+//     } else {
+//       showMessage(`Search failed: ${result.error}`, 'error')
+//     }
+//   } catch (error) {
+//     showMessage(`Search error: ${error.message}`, 'error')
+//   } finally {
+//     elements.searchFiles.disabled = false
+//     elements.searchFiles.textContent = 'Search'
+//   }
+// }
 async function searchFiles() {
   const query = elements.searchInput.value.trim()
   if (!query) {
@@ -1214,37 +1262,108 @@ async function searchFiles() {
     return
   }
 
+  // 取消之前的搜索
+  if (currentSearchAbort) {
+    currentSearchAbort.abort()
+  }
+  if (searchTimeout) {
+    clearTimeout(searchTimeout)
+  }
+
   try {
+    currentSearchAbort = new AbortController()
+    
+    // 更新UI状态
     elements.searchFiles.disabled = true
     elements.searchFiles.textContent = 'Searching...'
+    elements.searchResults.innerHTML = '<p>🔍 Searching files...</p>'
+
+    // 设置搜索超时
+    searchTimeout = setTimeout(() => {
+      if (currentSearchAbort) {
+        currentSearchAbort.abort()
+        showMessage('Search timeout - showing partial results', 'warning')
+      }
+    }, 12000) // 12秒总超时
 
     const result = await window.electronAPI.searchFiles(query)
 
+    // 清除超时
+    clearTimeout(searchTimeout)
+    searchTimeout = null
+    currentSearchAbort = null
+
     if (result.success) {
-      displaySearchResults(result.results)
+      displaySearchResults(result.results, result.searchTime, result.sources)
+      
+      if (result.results.length === 0) {
+        showMessage('No files found matching your search', 'info')
+      } else {
+        showMessage(`Found ${result.results.length} files in ${result.searchTime}ms`, 'success')
+      }
+    } else if (result.cancelled) {
+      elements.searchResults.innerHTML = '<p>Search cancelled</p>'
     } else {
       showMessage(`Search failed: ${result.error}`, 'error')
+      elements.searchResults.innerHTML = '<p>Search failed</p>'
     }
   } catch (error) {
     showMessage(`Search error: ${error.message}`, 'error')
+    elements.searchResults.innerHTML = '<p>Search error</p>'
   } finally {
+    // 重置UI状态
     elements.searchFiles.disabled = false
     elements.searchFiles.textContent = 'Search'
+    currentSearchAbort = null
+    
+    if (searchTimeout) {
+      clearTimeout(searchTimeout)
+      searchTimeout = null
+    }
   }
 }
 
 // Display search results
-function displaySearchResults(results) {
+// function displaySearchResults(results) {
+//   if (results.length === 0) {
+//     elements.searchResults.innerHTML = '<p>No matching files found</p>'
+//   } else {
+//     const resultList = results.map(file => `
+//       <div class="file-item">
+//         <div class="file-info">
+//           <h4>${file.name}</h4>
+//           <p>Size: ${formatFileSize(file.size)}</p>
+//           <p>Hash: ${file.hash}</p>
+//           <p>Provider: ${file.provider || 'Unknown'}</p>
+//           <p>Time: ${new Date(file.timestamp || file.savedAt || Date.now()).toLocaleString()}</p>
+//         </div>
+//         <div class="file-actions">
+//           <button onclick="window.downloadFile('${file.hash}', '${file.name}')">Download</button>
+//         </div>
+//       </div>
+//     `).join('')
+
+//     elements.searchResults.innerHTML = `
+//       <p>Found ${results.length} files:</p>
+//       ${resultList}
+//     `
+//   }
+// }
+function displaySearchResults(results, searchTime, sources) {
   if (results.length === 0) {
     elements.searchResults.innerHTML = '<p>No matching files found</p>'
   } else {
+    const sourceInfo = sources ? 
+      `<p class="search-info">Found ${results.length} files in ${searchTime}ms (Local: ${sources.local}, Network: ${sources.network})</p>` 
+      : ''
+    
     const resultList = results.map(file => `
-      <div class="file-item">
+      <div class="file-item ${file.source === 'local' ? 'local-file' : 'network-file'}">
         <div class="file-info">
-          <h4>${file.name}</h4>
+          <h4>${file.name} ${file.source === 'local' ? '📁' : '🌐'}</h4>
           <p>Size: ${formatFileSize(file.size)}</p>
           <p>Hash: ${file.hash}</p>
-          <p>Provider: ${file.provider || 'Unknown'}</p>
+          <p>Source: ${file.source || 'unknown'}</p>
           <p>Time: ${new Date(file.timestamp || file.savedAt || Date.now()).toLocaleString()}</p>
         </div>
         <div class="file-actions">
@@ -1253,10 +1372,34 @@ function displaySearchResults(results) {
       </div>
     `).join('')
 
-    elements.searchResults.innerHTML = `
-      <p>Found ${results.length} files:</p>
-      ${resultList}
-    `
+    elements.searchResults.innerHTML = sourceInfo + resultList
+  }
+}
+
+function displaySearchResults(results, searchTime, sources) {
+  if (results.length === 0) {
+    elements.searchResults.innerHTML = '<p>No matching files found</p>'
+  } else {
+    const sourceInfo = sources ? 
+      `<p class="search-info">Found ${results.length} files in ${searchTime}ms (Local: ${sources.local}, Network: ${sources.network})</p>` 
+      : ''
+    
+    const resultList = results.map(file => `
+      <div class="file-item ${file.source === 'local' ? 'local-file' : 'network-file'}">
+        <div class="file-info">
+          <h4>${file.name} ${file.source === 'local' ? '📁' : '🌐'}</h4>
+          <p>Size: ${formatFileSize(file.size)}</p>
+          <p>Hash: ${file.hash}</p>
+          <p>Source: ${file.source || 'unknown'}</p>
+          <p>Time: ${new Date(file.timestamp || file.savedAt || Date.now()).toLocaleString()}</p>
+        </div>
+        <div class="file-actions">
+          <button onclick="window.downloadFile('${file.hash}', '${file.name}')">Download</button>
+        </div>
+      </div>
+    `).join('')
+
+    elements.searchResults.innerHTML = sourceInfo + resultList
   }
 }
 
@@ -1865,3 +2008,38 @@ window.importSettings = importSettings
 window.updateRangeValue = updateRangeValue
 window.updateAllRangeValues = updateAllRangeValues
 window.hasUnsavedChanges = false
+
+// 在页面加载完成后添加调试按钮
+if (process.env.NODE_ENV === 'development') {
+  const debugContainer = document.createElement('div')
+  debugContainer.style.position = 'fixed'
+  debugContainer.style.bottom = '10px'
+  debugContainer.style.right = '10px'
+  debugContainer.style.zIndex = '9999'
+  
+  const testDHTBtn = document.createElement('button')
+  testDHTBtn.textContent = 'Test DHT'
+  testDHTBtn.onclick = async () => {
+    console.log('=== DHT Debug Test ===')
+    
+    const nodeInfo = await window.electronAPI.getNodeInfo()
+    const dhtStats = await window.electronAPI.getDHTStats()
+    const localFiles = await window.electronAPI.getLocalFiles()
+    
+    console.log('Connected Peers:', nodeInfo.connectedPeers)
+    console.log('DHT Routing Table:', dhtStats.routingTableSize)
+    console.log('Local Files:', localFiles.length)
+    
+    // 测试搜索
+    if (localFiles.length > 0) {
+      const testFileName = localFiles[0].name
+      console.log(`Testing search for: ${testFileName}`)
+      
+      const searchResult = await window.electronAPI.searchFiles(testFileName)
+      console.log('Search Result:', searchResult)
+    }
+  }
+  
+  debugContainer.appendChild(testDHTBtn)
+  document.body.appendChild(debugContainer)
+}

@@ -140,67 +140,6 @@
   </div>
 </div>
 
-<!-- Backup & Import Settings -->
-<div class="settings-panel" id="backup-panel">
-  <div class="panel-header">
-    <h2>Backup & Import</h2>
-    <p>Manage settings and data backup</p>
-  </div>
-  <div class="settings-group">
-    <div class="setting-item">
-      <label>
-        <input type="checkbox" id="autoBackupSettings">
-        <span>Auto Backup Settings</span>
-      </label>
-      <p class="setting-description">Automatically backup settings periodically</p>
-    </div>
-
-    <div class="setting-item">
-      <label>
-        <input type="checkbox" id="autoBackupDatabase">
-        <span>Auto Backup Database</span>
-      </label>
-      <p class="setting-description">Automatically backup file database</p>
-    </div>
-
-    <div class="setting-item">
-      <label for="backupInterval">Backup Interval (hours)</label>
-      <div class="setting-control">
-        <input type="range" id="backupInterval" min="1" max="168" step="1" oninput="updateRangeValue(event)">
-        <span class="range-value">24 hours</span>
-      </div>
-      <p class="setting-description">How often to create automatic backups</p>
-    </div>
-
-    <div class="setting-item">
-      <label for="maxBackupFiles">Max Backup Files</label>
-      <div class="setting-control">
-        <input type="range" id="maxBackupFiles" min="1" max="50" step="1" oninput="updateRangeValue(event)">
-        <span class="range-value">5</span>
-      </div>
-      <p class="setting-description">Maximum number of backup files to keep</p>
-    </div>
-
-    <div class="setting-item backup-actions">
-      <div class="backup-buttons">
-        <button class="btn-secondary" onclick="createBackup()">Create Backup Now</button>
-        <button class="btn-secondary" onclick="showBackupList()">View Backups</button>
-      </div>
-      <div class="import-export-buttons">
-        <button class="btn-outline" onclick="exportSettings()">Export Settings</button>
-        <button class="btn-outline" onclick="importSettings()">Import Settings</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Backup List -->
-  <div id="backupList" class="backup-list" style="display: none;">
-    <h3>Available Backups</h3>
-    <div id="backupItems" class="backup-items">
-      <!-- Backup items will be populated here -->
-    </div>
-  </div>
-</div>
 
 <!-- Network Settings -->
 <div class="settings-panel" id="network-panel">

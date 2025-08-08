@@ -21,6 +21,7 @@ let settingsManager = null
 let mainWindow = null
 let settingsWindow = null
 let tray = null
+let currentSearchController = null
 
 async function createWindow() {
   const processId = process.pid
@@ -121,12 +122,6 @@ function createTray() {
             mainWindow.show()
             mainWindow.focus()
           }
-        }
-      },
-      {
-        label: 'Settings',
-        click: () => {
-          createSettingsWindow()
         }
       },
       {
@@ -270,80 +265,68 @@ function getInstanceDataDir() {
 
 // 修改自动启动函数以使用增强的P2P节点
 async function autoStartP2PNode(window) {
+  let startTimeout
+  
   try {
     console.log('Auto-starting P2P node...')
+    
+    // 设置启动超时
+    startTimeout = setTimeout(() => {
+      console.error('Auto-start timeout - sending failure message')
+      if (window && !window.isDestroyed()) {
+        window.webContents.send('p2p-node-started', {
+          success: false,
+          error: 'Node start timeout after 30 seconds'
+        })
+      }
+    }, 30000)
 
     if (!p2pNode) {
-      const instanceDataDir = getInstanceDataDir()
-      const downloadPath = settingsManager ? 
-        settingsManager.get('downloadPath') : 
-        path.join(instanceDataDir, 'downloads')
-
-      // 获取NAT穿透设置
-      const natSettings = settingsManager ? settingsManager.getNATTraversalSettings() : {}
-      
-      // 创建增强的P2P节点
+      console.log('Creating P2P node instance...')
+      // 使用简化配置
       p2pNode = new P2PNode({
-        listenAddresses: [
-          '/ip4/0.0.0.0/tcp/0',  // 监听所有接口
-          '/ip6/::/tcp/0'        // IPv6支持
-        ],
-        enableHolePunching: natSettings.holePunching?.enabled !== false,
-        enableUPnP: natSettings.upnp?.enabled !== false,
-        enableAutoRelay: natSettings.relay?.autoRelay !== false,
-        customBootstrapNodes: natSettings.customNodes?.bootstrapNodes || [],
-        customRelayNodes: natSettings.customNodes?.relayNodes || []
+        enableHolePunching: false, // 暂时禁用洞穿以简化启动
+        enableUPnP: false,         // 暂时禁用UPnP
+        enableAutoRelay: false     // 暂时禁用自动中继
       })
 
+      console.log('Creating other managers...')
       dhtManager = new DHTManager(p2pNode)
-
-      databaseManager = new DatabaseManager(path.join(instanceDataDir, 'data'))
+      databaseManager = new DatabaseManager(path.join('./data'))
+      
+      console.log('Initializing database...')
       await databaseManager.initialize()
-
-      fileManager = new FileManager(p2pNode, dhtManager, downloadPath)
+      
+      fileManager = new FileManager(p2pNode, dhtManager, './downloads')
       chunkManager = new ChunkManager(fileManager, databaseManager)
-
-      if (process.env.NODE_ENV === 'development' && ConnectionDebugger) {
-        connectionDebugger = new ConnectionDebugger(p2pNode)
-      }
     }
 
+    console.log('Starting P2P node...')
     await p2pNode.start()
+    
+    console.log('Initializing DHT...')
     await dhtManager.initialize()
 
-    if (connectionDebugger) {
-      connectionDebugger.enableVerboseLogging()
-      await connectionDebugger.testLocalConnectivity()
-    }
+    clearTimeout(startTimeout)
 
     const nodeInfo = p2pNode.getNodeInfo()
+    console.log('Auto-start completed successfully')
 
-    if (nodeInfo && window) {
+    if (window && !window.isDestroyed()) {
       const shortPeerId = nodeInfo.peerId.slice(-8)
-      const processId = process.pid
-      const listenAddrs = nodeInfo.addresses || []
-      const tcpPort = listenAddrs.find(addr => addr.includes('/tcp/'))?.match(/\/tcp\/(\d+)/)?.[1] || 'auto'
+      window.setTitle(`P2P - ${shortPeerId} (Started)`)
       
-      // 添加NAT状态到标题
-      const natStatus = p2pNode.getNATTraversalStatus()
-      const natInfo = natStatus.isPublicNode ? 'Public' : 
-                      natStatus.reachability === 'private' ? 'NAT' : 'Unknown'
-      
-      window.setTitle(`P2P - ${shortPeerId} (${natInfo}, Port: ${tcpPort})`)
-    }
-
-    if (window) {
       window.webContents.send('p2p-node-started', {
         success: true,
-        nodeInfo,
-        natStatus: p2pNode.getNATTraversalStatus()
+        nodeInfo
       })
     }
-    console.log('P2P node auto-started successfully')
+    
   } catch (error) {
+    clearTimeout(startTimeout)
     console.error('Failed to auto-start P2P node:', error)
 
-    if (window) {
+    if (window && !window.isDestroyed()) {
       window.webContents.send('p2p-node-started', {
         success: false,
         error: error.message
@@ -889,25 +872,98 @@ ipcMain.handle('find-file', async (event, fileHash) => {
   }
 })
 
+// ipcMain.handle('search-files', async (event, query) => {
+//   try {
+//     if (!dhtManager || !databaseManager) {
+//       throw new Error('DHT manager or Database not initialized')
+//     }
+
+//     const localResults = await databaseManager.searchFiles(query)
+//     const dhtResults = await dhtManager.searchFiles(query)
+
+//     const allResults = [...localResults, ...dhtResults]
+//     const uniqueResults = Array.from(
+//       new Map(allResults.map(item => [item.hash, item])).values()
+//     )
+
+//     return {
+//       success: true,
+//       results: uniqueResults
+//     }
+//   } catch (error) {
+//     console.error('Error searching files:', error)
+//     return {
+//       success: false,
+//       error: error.message
+//     }
+//   }
+// })
+
+
+// 修改搜索IPC处理器
 ipcMain.handle('search-files', async (event, query) => {
   try {
+    const searchStartTime = Date.now()
+    // 取消之前的搜索
+    if (currentSearchController) {
+      currentSearchController.abort()
+    }
+
+    // 创建新的搜索控制器
+    currentSearchController = new AbortController()
+
     if (!dhtManager || !databaseManager) {
       throw new Error('DHT manager or Database not initialized')
     }
 
-    const localResults = await databaseManager.searchFiles(query)
-    const dhtResults = await dhtManager.searchFiles(query)
+    // 并行搜索本地数据库和DHT
+    const [localResults, dhtResults] = await Promise.allSettled([
+      databaseManager.searchFiles(query),
+      dhtManager.searchFiles(query, {
+        timeout: 8000,
+        maxResults: 15,
+        signal: currentSearchController.signal
+      })
+    ])
 
-    const allResults = [...localResults, ...dhtResults]
-    const uniqueResults = Array.from(
-      new Map(allResults.map(item => [item.hash, item])).values()
-    )
+    // 合并结果
+    const allResults = []
+    
+    if (localResults.status === 'fulfilled') {
+      allResults.push(...localResults.value.map(r => ({...r, source: 'local'})))
+    }
+    
+    if (dhtResults.status === 'fulfilled') {
+      dhtResults.value.forEach(dhtFile => {
+        if (!allResults.find(f => f.hash === dhtFile.hash)) {
+          allResults.push(dhtFile)
+        }
+      })
+    }
+
+    // 清除搜索控制器
+    currentSearchController = null
 
     return {
       success: true,
-      results: uniqueResults
+      results: allResults,
+      searchTime: Date.now() - searchStartTime,
+      sources: {
+        local: allResults.filter(r => r.source === 'local').length,
+        network: allResults.filter(r => r.source === 'network').length
+      }
     }
   } catch (error) {
+    currentSearchController = null
+    
+    if (error.name === 'AbortError') {
+      return {
+        success: false,
+        error: 'Search cancelled',
+        cancelled: true
+      }
+    }
+    
     console.error('Error searching files:', error)
     return {
       success: false,

@@ -849,40 +849,7 @@ export class SettingsManager {
           }
         }
       },
-      backup: {
-        title: 'Backup & Import',
-        icon: 'archive',
-        description: 'Settings and data backup management',
-        settings: {
-          autoBackupSettings: {
-            type: 'boolean',
-            title: 'Auto Backup Settings',
-            description: 'Automatically backup settings periodically'
-          },
-          autoBackupDatabase: {
-            type: 'boolean',
-            title: 'Auto Backup Database',
-            description: 'Automatically backup file database'
-          },
-          backupInterval: {
-            type: 'range',
-            title: 'Backup Interval (hours)',
-            description: 'How often to create automatic backups',
-            min: 1,
-            max: 168,
-            step: 1,
-            unit: 'h'
-          },
-          maxBackupFiles: {
-            type: 'range',
-            title: 'Max Backup Files',
-            description: 'Maximum number of backup files to keep',
-            min: 1,
-            max: 50,
-            step: 1
-          }
-        }
-      }
+
     }
   }
 }

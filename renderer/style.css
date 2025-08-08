@@ -2138,3 +2138,27 @@ body.page-transitioning #openSettings {
   }
 }
 
+.search-info {
+  background: var(--bg-tertiary);
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+
+.local-file {
+  border-left: 4px solid #28a745;
+}
+
+.network-file {
+  border-left: 4px solid #007bff;
+}
+
+.file-item.local-file:hover {
+  box-shadow: inset 3px 0 0 #28a745;
+}
+
+.file-item.network-file:hover {
+  box-shadow: inset 3px 0 0 #007bff;
+}

@@ -15,16 +15,44 @@ export class DHTManager {
     }
 
     this.dht = this.p2pNode.node.services.dht
+
+    if (!this.dht) {
+      throw new Error('DHT service not available on P2P node')
+    }
+
     console.log('DHT Manager initialized')
+
+    // 延迟执行DHT测试，不阻塞初始化
+    setTimeout(() => {
+      this.testDHTFunctionality().catch(error => {
+        console.debug('DHT test failed:', error.message)
+      })
+    }, 10000)
   }
 
-  // 将文件信息发布到DHT
+  // 移到单独的方法
+  async testDHTFunctionality() {
+    try {
+      console.log('Testing DHT functionality...')
+
+      const testKey = new TextEncoder().encode('dht-test-key')
+      const testValue = new TextEncoder().encode('dht-test-value')
+
+      await this.dht.put(testKey, testValue)
+      console.log('✓ DHT PUT operation successful')
+
+    } catch (dhtTestError) {
+      console.debug('DHT functionality test failed:', dhtTestError)
+    }
+  }
+
+
+  // 在 publishFile 方法中添加验证和重试
   async publishFile(fileHash, fileMetadata) {
     try {
-      // 创建CID
-      const cid = await this.createCID(fileHash)
+      console.log(`Publishing file: ${fileMetadata.name} (${fileHash})`)
 
-      // 准备要存储的数据
+      const cid = await this.createCID(fileHash)
       const fileInfo = {
         name: fileMetadata.name,
         size: fileMetadata.size,
@@ -33,69 +61,291 @@ export class DHTManager {
         provider: this.p2pNode.node.peerId.toString()
       }
 
-      // 将文件信息序列化
       const data = new TextEncoder().encode(JSON.stringify(fileInfo))
 
       // 发布到DHT
       await this.dht.put(cid.bytes, data)
+      console.log(`✓ File published to DHT with CID: ${cid.toString()}`)
 
-      // 同时添加到本地索引
+      // 宣告为提供者
+      await this.dht.provide(cid)
+      console.log(`✓ Announced as provider for: ${fileHash}`)
+
+      // 添加到本地索引
       this.fileIndex.set(fileHash, fileInfo)
 
-      console.log(`File published to DHT: ${fileMetadata.name} (${fileHash})`)
+      // 发布搜索索引 - 确保其他节点能搜索到
+      await this.publishSearchIndices(fileMetadata.name, fileInfo)
+
+      // 验证发布是否成功
+      setTimeout(() => this.verifyPublication(fileHash, cid), 5000)
+      // 在 publishFile 方法的最后添加
+      setTimeout(async () => {
+        console.log('=== DHT Verification Test ===')
+
+        // 尝试从DHT获取刚发布的数据
+        const searchKeyString = `file-search:${fileMetadata.name.toLowerCase().split(/\s+/)[0]}`
+        const searchKey = await this.createCID(searchKeyString)
+
+        console.log(`Verifying search key: ${searchKey.toString()}`)
+
+        const verifyResults = this.dht.get(searchKey.bytes)
+        let foundSelf = false
+
+        for await (const result of verifyResults) {
+          console.log('Verification result:', {
+            from: result.from?.toString(),
+            hasValue: !!result.value,
+            isSelf: result.from?.toString() === this.p2pNode.node.peerId.toString()
+          })
+
+          if (result.value) {
+            foundSelf = true
+          }
+        }
+
+        console.log(`Self-verification ${foundSelf ? 'PASSED' : 'FAILED'}`)
+      }, 8000) // 8秒后验证
       return cid
     } catch (error) {
       console.error('Error publishing file to DHT:', error)
       throw error
     }
+
   }
 
-  // 从DHT查找文件
-  // async findFile(fileHash) {
-  //   try {
-  //     const cid = await this.createCID(fileHash)
+  // 修改 publishSearchIndices 方法
+  async publishSearchIndices(fileName, fileInfo) {
+    const words = fileName.toLowerCase()
+      .replace(/[^\w\s]/g, ' ')
+      .split(/\s+/)
+      .filter(word => word.length >= 2)
 
-  //     // 从DHT获取数据
-  //     const data = await this.dht.get(cid.bytes)
+    console.log(`Publishing search indices for words: ${words.join(', ')}`)
 
-  //     if (data) {
-  //       console.log('data:',data)
-  //       const fileInfo = JSON.parse(new TextDecoder().decode(data))
-  //       console.log('File found in DHT:', fileInfo)
-  //       return fileInfo
-  //     } else {
-  //       console.log('File not found in DHT')
-  //       return null
-  //     }
-  //   } catch (error) {
-  //     console.error('Error finding file in DHT:', error)
-  //     return null
-  //   }
-  // }
+    for (const word of words) {
+      try {
+        const searchKeyString = `file-search:${word}`
+        const searchKey = await this.createCID(searchKeyString)
+        const searchData = new TextEncoder().encode(JSON.stringify(fileInfo))
 
-  // async findFile(fileHash) {
-  //   try {
-  //     const cid = await this.createCID(fileHash)
+        console.log(`Publishing search key for "${word}": ${searchKey.toString()}`)
 
-  //     // 获取异步迭代器
-  //     const results = this.dht.get(cid.bytes)
+        // 发布到DHT
+        await this.dht.put(searchKey.bytes, searchData)
+        console.log(`✓ Data written to DHT for term: "${word}"`)
 
-  //     for await (const event of results) {
-  //       if (event.value) {  // 只取包含 value 的事件
-  //         const fileInfo = JSON.parse(new TextDecoder().decode(event.value))
-  //         console.log('fileInfo:', fileInfo)
-  //         console.log('File found in DHT:', fileInfo)
-  //         return fileInfo
-  //       }
-  //     }
+        // 宣告为提供者
+        await this.dht.provide(searchKey)
+        console.log(`✓ Announced as provider for term: "${word}"`)
 
-  //     console.log('File not found in DHT')
-  //     return null
-  //   } catch (error) {
-  //     console.error('Error finding file in DHT:', error)
-  //     return null
-  //   }
-  // }
+        // 等待传播
+        await new Promise(resolve => setTimeout(resolve, 2000))
+
+      } catch (error) {
+        console.warn(`Failed to index word "${word}":`, error.message)
+      }
+    }
+
+    // 发布完成后等待传播
+    console.log('Waiting for DHT propagation...')
+    await new Promise(resolve => setTimeout(resolve, 5000))
+    console.log('DHT propagation wait completed')
+  }
+
+  async searchDHTKey(word) {
+    const results = []
+
+    try {
+      // 检查DHT状态
+      if (!this.dht) {
+        console.error('DHT service not initialized')
+        return results
+      }
+
+      console.log('DHT service status:', {
+        isStarted: this.p2pNode.isStarted,
+        dhtEnabled: !!this.dht,
+        nodeId: this.p2pNode.node.peerId.toString()
+      })
+
+      const searchKeyString = `file-search:${word}`
+      const searchKey = await this.createCID(searchKeyString)
+
+      console.log(`Searching for key "${word}": ${searchKey.toString()}`)
+      console.log(`DHT connected peers: ${this.p2pNode.getConnectedPeers().length}`)
+
+      // 添加DHT查询前的验证
+      console.log('Starting DHT.get() operation...')
+      const startTime = Date.now()
+
+      const dhtResults = this.dht.get(searchKey.bytes)
+      console.log('DHT.get() returned iterator')
+
+      let resultCount = 0
+      let hasAnyResult = false
+
+      try {
+        // 使用Promise.race来控制等待时间
+        const iteratorPromise = (async () => {
+          for await (const result of dhtResults) {
+            hasAnyResult = true
+            resultCount++
+            const elapsed = Date.now() - startTime
+
+            console.log(`DHT result ${resultCount} for "${word}" (${elapsed}ms):`, {
+              from: result.from?.toString()?.slice(-8),
+              hasValue: !!result.value,
+              type: result.type
+            })
+
+            if (result.value) {
+              try {
+                const fileInfo = JSON.parse(new TextDecoder().decode(result.value))
+                results.push(fileInfo)
+                console.log(`✓ Found file via DHT: ${fileInfo.name}`)
+              } catch (parseError) {
+                console.debug(`Failed to parse DHT result:`, parseError)
+              }
+            }
+
+            // 找到结果后可以提前返回
+            if (results.length > 0) {
+              console.log(`Early return with ${results.length} results`)
+              break
+            }
+
+            // 防止无限循环
+            if (resultCount >= 5) {
+              console.log('Limiting DHT results to 5')
+              break
+            }
+          }
+        })()
+
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('DHT iterator timeout')), maxWaitTime)
+        })
+
+        await Promise.race([iteratorPromise, timeoutPromise])
+
+      } catch (iteratorError) {
+        if (iteratorError.message === 'DHT iterator timeout') {
+          console.warn(`DHT iterator timeout for "${word}" after ${maxWaitTime}ms`)
+        } else {
+          console.error('DHT iterator error:', iteratorError.message)
+        }
+      }
+
+      const totalTime = Date.now() - startTime
+
+      if (!hasAnyResult) {
+        console.warn(`DHT search for "${word}" returned NO results after ${totalTime}ms`)
+      } else {
+        console.log(`DHT search for "${word}" returned ${resultCount} total results, ${results.length} valid files in ${totalTime}ms`)
+      }
+
+    } catch (error) {
+      console.error(`DHT get failed for "${word}":`, error.message)
+    }
+
+    return results
+  }
+
+  // 修改 searchFiles 方法中的调用
+  async searchFiles(query, options = {}) {
+    const { timeout = 15000, maxResults = 20 } = options
+    console.log(`Starting search for: "${query}"`)
+
+    const results = []
+    const searchWords = query.toLowerCase()
+      .replace(/[^\w\s]/g, ' ')
+      .split(/\s+/)
+      .filter(word => word.length >= 2)
+
+    // 1. 本地搜索
+    for (const [hash, fileInfo] of this.fileIndex) {
+      if (fileInfo.name.toLowerCase().includes(query.toLowerCase())) {
+        results.push({ ...fileInfo, source: 'local' })
+      }
+    }
+
+    console.log(`Local search found ${results.length} files`)
+
+    // 2. DHT网络搜索
+    if (searchWords.length > 0) {
+      console.log(`Searching DHT for words: ${searchWords.join(', ')}`)
+
+      // 在 searchFiles 方法中修改超时逻辑
+      for (const word of searchWords) {
+        try {
+          console.log(`Starting DHT search for word: "${word}"`)
+
+          // 创建一个更精确的超时控制
+          const searchPromise = new Promise(async (resolve, reject) => {
+            const timeoutId = setTimeout(() => {
+              reject(new Error('DHT search timeout'))
+            }, 15000) // 15秒超时
+
+            try {
+              const dhtResults = await this.searchDHTKey(word)
+              clearTimeout(timeoutId)
+              resolve(dhtResults)
+            } catch (error) {
+              clearTimeout(timeoutId)
+              reject(error)
+            }
+          })
+
+          try {
+            const dhtResults = await searchPromise
+
+            dhtResults.forEach(result => {
+              if (!results.find(r => r.hash === result.hash)) {
+                results.push({ ...result, source: 'network' })
+              }
+            })
+
+            console.log(`DHT search for "${word}" found ${dhtResults.length} files`)
+          } catch (timeoutError) {
+            console.warn(`DHT search timeout for word: ${word}`)
+          }
+
+        } catch (error) {
+          console.warn(`DHT search failed for "${word}":`, error.message)
+        }
+      }
+    }
+
+    console.log(`Total search results: ${results.length}`)
+    return results
+  }
+
+
+  // 新增：验证发布
+  async verifyPublication(fileHash, cid) {
+    try {
+      console.log(`Verifying publication of ${fileHash}...`)
+
+      // 尝试从DHT获取刚发布的数据
+      const results = this.dht.get(cid.bytes)
+      let found = false
+
+      for await (const result of results) {
+        if (result.value) {
+          found = true
+          console.log(`✓ Publication verified: ${fileHash}`)
+          break
+        }
+      }
+
+      if (!found) {
+        console.warn(`⚠ Publication verification failed: ${fileHash}`)
+      }
+    } catch (error) {
+      console.warn(`Publication verification error: ${error.message}`)
+    }
+  }
 
   async findFile(fileHash) {
     try {
@@ -156,138 +406,6 @@ export class DHTManager {
     }
   }
 
-  // ========================================
-  // 3. COMPLETE REPLACEMENT FOR src/dht-manager.js findProviders method
-  // ========================================
-
-  // async findProviders(fileHash) {
-  //   try {
-  //     console.log(`Starting provider search: ${fileHash}`)
-
-  //     const cid = await this.createCID(fileHash)
-  //     console.log('Querying providers for CID:', cid.toString())
-
-  //     const providers = []
-  //     const searchTimeout = 10000 // 10 second timeout
-  //     const startTime = Date.now()
-
-  //     try {
-  //       for await (const provider of this.dht.findProviders(cid)) {
-  //         const peerId = provider.id.toString()
-  //         const multiaddrs = provider.multiaddrs?.map(addr => addr.toString()) || []
-
-  //         console.log(`Found provider: ${peerId}`)
-  //         console.log(`  Address count: ${multiaddrs.length}`)
-
-  //         providers.push({
-  //           peerId,
-  //           multiaddrs
-  //         })
-
-  //         // Check timeout
-  //         if (Date.now() - startTime > searchTimeout) {
-  //           console.log('Provider query timeout')
-  //           break
-  //         }
-
-  //         // 3 providers should be enough
-  //         if (providers.length >= 3) {
-  //           console.log('Found sufficient providers')
-  //           break
-  //         }
-  //       }
-  //     } catch (providerError) {
-  //       console.error('Provider query error:', providerError.message)
-  //     }
-
-  //     console.log(`Total providers found: ${providers.length}`)
-  //     return providers
-  //   } catch (error) {
-  //     console.error('Error during provider search:', error.message)
-  //     return []
-  //   }
-  // }
-
-
-  async findProviders(fileHash) {
-    try {
-      console.log(`开始查找提供者: ${fileHash}`)
-
-      const cid = await this.createCID(fileHash)
-      console.log('查询提供者CID:', cid.toString())
-
-      const providers = []
-      const searchTimeout = 5000 // 减少到5秒超时
-      const startTime = Date.now()
-
-      try {
-        // 创建AbortController来手动控制超时
-        const abortController = new AbortController()
-        const timeoutId = setTimeout(() => {
-          abortController.abort()
-        }, searchTimeout)
-
-        try {
-          for await (const provider of this.dht.findProviders(cid, { signal: abortController.signal })) {
-            const peerId = provider.id.toString()
-            const multiaddrs = provider.multiaddrs?.map(addr => addr.toString()) || []
-
-            console.log(`找到提供者: ${peerId}`)
-            console.log(`  地址数量: ${multiaddrs.length}`)
-
-            providers.push({
-              peerId,
-              multiaddrs
-            })
-
-            // 找到2个提供者就够了（对于本地测试）
-            if (providers.length >= 2) {
-              console.log('找到足够的提供者')
-              break
-            }
-          }
-        } finally {
-          clearTimeout(timeoutId)
-        }
-      } catch (providerError) {
-        if (providerError.name === 'AbortError') {
-          console.log('提供者查询因超时而中止')
-        } else {
-          console.error('提供者查询错误:', providerError.message)
-        }
-      }
-
-      console.log(`总共找到 ${providers.length} 个提供者`)
-      return providers
-    } catch (error) {
-      console.error('查找提供者时出错:', error.message)
-      return []
-    }
-  }
-
-
-  // 查找提供文件的节点
-  // async findProviders(fileHash) {
-  //   try {
-  //     const cid = await this.createCID(fileHash)
-
-  //     // 查找提供者
-  //     const providers = []
-  //     for await (const provider of this.dht.findProviders(cid)) {
-  //       providers.push({
-  //         peerId: provider.id.toString(),
-  //         multiaddrs: provider.multiaddrs.map(addr => addr.toString())
-  //       })
-  //     }
-
-  //     console.log(`Found ${providers.length} providers for file ${fileHash}`)
-  //     return providers
-  //   } catch (error) {
-  //     console.error('Error finding providers:', error)
-  //     return []
-  //   }
-  // }
-
   // 宣告自己是文件的提供者
   async provideFile(fileHash) {
     try {
@@ -303,19 +421,43 @@ export class DHTManager {
     }
   }
 
-  // 搜索文件（按名称或关键词）
-  async searchFiles(query) {
+  // 新增：专门的DHT搜索方法
+  async searchDHT(query, maxResults, signal) {
     const results = []
+    const searchTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 2)
 
-    // 首先搜索本地索引
-    for (const [hash, fileInfo] of this.fileIndex) {
-      if (fileInfo.name.toLowerCase().includes(query.toLowerCase())) {
-        results.push(fileInfo)
+    if (searchTerms.length === 0) return results
+
+    for (const term of searchTerms) {
+      if (signal?.aborted) break
+      if (results.length >= maxResults) break
+
+      try {
+        const searchKey = new TextEncoder().encode(`file-search:${term}`)
+        const searchResults = this.dht.get(searchKey)
+
+        let count = 0
+        for await (const result of searchResults) {
+          if (signal?.aborted) break
+          if (count >= 5) break // 每个词最多5个结果
+
+          if (result.value) {
+            try {
+              const networkFile = JSON.parse(new TextDecoder().decode(result.value))
+              if (!results.find(f => f.hash === networkFile.hash)) {
+                results.push(networkFile)
+                count++
+              }
+            } catch (parseError) {
+              continue
+            }
+          }
+        }
+      } catch (error) {
+        console.debug(`Search failed for term "${term}":`, error.message)
+        continue
       }
     }
-
-    // TODO: 实现分布式搜索
-    // 可以通过遍历已知节点来查询他们的文件列表
 
     return results
   }
@@ -325,17 +467,24 @@ export class DHTManager {
     return Array.from(this.fileIndex.values())
   }
 
-  // 创建CID
   async createCID(data) {
     let bytes
     if (typeof data === 'string') {
+      // 确保字符串编码的一致性
       bytes = new TextEncoder().encode(data)
-    } else {
+    } else if (data instanceof Uint8Array) {
       bytes = data
+    } else {
+      bytes = new TextEncoder().encode(String(data))
     }
 
     const hash = await sha256.digest(bytes)
-    return CID.create(1, raw.code, hash)
+    const cid = CID.create(1, raw.code, hash)
+
+    // 添加调试日志
+    console.log(`createCID input: "${data}" -> CID: ${cid.toString()}`)
+
+    return cid
   }
 
   // 获取DHT统计信息
