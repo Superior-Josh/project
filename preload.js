@@ -50,13 +50,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   resetSettings: () => ipcRenderer.invoke('reset-settings'),
   selectFolder: (title) => ipcRenderer.invoke('select-folder', title),
   
-  // Settings backup & import
+  // Settings backup management
   createSettingsBackup: () => ipcRenderer.invoke('create-settings-backup'),
   getAvailableBackups: () => ipcRenderer.invoke('get-available-backups'),
   restoreSettingsBackup: (backupPath) => ipcRenderer.invoke('restore-settings-backup', backupPath),
   deleteSettingsBackup: (backupPath) => ipcRenderer.invoke('delete-settings-backup', backupPath),
-  exportSettings: () => ipcRenderer.invoke('export-settings'),
-  importSettings: () => ipcRenderer.invoke('import-settings'),
 
   // Process information
   getProcessInfo: () => ipcRenderer.invoke('get-process-info'),

@@ -1,4 +1,4 @@
-// src/dht-manager.js
+// src/dht-manager.js - Enhanced for Network File Sharing
 
 import { CID } from 'multiformats/cid'
 import { sha256 } from 'multiformats/hashes/sha2'
@@ -10,7 +10,30 @@ export class DHTManager {
     this.p2pNode = p2pNode
     this.dht = null
     this.fileIndex = new Map() // 本地文件索引
-    this.networkFileIndex = new Map() // 网络文件索引（新增）
+    this.networkFileIndex = new Map() // 网络文件索引
+    this.networkProviders = new Map() // 网络文件提供者映射
+    this.fileAnnouncements = new Map() // 文件公告缓存
+    this.globalFileRegistry = new Map() // 全局文件注册表
+    this.peerCapabilities = new Map() // 对等节点能力映射
+    
+    // 网络文件共享配置
+    this.shareConfig = {
+      announceInterval: 30000, // 30秒公告一次
+      maxAnnouncementAge: 300000, // 5分钟过期
+      maxFileSearchResults: 50,
+      enableGlobalSharing: true,
+      enableFileReplication: true,
+      replicationFactor: 3 // 文件复制因子
+    }
+
+    // 性能监控
+    this.stats = {
+      filesShared: 0,
+      filesDiscovered: 0,
+      networkQueries: 0,
+      successfulDownloads: 0,
+      failedDownloads: 0
+    }
   }
 
   async initialize() {
@@ -24,80 +47,165 @@ export class DHTManager {
       throw new Error('DHT service not available on P2P node')
     }
 
-    console.log('DHT Manager initialized')
+    console.log('DHT Manager initialized for network file sharing')
 
-    // 注册文件查询协议 - 用于节点间直接通信
-    this.p2pNode.node.handle('/p2p-file-sharing/query/1.0.0', ({ stream, connection }) => {
-      this.handleDirectQuery(stream, connection)
-    })
+    // 注册网络文件共享协议
+    this.setupNetworkProtocols()
 
-    // 注册文件通知协议 - 用于新文件广播
-    this.p2pNode.node.handle('/p2p-file-sharing/notify/1.0.0', ({ stream, connection }) => {
-      this.handleFileNotification(stream, connection)
-    })
+    // 启动网络文件发现和同步
+    this.startNetworkFileDiscovery()
 
-    // 启动定期同步机制
-    this.startPeriodicSync()
+    // 启动定期文件公告
+    this.startFileAnnouncements()
 
-    // 延迟执行DHT测试，不阻塞初始化
+    // 启动对等节点能力交换
+    this.startCapabilityExchange()
+
+    // 延迟执行DHT测试
     setTimeout(() => {
-      this.testDHTFunctionality().catch(error => {
-        console.debug('DHT test failed:', error.message)
+      this.testNetworkConnectivity().catch(error => {
+        console.debug('Network connectivity test failed:', error.message)
       })
     }, 10000)
   }
 
-  // 启动定期同步
-  startPeriodicSync() {
-    // 3秒后开始第一次同步
-    setTimeout(() => {
-      this.syncWithPeers().catch(error => {
-        console.debug('Initial sync failed:', error.message)
-      })
-    }, 3000)
+  // 设置网络协议
+  setupNetworkProtocols() {
+    // 文件查询协议 - 增强版
+    this.p2pNode.node.handle('/p2p-file-sharing/network-query/1.0.0', ({ stream, connection }) => {
+      this.handleNetworkQuery(stream, connection)
+    })
 
-    // 每30秒同步一次
-    setInterval(() => {
-      this.syncWithPeers().catch(error => {
-        console.debug('Periodic sync failed:', error.message)
-      })
-    }, 30000)
+    // 文件公告协议
+    this.p2pNode.node.handle('/p2p-file-sharing/file-announce/1.0.0', ({ stream, connection }) => {
+      this.handleFileAnnouncement(stream, connection)
+    })
+
+    // 全局文件目录同步协议
+    this.p2pNode.node.handle('/p2p-file-sharing/global-sync/1.0.0', ({ stream, connection }) => {
+      this.handleGlobalSync(stream, connection)
+    })
+
+    // 文件可用性检查协议
+    this.p2pNode.node.handle('/p2p-file-sharing/availability/1.0.0', ({ stream, connection }) => {
+      this.handleAvailabilityCheck(stream, connection)
+    })
+
+    // 对等节点能力交换协议
+    this.p2pNode.node.handle('/p2p-file-sharing/capabilities/1.0.0', ({ stream, connection }) => {
+      this.handleCapabilityExchange(stream, connection)
+    })
   }
 
-  // 从对等节点请求文件列表
-  async requestFileListFromPeer(peerId) {
-    try {
-      console.log(`Requesting file list from peer: ${peerId}`)
+  // 启动网络文件发现
+  startNetworkFileDiscovery() {
+    // 初始延迟
+    setTimeout(() => {
+      this.discoverNetworkFiles().catch(error => {
+        console.debug('Initial network file discovery failed:', error.message)
+      })
+    }, 5000)
 
-      // 将字符串转换为 PeerId 对象
+    // 定期发现网络文件
+    setInterval(() => {
+      this.discoverNetworkFiles().catch(error => {
+        console.debug('Periodic network file discovery failed:', error.message)
+      })
+    }, 60000) // 每分钟一次
+  }
+
+  // 启动文件公告
+  startFileAnnouncements() {
+    // 初始公告
+    setTimeout(() => {
+      this.announceLocalFiles().catch(error => {
+        console.debug('Initial file announcement failed:', error.message)
+      })
+    }, 10000)
+
+    // 定期公告
+    setInterval(() => {
+      this.announceLocalFiles().catch(error => {
+        console.debug('Periodic file announcement failed:', error.message)
+      })
+    }, this.shareConfig.announceInterval)
+  }
+
+  // 启动能力交换
+  startCapabilityExchange() {
+    setTimeout(() => {
+      this.exchangeCapabilities().catch(error => {
+        console.debug('Capability exchange failed:', error.message)
+      })
+    }, 15000)
+
+    setInterval(() => {
+      this.exchangeCapabilities().catch(error => {
+        console.debug('Periodic capability exchange failed:', error.message)
+      })
+    }, 120000) // 每2分钟一次
+  }
+
+  // 发现网络文件
+  async discoverNetworkFiles() {
+    console.log('🔍 Starting network file discovery...')
+    
+    const connectedPeers = this.p2pNode.getConnectedPeers()
+    if (connectedPeers.length === 0) {
+      console.log('No connected peers for file discovery')
+      return
+    }
+
+    console.log(`Discovering files from ${connectedPeers.length} connected peers`)
+
+    const discoveryPromises = connectedPeers.map(async (peerId) => {
+      try {
+        await this.requestNetworkFileList(peerId.toString())
+      } catch (error) {
+        console.debug(`File discovery failed for peer ${peerId}:`, error.message)
+      }
+    })
+
+    await Promise.allSettled(discoveryPromises)
+
+    // 同步全局文件注册表
+    await this.syncGlobalRegistry()
+
+    console.log(`📁 Network discovery completed. Total network files: ${this.networkFileIndex.size}`)
+    this.stats.filesDiscovered = this.networkFileIndex.size
+  }
+
+  // 请求网络文件列表
+  async requestNetworkFileList(peerId) {
+    try {
+      console.log(`📡 Requesting file list from peer: ${peerId}`)
+
       const peerIdObj = peerIdFromString(peerId)
-      const stream = await this.p2pNode.node.dialProtocol(peerIdObj, '/p2p-file-sharing/query/1.0.0')
+      const stream = await this.p2pNode.node.dialProtocol(peerIdObj, '/p2p-file-sharing/network-query/1.0.0')
 
       const request = {
-        type: 'GET_FILE_LIST',
-        timestamp: Date.now()
+        type: 'GET_NETWORK_FILE_LIST',
+        requestId: this.generateRequestId(),
+        timestamp: Date.now(),
+        requesterCapabilities: this.getLocalCapabilities()
       }
 
-      // 发送请求
       await this.sendMessage(stream, request)
-
-      // 接收响应
       const response = await this.receiveMessage(stream)
 
       if (response.success && response.files) {
-        console.log(`Received ${response.files.length} file entries from ${peerId}`)
-
-        // 更新网络文件索引
-        response.files.forEach(file => {
-          const key = `${file.hash}-${peerId}`
-          this.networkFileIndex.set(key, {
-            ...file,
-            sourceNode: peerId,
-            receivedAt: Date.now()
+        console.log(`📥 Received ${response.files.length} file entries from ${peerId}`)
+        
+        // 处理接收到的文件信息
+        this.processNetworkFiles(response.files, peerId)
+        
+        // 更新对等节点能力
+        if (response.peerCapabilities) {
+          this.peerCapabilities.set(peerId, {
+            ...response.peerCapabilities,
+            lastUpdated: Date.now()
           })
-        })
-
-        console.log(`Updated network index. Total network files: ${this.networkFileIndex.size}`)
+        }
       }
 
     } catch (error) {
@@ -105,17 +213,421 @@ export class DHTManager {
     }
   }
 
-  // 直接查询节点
-  async queryPeerDirectly(peerId, query) {
-    try {
-      console.log(`Directly querying peer ${peerId} for: "${query}"`)
+  // 处理网络文件信息
+  processNetworkFiles(files, sourceNode) {
+    files.forEach(file => {
+      const fileKey = `${file.hash}-${sourceNode}`
+      const networkFile = {
+        ...file,
+        sourceNode,
+        discoveredAt: Date.now(),
+        verified: false,
+        replicas: [sourceNode],
+        popularity: 1
+      }
 
+      this.networkFileIndex.set(fileKey, networkFile)
+
+      // 更新全局注册表
+      if (!this.globalFileRegistry.has(file.hash)) {
+        this.globalFileRegistry.set(file.hash, {
+          ...file,
+          providers: [sourceNode],
+          firstSeen: Date.now(),
+          lastSeen: Date.now(),
+          downloadCount: 0,
+          verified: false
+        })
+      } else {
+        const globalEntry = this.globalFileRegistry.get(file.hash)
+        if (!globalEntry.providers.includes(sourceNode)) {
+          globalEntry.providers.push(sourceNode)
+          globalEntry.lastSeen = Date.now()
+        }
+      }
+
+      // 更新网络提供者映射
+      if (!this.networkProviders.has(file.hash)) {
+        this.networkProviders.set(file.hash, new Set())
+      }
+      this.networkProviders.get(file.hash).add(sourceNode)
+    })
+
+    console.log(`🌐 Processed ${files.length} files from ${sourceNode}. Global registry size: ${this.globalFileRegistry.size}`)
+  }
+
+  // 公告本地文件到网络
+  async announceLocalFiles() {
+    const connectedPeers = this.p2pNode.getConnectedPeers()
+    if (connectedPeers.length === 0) return
+
+    const localFiles = Array.from(this.fileIndex.values())
+    if (localFiles.length === 0) return
+
+    console.log(`📢 Announcing ${localFiles.length} local files to ${connectedPeers.length} peers`)
+
+    const announcement = {
+      type: 'FILE_ANNOUNCEMENT',
+      nodeId: this.p2pNode.node.peerId.toString(),
+      files: localFiles,
+      timestamp: Date.now(),
+      capabilities: this.getLocalCapabilities()
+    }
+
+    const announcePromises = connectedPeers.map(async (peerId) => {
+      try {
+        await this.sendFileAnnouncement(peerId.toString(), announcement)
+      } catch (error) {
+        console.debug(`Failed to announce to peer ${peerId}:`, error.message)
+      }
+    })
+
+    await Promise.allSettled(announcePromises)
+  }
+
+  // 发送文件公告
+  async sendFileAnnouncement(peerId, announcement) {
+    try {
       const peerIdObj = peerIdFromString(peerId)
-      const stream = await this.p2pNode.node.dialProtocol(peerIdObj, '/p2p-file-sharing/query/1.0.0')
+      const stream = await this.p2pNode.node.dialProtocol(peerIdObj, '/p2p-file-sharing/file-announce/1.0.0')
+
+      await this.sendMessage(stream, announcement)
+      console.log(`✅ File announcement sent to ${peerId}`)
+
+    } catch (error) {
+      console.debug(`Failed to send announcement to ${peerId}:`, error.message)
+    }
+  }
+
+  // 处理网络查询
+  async handleNetworkQuery(stream, connection) {
+    try {
+      const request = await this.receiveMessage(stream)
+      const peerId = connection.remotePeer.toString()
+
+      console.log(`🔍 Received network query from ${peerId}:`, request.type)
+
+      let response = { success: false }
+
+      switch (request.type) {
+        case 'GET_NETWORK_FILE_LIST':
+          response = await this.handleFileListRequest(request, peerId)
+          break
+        case 'NETWORK_SEARCH':
+          response = await this.handleNetworkSearch(request, peerId)
+          break
+        case 'FILE_AVAILABILITY':
+          response = await this.handleFileAvailability(request, peerId)
+          break
+        case 'GLOBAL_SYNC':
+          response = await this.handleGlobalSyncRequest(request, peerId)
+          break
+        default:
+          response = { success: false, error: 'Unknown request type' }
+      }
+
+      await this.sendMessage(stream, response)
+
+    } catch (error) {
+      console.error('Error handling network query:', error)
+      await this.sendMessage(stream, { success: false, error: error.message })
+    }
+  }
+
+  // 处理文件列表请求
+  async handleFileListRequest(request, peerId) {
+    const localFiles = Array.from(this.fileIndex.values())
+    const networkFiles = Array.from(this.networkFileIndex.values())
+    
+    // 合并本地文件和已验证的网络文件
+    const allFiles = [
+      ...localFiles.map(f => ({ ...f, source: 'local', verified: true })),
+      ...networkFiles.filter(f => f.verified).map(f => ({ ...f, source: 'network' }))
+    ]
+
+    console.log(`📤 Sending ${allFiles.length} files to ${peerId}`)
+
+    return {
+      success: true,
+      files: allFiles,
+      nodeId: this.p2pNode.node.peerId.toString(),
+      peerCapabilities: this.getLocalCapabilities(),
+      timestamp: Date.now()
+    }
+  }
+
+  // 处理网络搜索
+  async handleNetworkSearch(request, peerId) {
+    const query = request.query?.toLowerCase() || ''
+    const results = []
+
+    // 搜索本地文件
+    for (const [hash, fileInfo] of this.fileIndex) {
+      if (fileInfo.name && fileInfo.name.toLowerCase().includes(query)) {
+        results.push({
+          ...fileInfo,
+          source: 'local',
+          provider: this.p2pNode.node.peerId.toString(),
+          verified: true,
+          availability: 1.0
+        })
+      }
+    }
+
+    // 搜索网络文件
+    for (const [key, fileInfo] of this.networkFileIndex) {
+      if (fileInfo.name && fileInfo.name.toLowerCase().includes(query)) {
+        const globalEntry = this.globalFileRegistry.get(fileInfo.hash)
+        results.push({
+          ...fileInfo,
+          source: 'network',
+          providers: globalEntry?.providers || [fileInfo.sourceNode],
+          verified: fileInfo.verified,
+          availability: this.calculateFileAvailability(fileInfo.hash)
+        })
+      }
+    }
+
+    console.log(`🔎 Network search for "${query}" returned ${results.length} results to ${peerId}`)
+
+    return {
+      success: true,
+      results: results.slice(0, this.shareConfig.maxFileSearchResults),
+      searchTime: Date.now() - request.timestamp,
+      nodeId: this.p2pNode.node.peerId.toString()
+    }
+  }
+
+  // 处理文件公告
+  async handleFileAnnouncement(stream, connection) {
+    try {
+      const announcement = await this.receiveMessage(stream)
+      const peerId = connection.remotePeer.toString()
+
+      console.log(`📢 Received file announcement from ${peerId}:`, announcement.type)
+
+      if (announcement.type === 'FILE_ANNOUNCEMENT' && announcement.files) {
+        this.processNetworkFiles(announcement.files, peerId)
+        
+        // 更新对等节点能力
+        if (announcement.capabilities) {
+          this.peerCapabilities.set(peerId, {
+            ...announcement.capabilities,
+            lastUpdated: Date.now()
+          })
+        }
+
+        console.log(`📁 Processed announcement of ${announcement.files.length} files from ${peerId}`)
+      }
+
+    } catch (error) {
+      console.error('Error handling file announcement:', error)
+    }
+  }
+
+  // 发布文件到网络（增强版）
+  async publishFile(fileHash, fileMetadata) {
+    try {
+      console.log(`🌐 Publishing file to network: ${fileMetadata.name} (${fileHash})`)
+
+      // 创建CID和发布到DHT
+      const cid = await this.createCID(fileHash)
+      const fileInfo = {
+        name: fileMetadata.name,
+        size: fileMetadata.size,
+        hash: fileHash,
+        timestamp: Date.now(),
+        provider: this.p2pNode.node.peerId.toString(),
+        mimeType: fileMetadata.mimeType || 'application/octet-stream',
+        chunks: fileMetadata.chunks || 1,
+        chunkSize: fileMetadata.chunkSize || 64 * 1024,
+        verified: true,
+        networkShared: true
+      }
+
+      const data = new TextEncoder().encode(JSON.stringify(fileInfo))
+
+      // 发布到DHT
+      await this.dht.put(cid.bytes, data)
+      console.log(`✅ File published to DHT with CID: ${cid.toString()}`)
+
+      // 宣告为提供者
+      await this.dht.provide(cid)
+      console.log(`✅ Announced as provider for: ${fileHash}`)
+
+      // 添加到本地索引
+      this.fileIndex.set(fileHash, fileInfo)
+
+      // 发布搜索索引
+      await this.publishNetworkSearchIndices(fileMetadata.name, fileInfo)
+
+      // 立即公告到连接的节点
+      await this.announceNewFileToNetwork(fileInfo)
+
+      // 更新统计
+      this.stats.filesShared++
+
+      console.log(`🎉 File successfully published to network: ${fileMetadata.name}`)
+
+      return cid
+    } catch (error) {
+      console.error('Error publishing file to network:', error)
+      throw error
+    }
+  }
+
+  // 公告新文件到网络
+  async announceNewFileToNetwork(fileInfo) {
+    const connectedPeers = this.p2pNode.getConnectedPeers()
+    console.log(`📢 Broadcasting new file to ${connectedPeers.length} connected peers`)
+
+    const announcement = {
+      type: 'NEW_FILE_ANNOUNCEMENT',
+      file: fileInfo,
+      nodeId: this.p2pNode.node.peerId.toString(),
+      timestamp: Date.now()
+    }
+
+    const announcePromises = connectedPeers.map(async (peerId) => {
+      try {
+        await this.sendFileAnnouncement(peerId.toString(), announcement)
+      } catch (error) {
+        console.debug(`Failed to announce new file to ${peerId}:`, error.message)
+      }
+    })
+
+    await Promise.allSettled(announcePromises)
+  }
+
+  // 发布网络搜索索引
+  async publishNetworkSearchIndices(fileName, fileInfo) {
+    const words = fileName.toLowerCase()
+      .replace(/[^\w\s]/g, ' ')
+      .split(/\s+/)
+      .filter(word => word.length >= 2)
+
+    console.log(`🔍 Publishing network search indices for: ${words.join(', ')}`)
+
+    for (const word of words) {
+      try {
+        const searchKeyString = `network-file-search:${word}`
+        const searchKey = await this.createCID(searchKeyString)
+        const searchData = new TextEncoder().encode(JSON.stringify({
+          ...fileInfo,
+          searchTerm: word,
+          networkSearchable: true
+        }))
+
+        // 发布到DHT
+        await this.dht.put(searchKey.bytes, searchData)
+        await this.dht.provide(searchKey)
+
+        console.log(`✅ Network search index published for term: "${word}"`)
+
+        // 等待传播
+        await new Promise(resolve => setTimeout(resolve, 1000))
+
+      } catch (error) {
+        console.warn(`Failed to index word "${word}" for network search:`, error.message)
+      }
+    }
+  }
+
+  // 网络文件搜索（增强版）
+  async searchFiles(query, options = {}) {
+    const { timeout = 20000, maxResults = 50 } = options
+    console.log(`🔍 Starting enhanced network search for: "${query}"`)
+
+    const results = []
+    const searchWords = query.toLowerCase()
+      .replace(/[^\w\s]/g, ' ')
+      .split(/\s+/)
+      .filter(word => word.length >= 2)
+
+    // 1. 本地搜索
+    const localResults = this.searchLocalFiles(query)
+    results.push(...localResults)
+    console.log(`📁 Local search found ${localResults.length} files`)
+
+    // 2. 网络索引搜索
+    const networkResults = this.searchNetworkFiles(query)
+    networkResults.forEach(result => {
+      if (!results.find(r => r.hash === result.hash)) {
+        results.push({ ...result, source: 'network' })
+      }
+    })
+    console.log(`🌐 Network index search found ${networkResults.length} files`)
+
+    // 3. 直接网络查询
+    const connectedPeers = this.p2pNode.getConnectedPeers()
+    if (connectedPeers.length > 0) {
+      console.log(`📡 Querying ${connectedPeers.length} connected peers`)
+      
+      const queryPromises = connectedPeers.map(async (peerId) => {
+        try {
+          return await this.queryNetworkPeer(peerId.toString(), query)
+        } catch (error) {
+          console.debug(`Network query failed for peer ${peerId}:`, error.message)
+          return []
+        }
+      })
+
+      const peerResults = await Promise.allSettled(queryPromises)
+      
+      peerResults.forEach(result => {
+        if (result.status === 'fulfilled' && result.value) {
+          result.value.forEach(file => {
+            if (!results.find(r => r.hash === file.hash)) {
+              results.push({ ...file, source: 'network' })
+            }
+          })
+        }
+      })
+    }
+
+    // 4. DHT网络搜索
+    if (searchWords.length > 0) {
+      console.log(`🔎 DHT network search for words: ${searchWords.join(', ')}`)
+
+      for (const word of searchWords) {
+        try {
+          const dhtResults = await this.searchNetworkDHT(word)
+          dhtResults.forEach(result => {
+            if (!results.find(r => r.hash === result.hash)) {
+              results.push({ ...result, source: 'dht' })
+            }
+          })
+        } catch (error) {
+          console.warn(`DHT network search failed for "${word}":`, error.message)
+        }
+      }
+    }
+
+    // 5. 添加文件可用性和提供者信息
+    const enhancedResults = results.map(file => ({
+      ...file,
+      providers: this.getFileProviders(file.hash),
+      availability: this.calculateFileAvailability(file.hash),
+      networkShared: true
+    }))
+
+    // 更新统计
+    this.stats.networkQueries++
+
+    console.log(`🎯 Enhanced network search completed: ${enhancedResults.length} total results`)
+    return enhancedResults.slice(0, maxResults)
+  }
+
+  // 查询网络对等节点
+  async queryNetworkPeer(peerId, query) {
+    try {
+      const peerIdObj = peerIdFromString(peerId)
+      const stream = await this.p2pNode.node.dialProtocol(peerIdObj, '/p2p-file-sharing/network-query/1.0.0')
 
       const request = {
-        type: 'SEARCH',
+        type: 'NETWORK_SEARCH',
         query: query,
+        requestId: this.generateRequestId(),
         timestamp: Date.now()
       }
 
@@ -123,40 +635,292 @@ export class DHTManager {
       const response = await this.receiveMessage(stream)
 
       if (response.success && response.results) {
-        console.log(`Received ${response.results.length} search results from ${peerId}`)
+        console.log(`📥 Received ${response.results.length} search results from ${peerId}`)
         return response.results
       }
 
       return []
     } catch (error) {
-      console.debug(`Direct query failed for peer ${peerId}:`, error.message)
+      console.debug(`Network peer query failed for ${peerId}:`, error.message)
       return []
     }
   }
 
-  // 通知节点新文件
-  async notifyPeerNewFile(peerId, fileInfo) {
+  // DHT网络搜索
+  async searchNetworkDHT(word) {
+    const results = []
+    
     try {
-      console.log(`Notifying peer ${peerId} about new file: ${fileInfo.name}`)
+      const searchKeyString = `network-file-search:${word}`
+      const searchKey = await this.createCID(searchKeyString)
 
-      const peerIdObj = peerIdFromString(peerId)
-      const stream = await this.p2pNode.node.dialProtocol(peerIdObj, '/p2p-file-sharing/notify/1.0.0')
+      console.log(`🔍 Searching network DHT for word: "${word}"`)
 
-      const notification = {
-        type: 'NEW_FILE',
-        file: fileInfo,
-        timestamp: Date.now()
+      const dhtResults = this.dht.get(searchKey.bytes)
+      let resultCount = 0
+
+      for await (const result of dhtResults) {
+        if (result.value) {
+          try {
+            const fileInfo = JSON.parse(new TextDecoder().decode(result.value))
+            if (fileInfo.networkSearchable) {
+              results.push({
+                ...fileInfo,
+                source: 'network-dht',
+                foundVia: `dht-search:${word}`
+              })
+              resultCount++
+            }
+          } catch (parseError) {
+            console.debug('Failed to parse DHT search result:', parseError)
+          }
+        }
+
+        if (resultCount >= 10) break // 限制每个词的结果数量
       }
 
-      await this.sendMessage(stream, notification)
-      console.log(`✓ Notified peer ${peerId} about new file`)
-
+      console.log(`📊 DHT search for "${word}" found ${results.length} files`)
     } catch (error) {
-      console.debug(`Failed to notify peer ${peerId}:`, error.message)
+      console.warn(`DHT network search failed for "${word}":`, error.message)
+    }
+
+    return results
+  }
+
+  // 获取文件提供者
+  getFileProviders(fileHash) {
+    const providers = []
+    
+    // 检查本地文件
+    if (this.fileIndex.has(fileHash)) {
+      providers.push(this.p2pNode.node.peerId.toString())
+    }
+
+    // 检查网络提供者
+    if (this.networkProviders.has(fileHash)) {
+      providers.push(...Array.from(this.networkProviders.get(fileHash)))
+    }
+
+    // 检查全局注册表
+    const globalEntry = this.globalFileRegistry.get(fileHash)
+    if (globalEntry && globalEntry.providers) {
+      providers.push(...globalEntry.providers)
+    }
+
+    // 去重并返回
+    return [...new Set(providers)]
+  }
+
+  // 计算文件可用性
+  calculateFileAvailability(fileHash) {
+    const providers = this.getFileProviders(fileHash)
+    const connectedPeers = this.p2pNode.getConnectedPeers()
+    
+    if (providers.length === 0) return 0
+
+    // 计算在线提供者比例
+    const onlineProviders = providers.filter(provider => {
+      if (provider === this.p2pNode.node.peerId.toString()) return true
+      return connectedPeers.some(peer => peer.toString() === provider)
+    })
+
+    return onlineProviders.length / providers.length
+  }
+
+  // 获取本地能力
+  getLocalCapabilities() {
+    return {
+      networkSharing: true,
+      fileReplication: this.shareConfig.enableFileReplication,
+      maxFileSize: 100 * 1024 * 1024, // 100MB
+      supportedProtocols: ['network-query', 'file-announce', 'global-sync', 'availability'],
+      nodeVersion: '2.0.0',
+      lastUpdated: Date.now()
     }
   }
 
-  // 发送消息
+  // 交换能力信息
+  async exchangeCapabilities() {
+    const connectedPeers = this.p2pNode.getConnectedPeers()
+    if (connectedPeers.length === 0) return
+
+    console.log(`🔄 Exchanging capabilities with ${connectedPeers.length} peers`)
+
+    const capabilities = this.getLocalCapabilities()
+
+    const exchangePromises = connectedPeers.map(async (peerId) => {
+      try {
+        const peerIdObj = peerIdFromString(peerId.toString())
+        const stream = await this.p2pNode.node.dialProtocol(peerIdObj, '/p2p-file-sharing/capabilities/1.0.0')
+
+        await this.sendMessage(stream, {
+          type: 'CAPABILITY_EXCHANGE',
+          capabilities,
+          nodeId: this.p2pNode.node.peerId.toString(),
+          timestamp: Date.now()
+        })
+
+        const response = await this.receiveMessage(stream)
+        if (response.success && response.capabilities) {
+          this.peerCapabilities.set(peerId.toString(), {
+            ...response.capabilities,
+            lastUpdated: Date.now()
+          })
+        }
+
+      } catch (error) {
+        console.debug(`Capability exchange failed with ${peerId}:`, error.message)
+      }
+    })
+
+    await Promise.allSettled(exchangePromises)
+  }
+
+  // 处理能力交换
+  async handleCapabilityExchange(stream, connection) {
+    try {
+      const request = await this.receiveMessage(stream)
+      const peerId = connection.remotePeer.toString()
+
+      if (request.type === 'CAPABILITY_EXCHANGE' && request.capabilities) {
+        this.peerCapabilities.set(peerId, {
+          ...request.capabilities,
+          lastUpdated: Date.now()
+        })
+
+        const response = {
+          success: true,
+          capabilities: this.getLocalCapabilities(),
+          nodeId: this.p2pNode.node.peerId.toString(),
+          timestamp: Date.now()
+        }
+
+        await this.sendMessage(stream, response)
+        console.log(`🤝 Capability exchange completed with ${peerId}`)
+      }
+
+    } catch (error) {
+      console.error('Error handling capability exchange:', error)
+    }
+  }
+
+  // 同步全局注册表
+  async syncGlobalRegistry() {
+    // 清理过期条目
+    const now = Date.now()
+    const maxAge = 24 * 60 * 60 * 1000 // 24小时
+
+    for (const [hash, entry] of this.globalFileRegistry) {
+      if (now - entry.lastSeen > maxAge) {
+        this.globalFileRegistry.delete(hash)
+        this.networkProviders.delete(hash)
+      }
+    }
+
+    console.log(`🔄 Global registry synced. Active files: ${this.globalFileRegistry.size}`)
+  }
+
+  // 测试网络连接性
+  async testNetworkConnectivity() {
+    try {
+      console.log('🧪 Testing network connectivity...')
+      
+      const connectedPeers = this.p2pNode.getConnectedPeers()
+      if (connectedPeers.length === 0) {
+        console.log('❌ No connected peers for network test')
+        return false
+      }
+
+      // 测试DHT可达性
+      const testKey = new TextEncoder().encode('network-connectivity-test')
+      const testValue = new TextEncoder().encode(JSON.stringify({
+        nodeId: this.p2pNode.node.peerId.toString(),
+        timestamp: Date.now(),
+        test: true
+      }))
+
+      await this.dht.put(testKey, testValue)
+      console.log('✅ DHT write test successful')
+
+      // 测试文件发现
+      await this.discoverNetworkFiles()
+      console.log('✅ Network file discovery test successful')
+
+      return true
+    } catch (error) {
+      console.error('❌ Network connectivity test failed:', error)
+      return false
+    }
+  }
+
+  // 处理全局同步
+  async handleGlobalSync(stream, connection) {
+    try {
+      const request = await this.receiveMessage(stream)
+      const peerId = connection.remotePeer.toString()
+
+      console.log(`🔄 Received global sync request from ${peerId}`)
+
+      if (request.type === 'GLOBAL_SYNC_REQUEST') {
+        const syncData = {
+          globalFiles: Array.from(this.globalFileRegistry.entries()).slice(0, 100), // 限制数量
+          timestamp: Date.now(),
+          nodeId: this.p2pNode.node.peerId.toString()
+        }
+
+        const response = {
+          success: true,
+          syncData,
+          timestamp: Date.now()
+        }
+
+        await this.sendMessage(stream, response)
+        console.log(`📤 Global sync data sent to ${peerId}`)
+      }
+
+    } catch (error) {
+      console.error('Error handling global sync:', error)
+    }
+  }
+
+  // 处理可用性检查
+  async handleAvailabilityCheck(stream, connection) {
+    try {
+      const request = await this.receiveMessage(stream)
+      const peerId = connection.remotePeer.toString()
+
+      if (request.type === 'FILE_AVAILABILITY_CHECK' && request.fileHashes) {
+        const availability = {}
+
+        for (const fileHash of request.fileHashes) {
+          availability[fileHash] = {
+            available: this.fileIndex.has(fileHash),
+            providers: this.getFileProviders(fileHash),
+            lastSeen: this.globalFileRegistry.get(fileHash)?.lastSeen || null
+          }
+        }
+
+        const response = {
+          success: true,
+          availability,
+          nodeId: this.p2pNode.node.peerId.toString(),
+          timestamp: Date.now()
+        }
+
+        await this.sendMessage(stream, response)
+        console.log(`📊 Availability check response sent to ${peerId}`)
+      }
+
+    } catch (error) {
+      console.error('Error handling availability check:', error)
+    }
+  }
+
+  // 工具函数
+  generateRequestId() {
+    return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  }
+
   async sendMessage(stream, message) {
     const messageData = JSON.stringify(message)
     const messageBuffer = Buffer.from(messageData)
@@ -169,7 +933,6 @@ export class DHTManager {
     }())
   }
 
-  // 接收消息
   async receiveMessage(stream) {
     let responseData = []
     let expectedLength = null
@@ -178,22 +941,19 @@ export class DHTManager {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error('Message receive timeout'))
-      }, 10000)
+      }, 15000)
 
       const processData = async () => {
         try {
           for await (const chunk of stream.source) {
-            // 更安全的转换方式
             let buffer
             if (Buffer.isBuffer(chunk)) {
               buffer = chunk
             } else if (chunk instanceof Uint8Array) {
               buffer = Buffer.from(chunk)
             } else if (chunk && typeof chunk.subarray === 'function') {
-              // 处理 Uint8ArrayList
               buffer = Buffer.from(chunk.subarray())
             } else {
-              // 最后的备选方案
               buffer = Buffer.from(new Uint8Array(chunk))
             }
 
@@ -225,87 +985,6 @@ export class DHTManager {
     })
   }
 
-  // 与对等节点同步
-  async syncWithPeers() {
-    const connectedPeers = this.p2pNode.getConnectedPeers()
-    if (connectedPeers.length === 0) return
-
-    console.log(`Syncing with ${connectedPeers.length} peers`)
-
-    for (const peerId of connectedPeers) {
-      try {
-        await this.requestFileListFromPeer(peerId.toString())
-      } catch (error) {
-        console.debug(`Sync failed with ${peerId}:`, error.message)
-      }
-    }
-  }
-
-  // 处理直接查询
-  async handleDirectQuery(stream, connection) {
-    try {
-      const request = await this.receiveMessage(stream)
-      const peerId = connection.remotePeer.toString()
-
-      console.log(`Received query from ${peerId}:`, request.type)
-
-      if (request.type === 'SEARCH') {
-        // 搜索本地文件
-        const results = this.searchLocalFiles(request.query)
-
-        const response = {
-          success: true,
-          results: results,
-          nodeId: this.p2pNode.node.peerId.toString()
-        }
-
-        await this.sendMessage(stream, response)
-        console.log(`Sent ${results.length} results to ${peerId}`)
-
-      } else if (request.type === 'GET_FILE_LIST') {
-        // 返回文件列表
-        const files = Array.from(this.fileIndex.values())
-
-        const response = {
-          success: true,
-          files: files,
-          nodeId: this.p2pNode.node.peerId.toString()
-        }
-
-        await this.sendMessage(stream, response)
-        console.log(`Sent file list (${files.length} files) to ${peerId}`)
-      }
-
-    } catch (error) {
-      console.error('Error handling direct query:', error)
-    }
-  }
-
-  // 处理文件通知
-  async handleFileNotification(stream, connection) {
-    try {
-      const notification = await this.receiveMessage(stream)
-      const peerId = connection.remotePeer.toString()
-
-      console.log(`Received notification from ${peerId}:`, notification.type)
-
-      if (notification.type === 'NEW_FILE' && notification.file) {
-        // 将新文件添加到网络索引
-        const key = `${notification.file.hash}-${peerId}`
-        this.networkFileIndex.set(key, {
-          ...notification.file,
-          sourceNode: peerId,
-          receivedAt: Date.now()
-        })
-
-        console.log(`Added file to network index: ${notification.file.name}`)
-      }
-
-    } catch (error) {
-      console.error('Error handling file notification:', error)
-    }
-  }
-
   // 搜索本地文件
   searchLocalFiles(query) {
     const results = []
@@ -315,7 +994,10 @@ export class DHTManager {
       if (fileInfo.name && fileInfo.name.toLowerCase().includes(lowerQuery)) {
         results.push({
           ...fileInfo,
-          source: 'local'
+          source: 'local',
+          provider: this.p2pNode.node.peerId.toString(),
+          verified: true,
+          availability: 1.0
         })
       }
     }
@@ -323,457 +1005,269 @@ export class DHTManager {
     return results
   }
 
-  // 搜索网络文件索引
+  // 搜索网络文件
   searchNetworkFiles(query) {
     const results = []
     const lowerQuery = query.toLowerCase()
 
-    console.log(`Searching network index for: "${query}"`)
-    console.log(`Network index has ${this.networkFileIndex.size} entries`)
+    console.log(`🔍 Searching network index for: "${query}"`)
+    console.log(`🗂️ Network index has ${this.networkFileIndex.size} entries`)
 
     for (const [key, fileInfo] of this.networkFileIndex) {
-      console.log(`Checking file: ${fileInfo.name} against query: ${query}`)
-
       if (fileInfo.name && fileInfo.name.toLowerCase().includes(lowerQuery)) {
-        console.log(`✓ Match found: ${fileInfo.name}`)
         results.push({
           ...fileInfo,
-          source: 'network'
+          source: 'network',
+          providers: this.getFileProviders(fileInfo.hash),
+          availability: this.calculateFileAvailability(fileInfo.hash)
         })
-      } else {
-        console.log(`✗ No match: ${fileInfo.name}`)
       }
     }
 
-    console.log(`Network search found ${results.length} files`)
+    console.log(`🌐 Network search found ${results.length} files`)
     return results
   }
 
-  // DHT功能测试
-  async testDHTFunctionality() {
-    try {
-      console.log('Testing DHT functionality...')
-      const testKey = new TextEncoder().encode('dht-test-key')
-      const testValue = new TextEncoder().encode('dht-test-value')
-      await this.dht.put(testKey, testValue)
-      console.log('DHT PUT operation successful')
-    } catch (dhtTestError) {
-      console.debug('DHT functionality test failed:', dhtTestError)
-    }
-  }
-
-  // 发布文件到DHT
-  async publishFile(fileHash, fileMetadata) {
-    try {
-      console.log(`Publishing file: ${fileMetadata.name} (${fileHash})`)
-
-      const cid = await this.createCID(fileHash)
-      const fileInfo = {
-        name: fileMetadata.name,
-        size: fileMetadata.size,
-        hash: fileHash,
-        timestamp: Date.now(),
-        provider: this.p2pNode.node.peerId.toString()
-      }
-
-      const data = new TextEncoder().encode(JSON.stringify(fileInfo))
-
-      // 发布到DHT
-      await this.dht.put(cid.bytes, data)
-      console.log(`✓ File published to DHT with CID: ${cid.toString()}`)
-
-      // 宣告为提供者
-      await this.dht.provide(cid)
-      console.log(`✓ Announced as provider for: ${fileHash}`)
-
-      // 添加到本地索引
-      this.fileIndex.set(fileHash, fileInfo)
-
-      // 发布搜索索引 - 确保其他节点能搜索到
-      await this.publishSearchIndices(fileMetadata.name, fileInfo)
-
-      // 验证发布
-      setTimeout(() => this.verifyPublication(fileHash, cid), 5000)
-
-      // 在文件发布成功后，直接通知连接的节点
-      setTimeout(async () => {
-        const connectedPeers = this.p2pNode.getConnectedPeers()
-        console.log(`Broadcasting new file to ${connectedPeers.length} connected peers`)
-        for (const peerId of connectedPeers) {
-          try {
-            await this.notifyPeerNewFile(peerId.toString(), fileInfo)
-          } catch (error) {
-            console.debug(`Failed to notify peer ${peerId}:`, error.message)
-          }
-        }
-      }, 2000)
-
-      // DHT验证测试
-      setTimeout(async () => {
-        console.log('=== DHT Verification Test ===')
-        const searchKeyString = `file-search:${fileMetadata.name.toLowerCase().split(/\s+/)[0]}`
-        const searchKey = await this.createCID(searchKeyString)
-        console.log(`Verifying search key: ${searchKey.toString()}`)
-
-        const verifyResults = this.dht.get(searchKey.bytes)
-        let foundSelf = false
-
-        for await (const result of verifyResults) {
-          console.log('Verification result:', {
-            from: result.from?.toString(),
-            hasValue: !!result.value,
-            isSelf: result.from?.toString() === this.p2pNode.node.peerId.toString()
-          })
-
-          if (result.value) {
-            foundSelf = true
-          }
-        }
-
-        console.log(`Self-verification ${foundSelf ? 'PASSED' : 'FAILED'}`)
-      }, 8000) // 8秒后验证
-
-      return cid
-    } catch (error) {
-      console.error('Error publishing file to DHT:', error)
-      throw error
-    }
-  }
-
-  // 发布搜索索引
-  async publishSearchIndices(fileName, fileInfo) {
-    const words = fileName.toLowerCase()
-      .replace(/[^\w\s]/g, ' ')
-      .split(/\s+/)
-      .filter(word => word.length >= 2)
-
-    console.log(`Publishing search indices for words: ${words.join(', ')}`)
-
-    for (const word of words) {
-      try {
-        const searchKeyString = `file-search:${word}`
-        const searchKey = await this.createCID(searchKeyString)
-        const searchData = new TextEncoder().encode(JSON.stringify(fileInfo))
-
-        console.log(`Publishing search key for "${word}": ${searchKey.toString()}`)
-
-        // 发布到DHT
-        await this.dht.put(searchKey.bytes, searchData)
-        console.log(`✓ Data written to DHT for term: "${word}"`)
-
-        // 宣告为提供者
-        await this.dht.provide(searchKey)
-        console.log(`✓ Announced as provider for term: "${word}"`)
-
-        // 等待传播
-        await new Promise(resolve => setTimeout(resolve, 2000))
-
-      } catch (error) {
-        console.warn(`Failed to index word "${word}":`, error.message)
-      }
-    }
-
-    // 发布完成后等待传播
-    console.log('Waiting for DHT propagation...')
-    await new Promise(resolve => setTimeout(resolve, 5000))
-    console.log('DHT propagation wait completed')
-  }
-
-  // DHT关键字搜索
-  async searchDHTKey(word) {
-    const results = []
-    const maxWaitTime = 15000 // 增加到15秒
-
-    try {
-      // 检查DHT状态
-      if (!this.dht) {
-        console.error('DHT service not initialized')
-        return results
-      }
-
-      console.log('DHT service status:', {
-        isStarted: this.p2pNode.isStarted,
-        dhtEnabled: !!this.dht,
-        nodeId: this.p2pNode.node.peerId.toString()
-      })
-
-      const searchKeyString = `file-search:${word}`
-      const searchKey = await this.createCID(searchKeyString)
-
-      console.log(`Searching for key "${word}": ${searchKey.toString()}`)
-      console.log(`DHT connected peers: ${this.p2pNode.getConnectedPeers().length}`)
-
-      // 添加DHT查询前的验证
-      console.log('Starting DHT.get() operation...')
-      const startTime = Date.now()
-
-      const dhtResults = this.dht.get(searchKey.bytes)
-      console.log('DHT.get() returned iterator')
-
-      let resultCount = 0
-      let hasAnyResult = false
-
-      try {
-        // 使用Promise.race来控制等待时间
-        const iteratorPromise = (async () => {
-          for await (const result of dhtResults) {
-            hasAnyResult = true
-            resultCount++
-            const elapsed = Date.now() - startTime
-
-            console.log(`DHT result ${resultCount} for "${word}" (${elapsed}ms):`, {
-              from: result.from?.toString()?.slice(-8),
-              hasValue: !!result.value,
-              type: result.type
-            })
-
-            if (result.value) {
-              try {
-                const fileInfo = JSON.parse(new TextDecoder().decode(result.value))
-                results.push(fileInfo)
-                console.log(`✓ Found file via DHT: ${fileInfo.name}`)
-              } catch (parseError) {
-                console.debug(`Failed to parse DHT result:`, parseError)
-              }
-            }
-
-            // 找到结果后可以提前返回
-            if (results.length > 0) {
-              console.log(`Early return with ${results.length} results`)
-              break
-            }
-
-            // 防止无限循环
-            if (resultCount >= 5) {
-              console.log('Limiting DHT results to 5')
-              break
-            }
-          }
-        })()
-
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('DHT iterator timeout')), maxWaitTime)
-        })
-
-        await Promise.race([iteratorPromise, timeoutPromise])
-
-      } catch (iteratorError) {
-        if (iteratorError.message === 'DHT iterator timeout') {
-          console.warn(`DHT iterator timeout for "${word}" after ${maxWaitTime}ms`)
-        } else {
-          console.error('DHT iterator error:', iteratorError.message)
-        }
-      }
-
-      const totalTime = Date.now() - startTime
-
-      if (!hasAnyResult) {
-        console.warn(`DHT search for "${word}" returned NO results after ${totalTime}ms`)
-      } else {
-        console.log(`DHT search for "${word}" returned ${resultCount} total results, ${results.length} valid files in ${totalTime}ms`)
-      }
-
-    } catch (error) {
-      console.error(`DHT get failed for "${word}":`, error.message)
-    }
-
-    return results
-  }
-
-  // 搜索文件（修复版）
-  async searchFiles(query, options = {}) {
-    const { timeout = 15000, maxResults = 20 } = options
-    console.log(`Starting enhanced search for: "${query}"`)
-
-    const results = []
-    const searchWords = query.toLowerCase()
-      .replace(/[^\w\s]/g, ' ')
-      .split(/\s+/)
-      .filter(word => word.length >= 2)
-
-    // 1. 本地搜索
-    const localResults = this.searchLocalFiles(query)
-    results.push(...localResults)
-    console.log(`Local search found ${localResults.length} files`)
-
-    // 2. 网络文件索引搜索
-    const networkResults = this.searchNetworkFiles(query)
-    networkResults.forEach(result => {
-      if (!results.find(r => r.hash === result.hash)) {
-        results.push({ ...result, source: 'network' })
-      }
-    })
-    console.log(`Network index search found ${networkResults.length} files, total so far: ${results.length}`)
-
-    // 3. 直接向连接的节点查询
-    const connectedPeers = this.p2pNode.getConnectedPeers()
-    if (connectedPeers.length > 0) {
-      console.log(`Directly querying ${connectedPeers.length} connected peers`)
-      for (const peerId of connectedPeers) {
-        try {
-          const peerResults = await this.queryPeerDirectly(peerId.toString(), query)
-          console.log(`Peer ${peerId.toString()} returned ${peerResults.length} results`)
-
-          peerResults.forEach(result => {
-            if (!results.find(r => r.hash === result.hash)) {
-              results.push({ ...result, source: 'direct' })
-              console.log(`Added new result from peer: ${result.name}`)
-            } else {
-              console.log(`Skipped duplicate result: ${result.name}`)
-            }
-          })
-        } catch (error) {
-          console.debug(`Direct query failed for peer ${peerId}:`, error.message)
-        }
-      }
-    }
-
-    console.log(`After direct peer queries, total results: ${results.length}`)
-
-    // 4. DHT搜索（作为补充）
-    if (searchWords.length > 0) {
-      console.log(`DHT search for words: ${searchWords.join(', ')}`)
-
-      for (const word of searchWords) {
-        try {
-          console.log(`Starting DHT search for word: "${word}"`)
-
-          // 创建超时控制
-          const searchPromise = new Promise(async (resolve, reject) => {
-            const timeoutId = setTimeout(() => {
-              reject(new Error('DHT search timeout'))
-            }, 8000) // 8秒超时
-
-            try {
-              const dhtResults = await this.searchDHTKey(word)
-              clearTimeout(timeoutId)
-              resolve(dhtResults)
-            } catch (error) {
-              clearTimeout(timeoutId)
-              reject(error)
-            }
-          })
-
-          try {
-            const dhtResults = await searchPromise
-
-            dhtResults.forEach(result => {
-              if (!results.find(r => r.hash === result.hash)) {
-                results.push({ ...result, source: 'dht' })
-              }
-            })
-
-            console.log(`DHT search for "${word}" found ${dhtResults.length} files`)
-          } catch (timeoutError) {
-            console.warn(`DHT search timeout for word: ${word}`)
-          }
-
-        } catch (error) {
-          console.warn(`DHT search failed for "${word}":`, error.message)
-        }
-      }
-    }
-
-    console.log(`Final search results: ${results.length}`)
-
-    // 打印所有结果用于调试
-    results.forEach((result, index) => {
-      console.log(`Result ${index + 1}: ${result.name} (source: ${result.source}, hash: ${result.hash})`)
-    })
-
-    return results.slice(0, maxResults)
-  }
-
-  // 验证发布
-  async verifyPublication(fileHash, cid) {
-    try {
-      console.log(`Verifying publication of ${fileHash}...`)
-
-      // 尝试从DHT获取刚发布的数据
-      const results = this.dht.get(cid.bytes)
-      let found = false
-
-      for await (const result of results) {
-        if (result.value) {
-          found = true
-          console.log(`✓ Publication verified: ${fileHash}`)
-          break
-        }
-      }
-
-      if (!found) {
-        console.warn(`⚠ Publication verification failed: ${fileHash}`)
-      }
-    } catch (error) {
-      console.warn(`Publication verification error: ${error.message}`)
-    }
-  }
-
-  // 查找文件
+  // 查找文件（增强版）
   async findFile(fileHash) {
     try {
-      console.log(`Starting file search: ${fileHash}`)
+      console.log(`🔍 Starting enhanced file search: ${fileHash}`)
 
-      // 首先检查本地索引
+      // 1. 检查本地索引
       const localFile = this.fileIndex.get(fileHash)
       if (localFile) {
-        console.log('File found in local index:', localFile.name)
-        return localFile
+        console.log('📁 File found in local index:', localFile.name)
+        return { ...localFile, source: 'local', verified: true }
       }
 
-      // 检查网络文件索引
+      // 2. 检查网络文件索引
       for (const [key, fileInfo] of this.networkFileIndex) {
         if (fileInfo.hash === fileHash) {
-          console.log('File found in network index:', fileInfo.name)
-          return fileInfo
+          console.log('🌐 File found in network index:', fileInfo.name)
+          return {
+            ...fileInfo,
+            source: 'network',
+            providers: this.getFileProviders(fileHash),
+            availability: this.calculateFileAvailability(fileHash)
+          }
         }
       }
 
-      console.log('Not found in local indexes, querying DHT...')
+      // 3. 检查全局注册表
+      const globalEntry = this.globalFileRegistry.get(fileHash)
+      if (globalEntry) {
+        console.log('🗂️ File found in global registry:', globalEntry.name)
+        return {
+          ...globalEntry,
+          source: 'global',
+          providers: globalEntry.providers,
+          availability: this.calculateFileAvailability(fileHash)
+        }
+      }
+
+      // 4. 查询DHT
+      console.log('🔎 Querying DHT for file...')
       const cid = await this.createCID(fileHash)
-      console.log('Querying CID:', cid.toString())
-
-      // 设置合理的超时
-      const searchTimeout = 15000 // 15秒超时
-      const startTime = Date.now()
-      let found = false
-
+      
       try {
         const results = this.dht.get(cid.bytes)
-
         for await (const event of results) {
-          console.log(`DHT event: ${event.type}`)
-
-          if (event.value && !found) {
+          if (event.value) {
             try {
               const fileInfo = JSON.parse(new TextDecoder().decode(event.value))
-              console.log('File found in DHT:', fileInfo.name)
-              found = true
-              return fileInfo
+              console.log('✅ File found in DHT:', fileInfo.name)
+              return {
+                ...fileInfo,
+                source: 'dht',
+                providers: this.getFileProviders(fileHash),
+                availability: this.calculateFileAvailability(fileHash)
+              }
             } catch (parseError) {
               console.error('Failed to parse DHT data:', parseError.message)
               continue
             }
           }
-
-          // 检查超时
-          if (Date.now() - startTime > searchTimeout) {
-            console.log('DHT query timeout')
-            break
-          }
         }
       } catch (dhtError) {
-        console.error('DHT query error:', dhtError.message)
+        console.debug('DHT query failed:', dhtError.message)
       }
 
-      if (!found) {
-        console.log('File not found in DHT')
+      // 5. 网络查询所有连接的节点
+      console.log('📡 Querying network peers for file...')
+      const connectedPeers = this.p2pNode.getConnectedPeers()
+      
+      for (const peerId of connectedPeers) {
+        try {
+          const result = await this.queryPeerForFile(peerId.toString(), fileHash)
+          if (result) {
+            console.log(`✅ File found via network peer ${peerId}:`, result.name)
+            return result
+          }
+        } catch (error) {
+          console.debug(`Network query failed for peer ${peerId}:`, error.message)
+        }
+      }
+
+      console.log('❌ File not found in any source')
+      return null
+
+    } catch (error) {
+      console.error('Error during enhanced file search:', error.message)
+      return null
+    }
+  }
+
+  // 查询对等节点文件
+  async queryPeerForFile(peerId, fileHash) {
+    try {
+      const peerIdObj = peerIdFromString(peerId)
+      const stream = await this.p2pNode.node.dialProtocol(peerIdObj, '/p2p-file-sharing/network-query/1.0.0')
+
+      const request = {
+        type: 'FILE_AVAILABILITY',
+        fileHash: fileHash,
+        requestId: this.generateRequestId(),
+        timestamp: Date.now()
+      }
+
+      await this.sendMessage(stream, request)
+      const response = await this.receiveMessage(stream)
+
+      if (response.success && response.fileInfo) {
+        return {
+          ...response.fileInfo,
+          source: 'network-peer',
+          provider: peerId,
+          verified: response.verified || false
+        }
       }
 
       return null
     } catch (error) {
-      console.error('Error during file search:', error.message)
+      console.debug(`Failed to query peer ${peerId} for file:`, error.message)
       return null
+    }
+  }
+
+  // 查找提供者（增强版）
+  async findProviders(fileHash) {
+    const providers = []
+
+    try {
+      // 1. 本地提供者
+      if (this.fileIndex.has(fileHash)) {
+        providers.push({
+          peerId: this.p2pNode.node.peerId.toString(),
+          source: 'local',
+          verified: true,
+          lastSeen: Date.now()
+        })
+      }
+
+      // 2. 网络提供者
+      if (this.networkProviders.has(fileHash)) {
+        const networkProviders = Array.from(this.networkProviders.get(fileHash))
+        networkProviders.forEach(peerId => {
+          providers.push({
+            peerId,
+            source: 'network',
+            verified: false,
+            lastSeen: Date.now()
+          })
+        })
+      }
+
+      // 3. DHT提供者查询
+      const cid = await this.createCID(fileHash)
+      try {
+        for await (const provider of this.dht.findProviders(cid)) {
+          const peerId = provider.id.toString()
+          if (!providers.find(p => p.peerId === peerId)) {
+            providers.push({
+              peerId,
+              source: 'dht',
+              verified: false,
+              lastSeen: Date.now()
+            })
+          }
+        }
+      } catch (dhtError) {
+        console.debug('DHT provider search failed:', dhtError.message)
+      }
+
+      // 4. 验证提供者可用性
+      const verifiedProviders = []
+      for (const provider of providers) {
+        try {
+          const available = await this.verifyProviderAvailability(provider.peerId, fileHash)
+          if (available) {
+            verifiedProviders.push({
+              ...provider,
+              verified: true,
+              lastVerified: Date.now()
+            })
+          }
+        } catch (error) {
+          console.debug(`Provider verification failed for ${provider.peerId}:`, error.message)
+          // 仍然包含未验证的提供者
+          verifiedProviders.push(provider)
+        }
+      }
+
+      console.log(`🔍 Found ${verifiedProviders.length} providers for file ${fileHash}`)
+      return verifiedProviders
+
+    } catch (error) {
+      console.error('Error finding providers:', error)
+      return providers
+    }
+  }
+
+  // 验证提供者可用性
+  async verifyProviderAvailability(peerId, fileHash) {
+    try {
+      // 如果是本地文件，直接返回true
+      if (peerId === this.p2pNode.node.peerId.toString()) {
+        return this.fileIndex.has(fileHash)
+      }
+
+      // 查询远程提供者
+      const result = await this.queryPeerForFile(peerId, fileHash)
+      return result !== null
+    } catch (error) {
+      console.debug(`Provider availability check failed for ${peerId}:`, error.message)
+      return false
+    }
+  }
+
+  // 获取本地文件列表
+  getLocalFiles() {
+    return Array.from(this.fileIndex.values()).map(file => ({
+      ...file,
+      source: 'local',
+      networkShared: true,
+      verified: true
+    }))
+  }
+
+  // 获取网络文件列表
+  getNetworkFiles() {
+    return Array.from(this.networkFileIndex.values()).map(file => ({
+      ...file,
+      providers: this.getFileProviders(file.hash),
+      availability: this.calculateFileAvailability(file.hash)
+    }))
+  }
+
+  // 获取全局文件统计
+  getGlobalFileStats() {
+    return {
+      localFiles: this.fileIndex.size,
+      networkFiles: this.networkFileIndex.size,
+      globalRegistry: this.globalFileRegistry.size,
+      totalProviders: this.networkProviders.size,
+      connectedPeers: this.p2pNode.getConnectedPeers().length,
+      ...this.stats
     }
   }
 
@@ -783,80 +1277,25 @@ export class DHTManager {
       const cid = await this.createCID(fileHash)
       // 宣告提供文件
       await this.dht.provide(cid)
-      console.log(`Announced as provider for file: ${fileHash}`)
+      console.log(`✅ Announced as provider for file: ${fileHash}`)
+      
+      // 添加到网络提供者映射
+      if (!this.networkProviders.has(fileHash)) {
+        this.networkProviders.set(fileHash, new Set())
+      }
+      this.networkProviders.get(fileHash).add(this.p2pNode.node.peerId.toString())
+      
+      return true
     } catch (error) {
       console.error('Error providing file:', error)
       throw error
     }
   }
 
-  // 查找文件提供者
-  async findProviders(fileHash) {
-    const cid = await this.createCID(fileHash)
-    const providers = []
-
-    try {
-      for await (const provider of this.dht.findProviders(cid)) {
-        providers.push({ peerId: provider.id.toString() })
-      }
-    } catch (error) {
-      console.debug('Error finding providers:', error.message)
-    }
-
-    return providers
-  }
-
-  // 专门的DHT搜索方法
-  async searchDHT(query, maxResults, signal) {
-    const results = []
-    const searchTerms = query.toLowerCase().split(/\s+/).filter(term => term.length > 2)
-
-    if (searchTerms.length === 0) return results
-
-    for (const term of searchTerms) {
-      if (signal?.aborted) break
-      if (results.length >= maxResults) break
-
-      try {
-        const searchKey = new TextEncoder().encode(`file-search:${term}`)
-        const searchResults = this.dht.get(searchKey)
-
-        let count = 0
-        for await (const result of searchResults) {
-          if (signal?.aborted) break
-          if (count >= 5) break // 每个词最多5个结果
-
-          if (result.value) {
-            try {
-              const networkFile = JSON.parse(new TextDecoder().decode(result.value))
-              if (!results.find(f => f.hash === networkFile.hash)) {
-                results.push(networkFile)
-                count++
-              }
-            } catch (parseError) {
-              continue
-            }
-          }
-        }
-      } catch (error) {
-        console.debug(`Search failed for term "${term}":`, error.message)
-        continue
-      }
-    }
-
-    return results
-  }
-
-  // 获取本地文件列表
-  getLocalFiles() {
-    return Array.from(this.fileIndex.values())
-  }
-
   // 创建CID
   async createCID(data) {
     let bytes
     if (typeof data === 'string') {
-      // 确保字符串编码的一致性
       bytes = new TextEncoder().encode(data)
     } else if (data instanceof Uint8Array) {
       bytes = data
@@ -866,38 +1305,24 @@ export class DHTManager {
 
     const hash = await sha256.digest(bytes)
     const cid = CID.create(1, raw.code, hash)
-
-    // 添加调试日志
-    console.log(`createCID input: "${data}" -> CID: ${cid.toString()}`)
-
     return cid
   }
 
-  // 获取DHT统计信息
+  // 获取DHT统计信息（增强版）
   async getDHTStats() {
     try {
-      // 获取基本的连接信息
       const connectedPeers = this.p2pNode.getConnectedPeers().length
-
-      // 尝试获取DHT特定信息，但要安全处理可能不存在的方法
       let routingTableSize = 0
 
       try {
-        // 尝试不同的方式获取路由表信息
         if (this.dht && typeof this.dht.getRoutingTable === 'function') {
           const routingTable = await this.dht.getRoutingTable()
           routingTableSize = routingTable?.size || 0
         } else if (this.dht && this.dht.routingTable) {
-          // 如果直接有routingTable属性
           routingTableSize = this.dht.routingTable.size || 0
-        } else if (this.dht && typeof this.dht.getKBuckets === 'function') {
-          // 尝试通过K-buckets获取信息
-          const kBuckets = this.dht.getKBuckets()
-          routingTableSize = kBuckets ? kBuckets.length : 0
         }
       } catch (dhtError) {
         console.debug('Could not get routing table info:', dhtError.message)
-        // 如果获取DHT特定信息失败，继续使用默认值
       }
 
       return {
@@ -905,45 +1330,47 @@ export class DHTManager {
         routingTableSize,
         localFiles: this.fileIndex.size,
         networkFiles: this.networkFileIndex.size,
-        dhtEnabled: !!this.dht
+        globalRegistry: this.globalFileRegistry.size,
+        dhtEnabled: !!this.dht,
+        networkSharing: this.shareConfig.enableGlobalSharing,
+        ...this.stats
       }
     } catch (error) {
-      console.error('Error getting DHT stats:', error)
-      // 返回安全的默认值
+      console.error('Error getting enhanced DHT stats:', error)
       return {
         connectedPeers: this.p2pNode.getConnectedPeers()?.length || 0,
         routingTableSize: 0,
         localFiles: this.fileIndex.size,
         networkFiles: 0,
+        globalRegistry: 0,
         dhtEnabled: false,
+        networkSharing: false,
         error: error.message
       }
     }
   }
 
-  // 刷新DHT连接
-  async refreshDHT() {
-    try {
-      // 触发随机游走来发现更多节点
-      await this.dht.refreshRoutingTable()
-      console.log('DHT routing table refreshed')
-    } catch (error) {
-      console.error('Error refreshing DHT:', error)
-    }
-  }
-
   // 清理方法
   destroy() {
-    // 清理定时器和资源
+    // 清理定时器
+    if (this.announceInterval) {
+      clearInterval(this.announceInterval)
+    }
+    if (this.discoveryInterval) {
+      clearInterval(this.discoveryInterval)
+    }
     if (this.syncInterval) {
       clearInterval(this.syncInterval)
-      this.syncInterval = null
     }
 
     // 清理索引
     this.fileIndex.clear()
     this.networkFileIndex.clear()
+    this.globalFileRegistry.clear()
+    this.networkProviders.clear()
+    this.fileAnnouncements.clear()
+    this.peerCapabilities.clear()
 
-    console.log('DHT Manager destroyed')
+    console.log('🧹 Enhanced DHT Manager destroyed')
   }
 }

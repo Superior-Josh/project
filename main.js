@@ -32,7 +32,7 @@ async function createWindow() {
     width: 1200,
     height: 800,
     autoHideMenuBar: true,
-    title: `P2P File Sharing - Node ${nodeId} (PID: ${processId})`,
+    title: `P2P Network File Sharing - Node ${nodeId} (PID: ${processId})`,
     show: !startMinimized,
     webPreferences: {
       nodeIntegration: false,
@@ -50,7 +50,7 @@ async function createWindow() {
   })
 
   mainWindow.webContents.once('did-finish-load', () => {
-    mainWindow.setTitle(`P2P File Sharing - Node ${nodeId} (PID: ${processId})`)
+    mainWindow.setTitle(`P2P Network File Sharing - Node ${nodeId} (PID: ${processId})`)
     const autoStartNode = settingsManager ? settingsManager.get('autoStartNode', true) : true
     if (autoStartNode) {
       setTimeout(async () => {
@@ -80,7 +80,7 @@ async function createSettingsWindow() {
   settingsWindow = new BrowserWindow({
     width: 1000,
     height: 700,
-    title: 'Settings - P2P File Sharing',
+    title: 'Settings - P2P Network File Sharing',
     parent: mainWindow,
     modal: false,
     resizable: true,
@@ -119,11 +119,15 @@ function createTray() {
         }
       },
       {
-        label: 'NAT Status',
+        label: 'Network Status',
         click: () => {
-          if (p2pNode) {
-            const status = p2pNode.getNATTraversalStatus()
-            console.log('NAT Traversal Status:', status)
+          if (p2pNode && dhtManager) {
+            const networkStats = dhtManager.getGlobalFileStats()
+            const natStatus = p2pNode.getNATTraversalStatus()
+            console.log('Network File Sharing Status:', {
+              ...networkStats,
+              natTraversal: natStatus
+            })
           }
         }
       },
@@ -137,7 +141,7 @@ function createTray() {
       }
     ])
 
-    tray.setToolTip('P2P File Sharing')
+    tray.setToolTip('P2P Network File Sharing')
     tray.setContextMenu(contextMenu)
     tray.on('double-click', () => {
       if (mainWindow) {
@@ -958,6 +962,80 @@ ipcMain.handle('save-settings', async (event, settings) => {
   }
 })
 
+ipcMain.handle('reset-settings', async () => {
+  try {
+    if (!settingsManager) throw new Error('Settings manager not initialized')
+    await settingsManager.resetToDefaults()
+    return { success: true }
+  } catch (error) {
+    console.error('Error resetting settings:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('select-folder', async (event, title) => {
+  try {
+    const result = await dialog.showOpenDialog({
+      title: title || 'Select Folder',
+      properties: ['openDirectory']
+    })
+
+    return {
+      success: true,
+      cancelled: result.canceled,
+      filePaths: result.filePaths
+    }
+  } catch (error) {
+    console.error('Error selecting folder:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+// 设置备份管理
+ipcMain.handle('create-settings-backup', async () => {
+  try {
+    if (!settingsManager) throw new Error('Settings manager not initialized')
+    const backupPath = await settingsManager.createBackup()
+    return { success: true, backupPath }
+  } catch (error) {
+    console.error('Error creating settings backup:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('get-available-backups', async () => {
+  try {
+    if (!settingsManager) throw new Error('Settings manager not initialized')
+    const backups = await settingsManager.getAvailableBackups()
+    return { success: true, backups }
+  } catch (error) {
+    console.error('Error getting available backups:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('restore-settings-backup', async (event, backupPath) => {
+  try {
+    if (!settingsManager) throw new Error('Settings manager not initialized')
+    await settingsManager.restoreFromBackup(backupPath)
+    return { success: true }
+  } catch (error) {
+    console.error('Error restoring settings backup:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('delete-settings-backup', async (event, backupPath) => {
+  try {
+    const fs = await import('fs/promises')
+    await fs.unlink(backupPath)
+    return { success: true }
+  } catch (error) {
+    console.error('Error deleting settings backup:', error)
+    return { success: false, error: error.message }
+  }
+})
+
 // 数据库管理
 ipcMain.handle('get-database-stats', async () => {
   try {
@@ -977,6 +1055,60 @@ ipcMain.handle('cleanup-database', async () => {
     return { success: true, message: 'Database cleanup completed' }
   } catch (error) {
     console.error('Error cleaning up database:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('export-data', async () => {
+  try {
+    if (!databaseManager) throw new Error('Database manager not initialized')
+    
+    const result = await dialog.showSaveDialog({
+      title: 'Export Database',
+      defaultPath: `p2p-data-export-${new Date().toISOString().split('T')[0]}.json`,
+      filters: [
+        { name: 'JSON Files', extensions: ['json'] }
+      ]
+    })
+
+    if (result.canceled) {
+      return { success: true, cancelled: true }
+    }
+
+    const exportData = await databaseManager.exportData()
+    const fs = await import('fs/promises')
+    await fs.writeFile(result.filePath, JSON.stringify(exportData, null, 2))
+
+    return { success: true, filePath: result.filePath }
+  } catch (error) {
+    console.error('Error exporting data:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('import-data', async () => {
+  try {
+    if (!databaseManager) throw new Error('Database manager not initialized')
+    
+    const result = await dialog.showOpenDialog({
+      title: 'Import Database',
+      filters: [
+        { name: 'JSON Files', extensions: ['json'] }
+      ],
+      properties: ['openFile']
+    })
+
+    if (result.canceled) {
+      return { success: true, cancelled: true }
+    }
+
+    const fs = await import('fs/promises')
+    const importData = JSON.parse(await fs.readFile(result.filePaths[0], 'utf8'))
+    await databaseManager.importData(importData)
+
+    return { success: true, filePath: result.filePaths[0] }
+  } catch (error) {
+    console.error('Error importing data:', error)
     return { success: false, error: error.message }
   }
 })

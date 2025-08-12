@@ -560,27 +560,6 @@ export class SettingsManager {
     }
   }
 
-  // 导出设置
-  async exportSettings(filePath) {
-    const exportData = {
-      version: '2.0',
-      type: 'p2p-settings-export',
-      exportedAt: new Date().toISOString(),
-      settings: Object.fromEntries(this.settings)
-    }
-
-    await fs.writeFile(filePath, JSON.stringify(exportData, null, 2))
-  }
-
-  // 导入设置
-  async importSettings(filePath) {
-    const data = await fs.readFile(filePath, 'utf8')
-    const importData = JSON.parse(data)
-
-    const settings = importData.settings || importData
-    await this.setMultiple(settings)
-  }
-
   // 获取可用备份列表
   async getAvailableBackups() {
     try {
