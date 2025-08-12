@@ -64,14 +64,6 @@
                         <span>Downloads</span>
                     </div>
                     
-                    <div class="nav-item" data-section="search">
-                        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="11" cy="11" r="8"/>
-                            <path d="M21 21l-4.35-4.35"/>
-                        </svg>
-                        <span>Search</span>
-                    </div>
-                    
                     <div class="nav-item" data-section="database">
                         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <ellipse cx="12" cy="5" rx="9" ry="3"/>
@@ -155,23 +147,11 @@
                     </div>
                 </div>
 
-                <!-- Downloads Section -->
+                <!-- Downloads Section (Combined with Search) -->
                 <div id="downloads-section" class="content-section">
+                    <!-- Search Files Section -->
                     <div class="section">
-                        <h2>Active Downloads</h2>
-                        <div class="section-content">
-                            <div id="activeDownloads" class="download-list">
-                                <p>No active downloads</p>
-                            </div>
-                            <button id="refreshDownloads" class="btn" style="margin-top: 16px;">Refresh Downloads</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Search Section -->
-                <div id="search-section" class="content-section">
-                    <div class="section">
-                        <h2>Search Files</h2>
+                        <h2>Search and Download Files</h2>
                         <div class="section-content">
                             <div class="form-group">
                                 <label for="searchInput">Search Query</label>
@@ -183,12 +163,24 @@
                         </div>
                     </div>
 
+                    <!-- Search Results Section -->
                     <div class="section">
                         <h2>Search Results</h2>
                         <div class="section-content">
                             <div id="searchResults" class="file-list">
                                 <p>No search results</p>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- Active Downloads Section -->
+                    <div class="section">
+                        <h2>Active Downloads</h2>
+                        <div class="section-content">
+                            <div id="activeDownloads" class="download-list">
+                                <p>No active downloads</p>
+                            </div>
+                            <button id="refreshDownloads" class="btn" style="margin-top: 16px;">Refresh Downloads</button>
                         </div>
                     </div>
                 </div>

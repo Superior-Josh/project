@@ -26,6 +26,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   selectFiles: () => ipcRenderer.invoke('select-files'),  
   shareFile: (filePath) => ipcRenderer.invoke('share-file', filePath),
   downloadFile: (fileHash, fileName) => ipcRenderer.invoke('download-file', fileHash, fileName),
+  openFileLocation: (filePath) => ipcRenderer.invoke('open-file-location', filePath),
   
   // Download management
   getDownloadStatus: (downloadId) => ipcRenderer.invoke('get-download-status', downloadId),

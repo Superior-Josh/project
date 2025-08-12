@@ -1,6 +1,6 @@
 // main.js
 
-import { app, BrowserWindow, ipcMain, Tray, Menu, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, Tray, Menu, dialog, shell } from 'electron'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import os from 'os'
@@ -577,6 +577,193 @@ ipcMain.handle('search-files', async (event, query) => {
     
     console.error('Error searching files:', error)
     return { success: false, error: error.message }
+  }
+})
+
+// 打开文件位置处理器
+ipcMain.handle('open-file-location', async (event, filePath) => {
+  try {
+    console.log(`Opening file location: ${filePath}`)
+    
+    if (!filePath) {
+      throw new Error('File path is required')
+    }
+
+    const fs = await import('fs/promises')
+    const path = await import('path')
+    const { shell } = await import('electron')
+
+    // 验证文件是否存在
+    try {
+      await fs.access(filePath)
+    } catch (accessError) {
+      throw new Error('File does not exist or is not accessible')
+    }
+
+    // 获取文件的绝对路径
+    const absolutePath = path.resolve(filePath)
+    
+    // 根据平台打开文件位置
+    let success = false
+    
+    if (process.platform === 'win32') {
+      // Windows: 使用 explorer 选中文件
+      const { spawn } = await import('child_process')
+      try {
+        spawn('explorer', ['/select,', absolutePath], { detached: true })
+        success = true
+      } catch (error) {
+        console.warn('Failed to use explorer, trying shell.showItemInFolder')
+        success = shell.showItemInFolder(absolutePath)
+      }
+    } else if (process.platform === 'darwin') {
+      // macOS: 使用 Finder 选中文件
+      success = shell.showItemInFolder(absolutePath)
+    } else {
+      // Linux: 尝试打开包含目录
+      const dirPath = path.dirname(absolutePath)
+      success = shell.openPath(dirPath)
+    }
+
+    if (success) {
+      console.log('File location opened successfully')
+      return { success: true }
+    } else {
+      throw new Error('Failed to open file location')
+    }
+
+  } catch (error) {
+    console.error('Error opening file location:', error.message)
+    return { 
+      success: false, 
+      error: error.message 
+    }
+  }
+})
+
+// 本地文件下载处理器（更新版本）
+ipcMain.handle('download-local-file', async (event, fileHash, fileName) => {
+  try {
+    console.log(`Local file download request: ${fileName} (${fileHash})`)
+
+    if (!databaseManager) {
+      throw new Error('Database manager not initialized')
+    }
+
+    // 查找本地文件信息
+    const dbFileInfo = await databaseManager.getFileInfo(fileHash)
+    if (!dbFileInfo || !dbFileInfo.localPath) {
+      throw new Error('Local file path not found in database')
+    }
+
+    console.log('Found local file path:', dbFileInfo.localPath)
+
+    // 验证本地文件是否存在
+    const fs = await import('fs/promises')
+    const path = await import('path')
+
+    try {
+      await fs.access(dbFileInfo.localPath)
+      console.log('Local file exists, proceeding with copy')
+    } catch (accessError) {
+      throw new Error(`Local file not accessible: ${accessError.message}`)
+    }
+
+    // 验证文件哈希
+    const { createHash } = await import('crypto')
+    const fileData = await fs.readFile(dbFileInfo.localPath)
+    const calculatedHash = createHash('sha256').update(fileData).digest('hex')
+
+    if (calculatedHash !== fileHash) {
+      throw new Error('File hash verification failed - file may have been modified')
+    }
+
+    console.log('File hash verified successfully')
+
+    // 设置下载路径
+    const downloadDir = './downloads'
+    await fs.mkdir(downloadDir, { recursive: true })
+    const downloadPath = path.join(downloadDir, fileName)
+    const absoluteDownloadPath = path.resolve(downloadPath)
+
+    // 检查目标文件是否已存在
+    try {
+      await fs.access(downloadPath)
+      
+      // 文件已存在，生成新名称
+      const ext = path.extname(fileName)
+      const baseName = path.basename(fileName, ext)
+      const timestamp = Date.now()
+      const newFileName = `${baseName}_copy_${timestamp}${ext}`
+      const newDownloadPath = path.join(downloadDir, newFileName)
+      const absoluteNewDownloadPath = path.resolve(newDownloadPath)
+      
+      await fs.copyFile(dbFileInfo.localPath, newDownloadPath)
+      console.log(`Local file copied successfully to: ${newDownloadPath}`)
+
+      // 记录传输
+      if (databaseManager) {
+        await databaseManager.saveTransferRecord(`local-copy-${fileHash}-${Date.now()}`, {
+          type: 'local_copy',
+          fileHash,
+          fileName: newFileName,
+          status: 'completed',
+          completedAt: Date.now(),
+          sourcePath: dbFileInfo.localPath,
+          downloadPath: absoluteNewDownloadPath
+        })
+      }
+
+      return {
+        success: true,
+        message: `Local file copied successfully (renamed to avoid conflict)`,
+        filePath: absoluteNewDownloadPath,
+        source: 'local',
+        renamed: true,
+        originalName: fileName,
+        newName: newFileName
+      }
+
+    } catch {
+      // 文件不存在，直接复制
+      await fs.copyFile(dbFileInfo.localPath, downloadPath)
+      console.log(`Local file copied successfully to: ${downloadPath}`)
+
+      // 记录传输
+      if (databaseManager) {
+        await databaseManager.saveTransferRecord(`local-copy-${fileHash}-${Date.now()}`, {
+          type: 'local_copy',
+          fileHash,
+          fileName,
+          status: 'completed',
+          completedAt: Date.now(),
+          sourcePath: dbFileInfo.localPath,
+          downloadPath: absoluteDownloadPath
+        })
+
+        // 更新文件信息
+        await databaseManager.saveFileInfo(fileHash, {
+          ...dbFileInfo,
+          downloadPath: absoluteDownloadPath,
+          downloadedAt: Date.now()
+        })
+      }
+
+      return {
+        success: true,
+        message: 'Local file copied successfully',
+        filePath: absoluteDownloadPath,
+        source: 'local',
+        renamed: false
+      }
+    }
+
+  } catch (error) {
+    console.error('Local file download failed:', error.message)
+    return {
+      success: false,
+      error: error.message
+    }
   }
 })
 

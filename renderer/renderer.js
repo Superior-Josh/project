@@ -15,6 +15,207 @@ let isAutoStarting = false
 let currentSettings = {}
 let pageTransitionManager = null
 
+// 下载相关状态
+let downloadedFiles = new Map() // 存储已下载文件的信息
+let downloadingFiles = new Map() // 存储正在下载的文件
+
+// ==========================================
+// 立即定义全局函数（在页面加载前就可用）
+// ==========================================
+
+// 开始下载（全局函数）
+window.startDownload = function(fileHash, encodedFileName) {
+  const fileName = decodeURIComponent(encodedFileName)
+  
+  console.log('Starting download:', { fileHash, fileName })
+
+  // 直接访问实际的变量，而不是window.isNodeStarted
+  if (!isNodeStarted) {
+    if (window.showMessage) {
+      window.showMessage('Please start P2P node first', 'warning')
+    } else {
+      console.warn('Please start P2P node first')
+    }
+    return
+  }
+
+  if (downloadingFiles && downloadingFiles.has(fileHash)) {
+    if (window.showMessage) {
+      window.showMessage('File is already being downloaded', 'info')
+    } else {
+      console.info('File is already being downloaded')
+    }
+    return
+  }
+
+  if (downloadedFiles && downloadedFiles.has(fileHash)) {
+    if (window.showMessage) {
+      window.showMessage('File has already been downloaded', 'info')
+    } else {
+      console.info('File has already been downloaded')
+    }
+    return
+  }
+
+  // 异步执行下载逻辑
+  executeDownload(fileHash, fileName)
+}
+
+// 取消下载（全局函数）
+window.cancelDownload = function(fileHash) {
+  if (downloadingFiles && downloadingFiles.has(fileHash)) {
+    downloadingFiles.delete(fileHash)
+    updateFileDownloadCancelledUI(fileHash)
+    if (window.showMessage) {
+      window.showMessage('Download cancelled', 'info')
+    } else {
+      console.info('Download cancelled')
+    }
+  }
+}
+
+// 打开文件位置（全局函数）
+window.openFileLocation = function(encodedFilePath) {
+  if (!encodedFilePath) {
+    if (window.showMessage) {
+      window.showMessage('File path not available', 'error')
+    } else {
+      console.error('File path not available')
+    }
+    return
+  }
+
+  const filePath = decodeURIComponent(encodedFilePath)
+  
+  if (window.electronAPI && window.electronAPI.openFileLocation) {
+    window.electronAPI.openFileLocation(filePath)
+      .then(result => {
+        if (result.success) {
+          if (window.showMessage) {
+            window.showMessage('File location opened', 'success')
+          } else {
+            console.log('File location opened')
+          }
+        } else {
+          if (window.showMessage) {
+            window.showMessage(`Failed to open file location: ${result.error}`, 'error')
+          } else {
+            console.error(`Failed to open file location: ${result.error}`)
+          }
+        }
+      })
+      .catch(error => {
+        console.error('Error opening file location:', error)
+        if (window.showMessage) {
+          window.showMessage(`Error opening file location: ${error.message}`, 'error')
+        } else {
+          console.error(`Error opening file location: ${error.message}`)
+        }
+      })
+  } else {
+    console.error('electronAPI.openFileLocation not available')
+    if (window.showMessage) {
+      window.showMessage('File location feature not available', 'error')
+    } else {
+      console.error('File location feature not available')
+    }
+  }
+}
+
+// 移除选择的文件（全局函数）
+window.removeSelectedFile = function(filePath) {
+  if (selectedFiles) {
+    selectedFiles = selectedFiles.filter(path => path !== filePath)
+    updateSelectedFilesDisplay()
+    const shareButton = document.getElementById('shareSelected')
+    if (shareButton) {
+      shareButton.disabled = selectedFiles.length === 0
+    }
+  }
+}
+
+// 连接到发现的对等节点（全局函数）
+window.connectToDiscoveredPeer = async function(peerId) {
+  try {
+    if (isBootstrapPeerId(peerId)) {
+      if (window.showMessage) {
+        window.showMessage('Cannot connect to bootstrap node. Bootstrap nodes are infrastructure nodes used for network discovery, direct connection not supported. Please try connecting to other discovered peers.', 'warning')
+      }
+      return
+    }
+
+    const result = await window.electronAPI.connectToDiscoveredPeer(peerId)
+
+    if (result.success) {
+      if (window.showMessage) {
+        window.showMessage(`Successfully connected to peer: ${peerId.slice(-8)}`, 'success')
+      }
+      await refreshStats()
+    } else {
+      let errorMessage = result.error
+      if (errorMessage.includes('bootstrap node')) {
+        errorMessage = 'Cannot connect to bootstrap node. Please try connecting to other discovered peers.'
+      } else if (errorMessage.includes('offline or unreachable')) {
+        errorMessage = 'Peer offline or unreachable. Please try connecting to other peers.'
+      }
+      if (window.showMessage) {
+        window.showMessage(`Connection failed: ${errorMessage}`, 'error')
+      }
+    }
+  } catch (error) {
+    if (window.showMessage) {
+      window.showMessage(`Connection error: ${error.message}`, 'error')
+    }
+  }
+}
+
+// 暂停下载（全局函数）
+window.pauseDownload = async function(downloadId) {
+  try {
+    const result = await window.electronAPI.pauseDownload(downloadId)
+    if (result.success) {
+      if (window.showMessage) {
+        window.showMessage('Download paused', 'info')
+      }
+      await refreshDownloads()
+    } else {
+      if (window.showMessage) {
+        window.showMessage(`Pause failed: ${result.error}`, 'error')
+      }
+    }
+  } catch (error) {
+    if (window.showMessage) {
+      window.showMessage(`Pause error: ${error.message}`, 'error')
+    }
+  }
+}
+
+// 恢复下载（全局函数）
+window.resumeDownload = async function(downloadId) {
+  try {
+    const result = await window.electronAPI.resumeDownload(downloadId)
+    if (result.success) {
+      if (window.showMessage) {
+        window.showMessage('Download resumed', 'info')
+      }
+      await refreshDownloads()
+    } else {
+      if (window.showMessage) {
+        window.showMessage(`Resume failed: ${result.error}`, 'error')
+      }
+    }
+  } catch (error) {
+    if (window.showMessage) {
+      window.showMessage(`Resume error: ${error.message}`, 'error')
+    }
+  }
+}
+
+// ==========================================
+// 将全局变量也添加到window对象（但主要使用局部变量）
+// ==========================================
+// 这些主要用于调试，实际逻辑使用局部变量
+
 // DOM元素缓存
 const elements = {
   // 主要控制元素
@@ -778,6 +979,10 @@ async function stopNode() {
 // 更新按钮状态
 function updateButtonStates(nodeStarted) {
   isNodeStarted = nodeStarted
+  // 同时更新window对象，以便调试
+  window.isNodeStarted = nodeStarted
+
+  console.log('Node state updated:', nodeStarted) // 添加调试日志
 
   if (nodeStarted) {
     if (elements.startNode) {
@@ -1119,7 +1324,7 @@ async function refreshLocalFiles() {
 }
 
 // ==========================================
-// 11. 搜索功能
+// 11. 搜索功能（增强版）
 // ==========================================
 
 // 搜索文件
@@ -1196,7 +1401,7 @@ async function searchFiles() {
   }
 }
 
-// 显示搜索结果
+// 显示搜索结果（增强版）
 function displaySearchResults(results, searchTime, sources) {
   if (results.length === 0) {
     elements.searchResults.innerHTML = '<p>No matching files found</p>'
@@ -1205,71 +1410,343 @@ function displaySearchResults(results, searchTime, sources) {
       `<p class="search-info">Found ${results.length} files in ${searchTime}ms (Local: ${sources.local}, Network: ${sources.network})</p>` 
       : ''
     
-    const resultList = results.map(file => `
-      <div class="file-item ${file.source === 'local' ? 'local-file' : 'network-file'}">
-        <div class="file-info">
-          <h4>${file.name} ${file.source === 'local' ? '📁' : '🌐'}</h4>
-          <p>Size: ${formatFileSize(file.size)}</p>
-          <p>Hash: ${file.hash}</p>
-          <p>Source: ${file.source || 'unknown'}</p>
-          <p>Time: ${new Date(file.timestamp || file.savedAt || Date.now()).toLocaleString()}</p>
+    const resultList = results.map(file => {
+      const isDownloading = downloadingFiles.has(file.hash)
+      const isDownloaded = downloadedFiles.has(file.hash)
+      
+      return `
+        <div class="file-item ${file.source === 'local' ? 'local-file' : 'network-file'}" data-file-hash="${file.hash}">
+          <div class="file-info">
+            <h4>${file.name} ${file.source === 'local' ? '📁' : '🌐'}</h4>
+            <p>Size: ${formatFileSize(file.size)}</p>
+            <p>Hash: ${file.hash}</p>
+            <p>Source: ${file.source || 'unknown'}</p>
+            <p>Time: ${new Date(file.timestamp || file.savedAt || Date.now()).toLocaleString()}</p>
+            ${isDownloading ? `
+              <div class="download-progress">
+                <div class="progress-bar">
+                  <div class="progress-fill" style="width: 0%"></div>
+                </div>
+                <p class="progress-text">Preparing download...</p>
+              </div>
+            ` : ''}
+          </div>
+          <div class="file-actions">
+            ${isDownloaded ? 
+              '<span class="download-status downloaded">✓ Downloaded</span>' :
+              isDownloading ?
+                '<button onclick="cancelDownload(\'' + file.hash + '\')" class="btn btn-cancel">Cancel</button>' :
+                '<button onclick="startDownload(\'' + file.hash + '\', \'' + encodeURIComponent(file.name) + '\')" class="btn btn-download">Download</button>'
+            }
+          </div>
         </div>
-        <div class="file-actions">
-          <button onclick="window.downloadFile('${file.hash}', '${file.name}')">Download</button>
-        </div>
-      </div>
-    `).join('')
+      `
+    }).join('')
 
     elements.searchResults.innerHTML = sourceInfo + resultList
   }
 }
 
 // ==========================================
-// 12. 下载管理功能
+// 12. 下载管理功能（增强版）
 // ==========================================
 
-// 下载文件
-window.downloadFile = async function (fileHash, fileName) {
-  console.log('Download button clicked:', { fileHash, fileName })
-
-  if (!isNodeStarted) {
-    showMessage('Please start P2P node first', 'warning')
-    return
-  }
-
+// 异步下载执行函数
+async function executeDownload(fileHash, fileName) {
   try {
+    // 标记文件为正在下载
+    const downloadInfo = {
+      fileName,
+      startTime: Date.now(),
+      progress: 0,
+      status: 'initializing',
+      downloadedBytes: 0,
+      totalBytes: 0,
+      speed: 0,
+      remainingTime: 0,
+      lastUpdateTime: Date.now(),
+      lastDownloadedBytes: 0
+    }
+    downloadingFiles.set(fileHash, downloadInfo)
+
+    // 更新UI
+    updateFileDownloadUI(fileHash, downloadInfo)
+    showMessage(`Starting download: ${fileName}`, 'info')
+
+    // 启动进度监控
+    const progressInterval = setInterval(async () => {
+      if (!downloadingFiles.has(fileHash)) {
+        clearInterval(progressInterval)
+        return
+      }
+
+      try {
+        const activeDownloads = await window.electronAPI.getActiveDownloads()
+        const activeDownload = activeDownloads.find(d => 
+          d.fileHash === fileHash || d.fileName === fileName
+        )
+
+        if (activeDownload) {
+          const downloadInfo = downloadingFiles.get(fileHash)
+          const now = Date.now()
+          const timeDiff = (now - downloadInfo.lastUpdateTime) / 1000 // 秒
+          
+          // 计算下载速度
+          const bytesDiff = (activeDownload.downloadedBytes || 0) - downloadInfo.lastDownloadedBytes
+          const speed = timeDiff > 0 ? bytesDiff / timeDiff : 0
+
+          // 更新下载信息
+          downloadInfo.progress = activeDownload.progress || 0
+          downloadInfo.downloadedBytes = activeDownload.downloadedBytes || 0
+          downloadInfo.totalBytes = activeDownload.totalBytes || activeDownload.fileSize || 0
+          downloadInfo.speed = speed
+          downloadInfo.lastUpdateTime = now
+          downloadInfo.lastDownloadedBytes = downloadInfo.downloadedBytes
+
+          // 计算剩余时间
+          if (speed > 0 && downloadInfo.totalBytes > 0) {
+            const remainingBytes = downloadInfo.totalBytes - downloadInfo.downloadedBytes
+            downloadInfo.remainingTime = remainingBytes / speed
+          }
+
+          downloadInfo.status = activeDownload.status || 'downloading'
+          downloadingFiles.set(fileHash, downloadInfo)
+
+          // 更新UI
+          updateFileDownloadUI(fileHash, downloadInfo)
+        }
+      } catch (error) {
+        console.debug('Progress monitoring error:', error)
+      }
+    }, 1000) // 每秒更新一次
+
+    // 检查是否是本地文件
     const localFiles = await window.electronAPI.getLocalFiles()
     const isLocalFile = localFiles.some(file => file.hash === fileHash)
 
+    let result
     if (isLocalFile) {
       console.log('Detected local file, trying direct copy')
-      showMessage(`Copying local file: ${fileName}`, 'info')
-
-      const localResult = await window.electronAPI.downloadLocalFile(fileHash, fileName)
-
-      if (localResult.success) {
-        showMessage(`Local file copy successful: ${fileName}`, 'success')
-        await refreshDownloads()
-        return
-      } else {
-        console.log('Local file copy failed, trying network download:', localResult.error)
-        showMessage(`Local copy failed, trying network download: ${fileName}`, 'warning')
+      downloadInfo.status = 'copying'
+      downloadInfo.progress = 50
+      updateFileDownloadUI(fileHash, downloadInfo)
+      
+      result = await window.electronAPI.downloadLocalFile(fileHash, fileName)
+      
+      if (!result.success) {
+        console.log('Local file copy failed, trying network download:', result.error)
+        downloadInfo.status = 'network'
+        downloadInfo.progress = 10
+        updateFileDownloadUI(fileHash, downloadInfo)
+        result = await window.electronAPI.downloadFile(fileHash, fileName)
       }
+    } else {
+      downloadInfo.status = 'network'
+      downloadInfo.progress = 10
+      updateFileDownloadUI(fileHash, downloadInfo)
+      result = await window.electronAPI.downloadFile(fileHash, fileName)
     }
 
-    showMessage(`Looking for file: ${fileName}`, 'info')
-
-    const result = await window.electronAPI.downloadFile(fileHash, fileName)
+    // 清除进度监控
+    clearInterval(progressInterval)
 
     if (result.success) {
-      showMessage(`Download started: ${fileName}`, 'success')
-      await refreshDownloads()
+      // 下载成功
+      downloadingFiles.delete(fileHash)
+      downloadedFiles.set(fileHash, {
+        fileName,
+        downloadPath: result.filePath,
+        downloadedAt: Date.now(),
+        source: result.source || 'unknown'
+      })
+
+      downloadInfo.progress = 100
+      downloadInfo.status = 'completed'
+      updateFileDownloadUI(fileHash, downloadInfo)
+      showMessage(`Download completed: ${fileName}`, 'success')
+      
+      // 3秒后更新UI显示已下载状态
+      setTimeout(() => {
+        updateFileDownloadedUI(fileHash, result.filePath)
+      }, 3000)
+
     } else {
+      // 下载失败
+      downloadingFiles.delete(fileHash)
+      updateFileDownloadFailedUI(fileHash, result.error)
       showMessage(`Download failed: ${result.error}`, 'error')
     }
+
+    await refreshDownloads()
   } catch (error) {
     console.error('Download error:', error)
+    downloadingFiles.delete(fileHash)
+    updateFileDownloadFailedUI(fileHash, error.message)
     showMessage(`Download error: ${error.message}`, 'error')
+  }
+}
+
+// 更新文件下载UI
+function updateFileDownloadUI(fileHash, downloadInfo) {
+  const fileItem = document.querySelector(`[data-file-hash="${fileHash}"]`)
+  if (!fileItem) return
+
+  let progressContainer = fileItem.querySelector('.download-progress')
+  if (!progressContainer) {
+    progressContainer = document.createElement('div')
+    progressContainer.className = 'download-progress'
+    progressContainer.innerHTML = `
+      <div class="progress-bar">
+        <div class="progress-fill"></div>
+      </div>
+      <div class="progress-info">
+        <div class="progress-text"></div>
+        <div class="download-stats">
+          <span class="download-speed"></span>
+          <span class="download-eta"></span>
+          <span class="download-size"></span>
+        </div>
+      </div>
+    `
+    fileItem.querySelector('.file-info').appendChild(progressContainer)
+  }
+
+  const progressFill = progressContainer.querySelector('.progress-fill')
+  const progressText = progressContainer.querySelector('.progress-text')
+  const speedElement = progressContainer.querySelector('.download-speed')
+  const etaElement = progressContainer.querySelector('.download-eta')
+  const sizeElement = progressContainer.querySelector('.download-size')
+  
+  if (progressFill) {
+    progressFill.style.width = `${downloadInfo.progress}%`
+  }
+  
+  // 状态文本
+  let statusText = ''
+  switch (downloadInfo.status) {
+    case 'initializing':
+      statusText = 'Initializing download...'
+      break
+    case 'copying':
+      statusText = 'Copying local file...'
+      break
+    case 'network':
+      statusText = 'Downloading from network...'
+      break
+    case 'downloading':
+      statusText = 'Downloading...'
+      break
+    case 'completed':
+      statusText = 'Download completed!'
+      break
+    default:
+      statusText = downloadInfo.status
+  }
+  
+  if (progressText) {
+    progressText.textContent = `${statusText} (${downloadInfo.progress.toFixed(1)}%)`
+  }
+
+  // 下载速度
+  if (speedElement && downloadInfo.speed > 0) {
+    speedElement.innerHTML = `<span class="download-stat-icon">📊</span>${formatSpeed(downloadInfo.speed)}`
+    speedElement.style.display = 'inline-flex'
+  } else if (speedElement) {
+    speedElement.style.display = 'none'
+  }
+
+  // 剩余时间
+  if (etaElement && downloadInfo.remainingTime > 0 && downloadInfo.progress < 100) {
+    etaElement.innerHTML = `<span class="download-stat-icon">⏱</span>${formatTime(downloadInfo.remainingTime)}`
+    etaElement.style.display = 'inline-flex'
+  } else if (etaElement) {
+    etaElement.style.display = 'none'
+  }
+
+  // 文件大小信息
+  if (sizeElement && downloadInfo.totalBytes > 0) {
+    const downloaded = formatFileSize(downloadInfo.downloadedBytes)
+    const total = formatFileSize(downloadInfo.totalBytes)
+    sizeElement.innerHTML = `<span class="download-stat-icon">💾</span>${downloaded} / ${total}`
+    sizeElement.style.display = 'inline-flex'
+  } else if (sizeElement) {
+    sizeElement.style.display = 'none'
+  }
+
+  // 更新按钮
+  const actionDiv = fileItem.querySelector('.file-actions')
+  if (actionDiv) {
+    actionDiv.innerHTML = `<button onclick="cancelDownload('${fileHash}')" class="btn btn-cancel">Cancel</button>`
+  }
+}
+
+// 更新文件已下载UI
+function updateFileDownloadedUI(fileHash, filePath) {
+  const fileItem = document.querySelector(`[data-file-hash="${fileHash}"]`)
+  if (!fileItem) return
+
+  // 移除进度条
+  const progressContainer = fileItem.querySelector('.download-progress')
+  if (progressContainer) {
+    progressContainer.remove()
+  }
+
+  // 更新按钮
+  const actionDiv = fileItem.querySelector('.file-actions')
+  if (actionDiv) {
+    actionDiv.innerHTML = `
+      <span class="download-status downloaded">✓ Downloaded</span>
+      <button onclick="openFileLocation('${encodeURIComponent(filePath || '')}')" class="btn btn-folder" title="Open file location">
+        📁
+      </button>
+    `
+  }
+}
+
+// 更新文件下载失败UI
+function updateFileDownloadFailedUI(fileHash, error) {
+  const fileItem = document.querySelector(`[data-file-hash="${fileHash}"]`)
+  if (!fileItem) return
+
+  // 移除进度条
+  const progressContainer = fileItem.querySelector('.download-progress')
+  if (progressContainer) {
+    progressContainer.remove()
+  }
+
+  // 添加错误信息
+  const fileInfo = fileItem.querySelector('.file-info')
+  if (fileInfo) {
+    const errorDiv = document.createElement('div')
+    errorDiv.className = 'download-error'
+    errorDiv.innerHTML = `<p style="color: #e74c3c;">❌ Download failed: ${error}</p>`
+    fileInfo.appendChild(errorDiv)
+  }
+
+  // 恢复下载按钮
+  const fileName = fileItem.querySelector('h4').textContent.replace(' 📁', '').replace(' 🌐', '')
+  const actionDiv = fileItem.querySelector('.file-actions')
+  if (actionDiv) {
+    actionDiv.innerHTML = `<button onclick="startDownload('${fileHash}', '${encodeURIComponent(fileName)}')" class="btn btn-download">Retry Download</button>`
+  }
+}
+
+// 更新文件下载取消UI
+function updateFileDownloadCancelledUI(fileHash) {
+  const fileItem = document.querySelector(`[data-file-hash="${fileHash}"]`)
+  if (!fileItem) return
+
+  // 移除进度条
+  const progressContainer = fileItem.querySelector('.download-progress')
+  if (progressContainer) {
+    progressContainer.remove()
+  }
+
+  // 恢复下载按钮
+  const fileName = fileItem.querySelector('h4').textContent.replace(' 📁', '').replace(' 🌐', '')
+  const actionDiv = fileItem.querySelector('.file-actions')
+  if (actionDiv) {
+    actionDiv.innerHTML = `<button onclick="startDownload('${fileHash}', '${encodeURIComponent(fileName)}')" class="btn btn-download">Download</button>`
   }
 }
 
@@ -1341,23 +1818,6 @@ async function resumeDownload(downloadId) {
     }
   } catch (error) {
     showMessage(`Resume error: ${error.message}`, 'error')
-  }
-}
-
-// 取消下载
-async function cancelDownload(downloadId) {
-  if (confirm('Are you sure you want to cancel this download?')) {
-    try {
-      const result = await window.electronAPI.cancelDownload(downloadId)
-      if (result.success) {
-        showMessage('Download cancelled', 'info')
-        await refreshDownloads()
-      } else {
-        showMessage(`Cancel failed: ${result.error}`, 'error')
-      }
-    } catch (error) {
-      showMessage(`Cancel error: ${error.message}`, 'error')
-    }
   }
 }
 
@@ -1846,11 +2306,12 @@ if (window.electronAPI) {
 
 // 导出全局函数
 Object.assign(window, {
-  removeSelectedFile,
-  pauseDownload,
-  resumeDownload,
-  cancelDownload,
-  connectToDiscoveredPeer,
+  // 这些函数已经在上面定义并赋值给window了，这里只是确保引用
+  // startDownload, cancelDownload, openFileLocation 已经直接定义到window
+  removeSelectedFile: window.removeSelectedFile,
+  pauseDownload: window.pauseDownload,
+  resumeDownload: window.resumeDownload,
+  connectToDiscoveredPeer: window.connectToDiscoveredPeer,
   refreshDiscoveredPeers,
   goBackToMain,
   markUnsaved,
@@ -1905,6 +2366,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     messageManager.createMessageContainer()
   }
 
+  // 确保window.messageManager也可用
+  window.messageManager = messageManager
+
+  // 更新showMessage函数，现在messageManager已经初始化
+  window.showMessage = function(message, type = 'info', duration = null) {
+    return messageManager.show(message, type, duration)
+  }
+
+  // 确保其他消息函数也可用
+  window.showSuccess = function(message, duration = null) {
+    return messageManager.show(message, 'success', duration)
+  }
+  window.showError = function(message, duration = null) {
+    return messageManager.show(message, 'error', duration)
+  }
+  window.showWarning = function(message, duration = null) {
+    return messageManager.show(message, 'warning', duration)
+  }
+  window.showInfo = function(message, duration = null) {
+    return messageManager.show(message, 'info', duration)
+  }
+
   // 初始化DOM元素
   initializeDOMElements()
 
@@ -1920,6 +2403,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 设置自动启动状态
   isAutoStarting = true
+  window.isAutoStarting = true
   if (elements.startNode) {
     elements.startNode.disabled = true
     elements.startNode.textContent = 'Auto-starting...'
@@ -1936,4 +2420,30 @@ document.addEventListener('DOMContentLoaded', async () => {
       pageTransitionManager = new PageTransitionManager()
     }
   }, 100)
+
+  // 测试全局函数是否可用
+  console.log('=== Global functions status ===')
+  console.log('window.startDownload:', typeof window.startDownload)
+  console.log('window.cancelDownload:', typeof window.cancelDownload)
+  console.log('window.openFileLocation:', typeof window.openFileLocation)
+  console.log('isNodeStarted:', isNodeStarted)
+  console.log('window.isNodeStarted:', window.isNodeStarted)
+
+  // 添加一个调试函数到window
+  window.debugNodeState = function() {
+    console.log('=== Node State Debug ===')
+    console.log('isNodeStarted (local):', isNodeStarted)
+    console.log('window.isNodeStarted:', window.isNodeStarted)
+    console.log('isAutoStarting:', isAutoStarting)
+    console.log('Elements state:', {
+      startNode: elements.startNode?.disabled,
+      stopNode: elements.stopNode?.disabled,
+      nodeStatus: elements.nodeStatus?.textContent
+    })
+    return {
+      isNodeStarted,
+      windowIsNodeStarted: window.isNodeStarted,
+      isAutoStarting
+    }
+  }
 })
