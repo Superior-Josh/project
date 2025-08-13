@@ -5,6 +5,8 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import os from 'os'
 import crypto from 'crypto'
+import fs from 'fs/promises'  // 添加这行 - 缺少的fs导入
+import { spawn, execSync } from 'child_process'  // 添加这行 - 用于磁盘空间检查
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -808,21 +810,29 @@ ipcMain.handle('get-download-directory-info', async () => {
       // 尝试获取磁盘空间信息
       try {
         if (process.platform === 'win32') {
-          const { execSync } = await import('child_process')
-          const output = execSync(`fsutil volume diskfree "${downloadPath}"`, { encoding: 'utf8' })
-          const match = output.match(/Total # of free bytes\s*:\s*(\d+)/)
-          if (match) {
-            directoryInfo.freeSpace = parseInt(match[1])
+          // Windows系统
+          try {
+            const output = execSync(`fsutil volume diskfree "${downloadPath}"`, { encoding: 'utf8' })
+            const match = output.match(/Total # of free bytes\s*:\s*(\d+)/)
+            if (match) {
+              directoryInfo.freeSpace = parseInt(match[1])
+            }
+          } catch (winError) {
+            console.debug('Windows disk space check failed:', winError.message)
           }
         } else {
-          const { execSync } = await import('child_process')
-          const output = execSync(`df -k "${downloadPath}"`, { encoding: 'utf8' })
-          const lines = output.split('\n')
-          if (lines[1]) {
-            const parts = lines[1].split(/\s+/)
-            if (parts[3]) {
-              directoryInfo.freeSpace = parseInt(parts[3]) * 1024 // Convert KB to bytes
+          // Unix-like系统 (Linux, macOS)
+          try {
+            const output = execSync(`df -k "${downloadPath}"`, { encoding: 'utf8' })
+            const lines = output.split('\n')
+            if (lines[1]) {
+              const parts = lines[1].split(/\s+/)
+              if (parts[3]) {
+                directoryInfo.freeSpace = parseInt(parts[3]) * 1024 // 转换KB为字节
+              }
             }
+          } catch (unixError) {
+            console.debug('Unix disk space check failed:', unixError.message)
           }
         }
       } catch (spaceError) {
@@ -831,6 +841,7 @@ ipcMain.handle('get-download-directory-info', async () => {
 
     } catch (statError) {
       directoryInfo.error = statError.message
+      console.debug('Directory stat failed:', statError.message)
     }
 
     return {
@@ -844,7 +855,7 @@ ipcMain.handle('get-download-directory-info', async () => {
   }
 })
 
-// 验证下载目录
+// 同时修复 validate-download-directory 处理器
 ipcMain.handle('validate-download-directory', async (event, dirPath) => {
   try {
     // 检查路径是否存在，如果不存在则尝试创建
@@ -901,7 +912,7 @@ ipcMain.handle('validate-download-directory', async (event, dirPath) => {
   }
 })
 
-// 清理下载目录临时文件
+// 修复 cleanup-download-directory 处理器
 ipcMain.handle('cleanup-download-directory', async () => {
   try {
     if (!settingsManager) {

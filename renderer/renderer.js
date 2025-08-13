@@ -1935,6 +1935,10 @@ async function loadSettingsContent() {
     settingsContent.innerHTML = html
 
     setupSettingsNavigation()
+    
+    // 确保默认显示 Window & Interface
+    resetToDefaultSettingsPanel()
+    
     await loadSettings()
   } catch (error) {
     console.error('Error loading settings content:', error)
@@ -1959,12 +1963,19 @@ function createFallbackSettings(container) {
 
 // 切换设置面板
 function switchSettingsPanel(category) {
+  console.log('Switching to settings panel:', category)
+  
   const panels = document.querySelectorAll('#settingsContent .settings-panel')
   panels.forEach(panel => panel.classList.remove('active'))
 
   const targetPanel = document.getElementById(`${category}-panel`)
   if (targetPanel) {
     targetPanel.classList.add('active')
+    console.log(`Successfully switched to panel: ${category}`)
+  } else {
+    console.error(`Panel not found: ${category}-panel`)
+    // 如果找不到目标面板，回退到默认面板
+    resetToDefaultSettingsPanel()
   }
 }
 
@@ -1987,33 +1998,52 @@ function setupSettingsNavigation() {
   // 重新查询导航项
   const newNavItems = document.querySelectorAll('#settingsInterface .nav-item')
 
-  newNavItems.forEach((item) => {
-    item.addEventListener('click', () => {
-      const category = item.dataset.category
-      console.log('Nav item clicked:', category)
+newNavItems.forEach((item) => {
+  item.addEventListener('click', () => {
+    const category = item.dataset.category
 
-      if (!category) {
-        console.error('No category found for nav item')
-        return
-      }
+    if (!category) {
+      console.error('No category found for nav item')
+      return
+    }
 
-      // 更新导航状态
-      newNavItems.forEach(nav => nav.classList.remove('active'))
-      item.classList.add('active')
+    // 更新导航状态
+    newNavItems.forEach(nav => nav.classList.remove('active'))
+    item.classList.add('active')
 
-      // 更新面板显示
-      panels.forEach(panel => panel.classList.remove('active'))
-      const targetPanel = document.getElementById(`${category}-panel`)
-      if (targetPanel) {
-        targetPanel.classList.add('active')
-        console.log(`Switched to panel: ${category}`)
-      } else {
-        console.error(`Panel not found: ${category}-panel`)
-      }
-    })
+    // 更新面板显示
+    switchSettingsPanel(category)
   })
+})
 
   setupFormEventListeners()
+}
+
+// 新增：重置到默认设置面板
+function resetToDefaultSettingsPanel() {
+  console.log('Resetting to default settings panel')
+  
+  // 重置所有导航项状态
+  const navItems = document.querySelectorAll('#settingsInterface .nav-item')
+  navItems.forEach(nav => nav.classList.remove('active'))
+  
+  // 激活第一个导航项 (Window & Interface)
+  const firstNavItem = document.querySelector('#settingsInterface .nav-item[data-category="window"]')
+  if (firstNavItem) {
+    firstNavItem.classList.add('active')
+  }
+  
+  // 隐藏所有面板
+  const panels = document.querySelectorAll('#settingsContent .settings-panel')
+  panels.forEach(panel => panel.classList.remove('active'))
+  
+  // 显示默认面板 (Window & Interface)
+  const defaultPanel = document.getElementById('window-panel')
+  if (defaultPanel) {
+    defaultPanel.classList.add('active')
+  }
+  
+  console.log('Default settings panel set to Window & Interface')
 }
 
 // 加载设置
@@ -2092,43 +2122,6 @@ async function resetAllSettings() {
   }
 }
 
-// renderer/renderer.js - 在现有代码基础上添加以下功能
-
-// 在设置相关的函数部分添加以下代码
-
-// 选择下载路径（修改版）
-async function selectDownloadPath() {
-  try {
-    const result = await window.electronAPI.selectFolder('Select Download Location')
-    if (result && result.success && !result.cancelled && result.filePaths.length > 0) {
-      const newDownloadPath = result.filePaths[0]
-
-      // 更新UI显示
-      const downloadPath = document.getElementById('downloadPath')
-      if (downloadPath) {
-        downloadPath.value = newDownloadPath
-        hasUnsavedChanges = true
-      }
-
-      // 立即应用新的下载路径设置
-      try {
-        const setResult = await window.electronAPI.setDownloadDirectory(newDownloadPath)
-        if (setResult.success) {
-          showMessage('Download directory updated successfully', 'success')
-          await refreshDownloadPathInfo()
-        } else {
-          showMessage(`Failed to set download directory: ${setResult.error}`, 'error')
-        }
-      } catch (error) {
-        showMessage(`Error setting download directory: ${error.message}`, 'error')
-      }
-    }
-  } catch (error) {
-    console.error('Error selecting download path:', error)
-    showMessage('Failed to select folder', 'error')
-  }
-}
-
 // 新增：刷新下载路径信息
 async function refreshDownloadPathInfo() {
   try {
@@ -2147,7 +2140,9 @@ async function refreshDownloadPathInfo() {
   }
 }
 
-// 新增：更新下载路径信息显示
+// Replace the updateDownloadPathInfo function in renderer.js with this fixed version:
+
+// 新增：更新下载路径信息显示 (修复版)
 async function updateDownloadPathInfo(downloadPath) {
   const infoContainer = document.getElementById('downloadPathInfo')
   const statusElement = document.getElementById('downloadPathStatus')
@@ -2160,80 +2155,112 @@ async function updateDownloadPathInfo(downloadPath) {
     // 显示信息容器
     infoContainer.style.display = 'block'
 
-    // 检查路径状态
-    const { promises: fs } = await import('fs')
-    const path = await import('path')
-
-    try {
-      const stats = await fs.stat(downloadPath)
-      if (stats.isDirectory()) {
+    // 通过IPC获取目录详细信息 (而不是直接使用fs模块)
+    const result = await window.electronAPI.getDownloadDirectoryInfo()
+    
+    if (result.success && result.directoryInfo) {
+      const dirInfo = result.directoryInfo
+      
+      // 更新状态
+      if (dirInfo.exists && dirInfo.isDirectory) {
         statusElement.textContent = '✅ Valid Directory'
         statusElement.className = 'info-value status-success'
-      } else {
+      } else if (dirInfo.exists && !dirInfo.isDirectory) {
         statusElement.textContent = '❌ Not a Directory'
+        statusElement.className = 'info-value status-error'
+      } else {
+        statusElement.textContent = '❌ Path Not Found'
         statusElement.className = 'info-value status-error'
       }
 
-      // 检查是否可写
-      try {
-        const testFile = path.join(downloadPath, '.write-test-' + Date.now())
-        await fs.writeFile(testFile, 'test')
-        await fs.unlink(testFile)
+      // 更新可写状态
+      if (dirInfo.isWritable) {
         writableElement.textContent = '✅ Writable'
         writableElement.className = 'info-value status-success'
-      } catch (writeError) {
+      } else {
         writableElement.textContent = '❌ Not Writable'
         writableElement.className = 'info-value status-error'
       }
 
-      // 尝试获取磁盘空间信息（简化版）
-      try {
-        const { spawn } = await import('child_process')
-        const process = await import('process')
-        
-        if (process.platform === 'win32') {
-          // Windows
-          const child = spawn('fsutil', ['volume', 'diskfree', downloadPath])
-          child.stdout.on('data', (data) => {
-            const output = data.toString()
-            const match = output.match(/Total # of free bytes\s*:\s*(\d+)/)
-            if (match) {
-              const freeBytes = parseInt(match[1])
-              spaceElement.textContent = formatFileSize(freeBytes) + ' Free'
-              spaceElement.className = 'info-value'
-            }
-          })
-        } else {
-          // Unix-like systems
-          const child = spawn('df', ['-h', downloadPath])
-          child.stdout.on('data', (data) => {
-            const lines = data.toString().split('\n')
-            if (lines[1]) {
-              const parts = lines[1].split(/\s+/)
-              if (parts[3]) {
-                spaceElement.textContent = parts[3] + ' Free'
-                spaceElement.className = 'info-value'
-              }
-            }
-          })
-        }
-      } catch (spaceError) {
+      // 更新磁盘空间
+      if (dirInfo.freeSpace > 0) {
+        spaceElement.textContent = formatFileSize(dirInfo.freeSpace) + ' Free'
+        spaceElement.className = 'info-value'
+      } else {
         spaceElement.textContent = 'Unknown'
         spaceElement.className = 'info-value'
       }
 
-    } catch (statError) {
-      statusElement.textContent = '❌ Path Not Found'
-      statusElement.className = 'info-value status-error'
+      // 如果有错误信息，显示在状态中
+      if (dirInfo.error) {
+        statusElement.textContent = `❌ ${dirInfo.error}`
+        statusElement.className = 'info-value status-error'
+      }
+
+    } else {
+      // 如果无法获取信息，显示默认状态
+      statusElement.textContent = '❓ Unknown Status'
+      statusElement.className = 'info-value'
       writableElement.textContent = 'N/A'
       writableElement.className = 'info-value'
       spaceElement.textContent = 'N/A'
       spaceElement.className = 'info-value'
+      
+      if (result.error) {
+        console.error('Failed to get directory info:', result.error)
+      }
     }
 
   } catch (error) {
     console.error('Error updating download path info:', error)
-    infoContainer.style.display = 'none'
+    
+    // 显示错误状态
+    statusElement.textContent = '❌ Error'
+    statusElement.className = 'info-value status-error'
+    writableElement.textContent = 'Error'
+    writableElement.className = 'info-value status-error'
+    spaceElement.textContent = 'Error'
+    spaceElement.className = 'info-value status-error'
+  }
+}
+
+// Also update the selectDownloadPath function to use the API properly:
+async function selectDownloadPath() {
+  try {
+    const result = await window.electronAPI.selectFolder('Select Download Location')
+    if (result && result.success && !result.cancelled && result.filePaths.length > 0) {
+      const newDownloadPath = result.filePaths[0]
+
+      // 首先验证目录
+      const validationResult = await window.electronAPI.validateDownloadDirectory(newDownloadPath)
+      if (!validationResult.success) {
+        showMessage(`Invalid directory: ${validationResult.error}`, 'error')
+        return
+      }
+
+      // 更新UI显示
+      const downloadPath = document.getElementById('downloadPath')
+      if (downloadPath) {
+        downloadPath.value = newDownloadPath
+        markUnsaved()
+      }
+
+      // 立即应用新的下载路径设置
+      try {
+        const setResult = await window.electronAPI.setDownloadDirectory(newDownloadPath)
+        if (setResult.success) {
+          showMessage('Download directory updated successfully', 'success')
+          await refreshDownloadPathInfo()
+        } else {
+          showMessage(`Failed to set download directory: ${setResult.error}`, 'error')
+        }
+      } catch (error) {
+        showMessage(`Error setting download directory: ${error.message}`, 'error')
+      }
+    }
+  } catch (error) {
+    console.error('Error selecting download path:', error)
+    showMessage('Failed to select folder', 'error')
   }
 }
 
@@ -2476,6 +2503,7 @@ Object.assign(window, {
   selectDownloadPath,
   refreshDownloadPathInfo,
   updateDownloadPathInfo,
+  resetToDefaultSettingsPanel,
   pageTransitionManager,
   hasUnsavedChanges: false
 })
