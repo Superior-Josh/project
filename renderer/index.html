@@ -28,47 +28,47 @@
                 <div class="nav-menu">
                     <div class="nav-item active" data-section="dashboard">
                         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="3" y="3" width="7" height="7"/>
-                            <rect x="14" y="3" width="7" height="7"/>
-                            <rect x="14" y="14" width="7" height="7"/>
-                            <rect x="3" y="14" width="7" height="7"/>
+                            <rect x="3" y="3" width="7" height="7" />
+                            <rect x="14" y="3" width="7" height="7" />
+                            <rect x="14" y="14" width="7" height="7" />
+                            <rect x="3" y="14" width="7" height="7" />
                         </svg>
                         <span>Dashboard</span>
                     </div>
-                    
+
                     <div class="nav-item" data-section="connections">
                         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="3"/>
-                            <path d="M8 12H3"/>
-                            <path d="M21 12h-5"/>
-                            <path d="M12 8V3"/>
-                            <path d="M12 21v-5"/>
+                            <circle cx="12" cy="12" r="3" />
+                            <path d="M8 12H3" />
+                            <path d="M21 12h-5" />
+                            <path d="M12 8V3" />
+                            <path d="M12 21v-5" />
                         </svg>
                         <span>Connections</span>
                     </div>
-                    
+
                     <div class="nav-item" data-section="files">
                         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                            <polyline points="14,2 14,8 20,8"/>
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14,2 14,8 20,8" />
                         </svg>
                         <span>Files</span>
                     </div>
-                    
+
                     <div class="nav-item" data-section="downloads">
                         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                            <polyline points="7,10 12,15 17,10"/>
-                            <line x1="12" y1="15" x2="12" y2="3"/>
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="7,10 12,15 17,10" />
+                            <line x1="12" y1="15" x2="12" y2="3" />
                         </svg>
                         <span>Downloads</span>
                     </div>
-                    
+
                     <div class="nav-item" data-section="database">
                         <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <ellipse cx="12" cy="5" rx="9" ry="3"/>
-                            <path d="M3 5v14c0 3 4 3 9 3s9 0 9-3V5"/>
-                            <path d="M3 12c0 3 4 3 9 3s9 0 9-3"/>
+                            <ellipse cx="12" cy="5" rx="9" ry="3" />
+                            <path d="M3 5v14c0 3 4 3 9 3s9 0 9-3V5" />
+                            <path d="M3 12c0 3 4 3 9 3s9 0 9-3" />
                         </svg>
                         <span>Database</span>
                     </div>
@@ -110,12 +110,13 @@
                             <div class="form-group">
                                 <label for="peerAddress">Peer Address</label>
                                 <div class="input-group">
-                                    <input type="text" id="peerAddress" class="form-control" 
-                                           placeholder="Enter peer address (e.g., /ip4/192.168.1.100/tcp/4001/p2p/12D3K...)">
+                                    <input type="text" id="peerAddress" class="form-control"
+                                        placeholder="Enter peer address (e.g., /ip4/192.168.1.100/tcp/4001/p2p/12D3K...)">
                                     <button id="connectPeer" class="btn">Connect</button>
                                 </div>
                             </div>
-                            <button id="refreshDiscoveredPeers" class="btn btn-secondary">Refresh Discovered Peers</button>
+                            <button id="refreshDiscoveredPeers" class="btn btn-secondary">Refresh Discovered
+                                Peers</button>
                         </div>
                     </div>
                 </div>
@@ -126,9 +127,11 @@
                         <h2>File Sharing</h2>
                         <div class="section-content">
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                                <div style="padding: 20px; border: 2px dashed var(--border-accent); border-radius: 8px; text-align: center;">
+                                <div
+                                    style="padding: 20px; border: 2px dashed var(--border-accent); border-radius: 8px; text-align: center;">
                                     <button id="selectFiles" class="btn">Select Files</button>
-                                    <button id="shareSelected" class="btn btn-primary" disabled style="margin-top: 10px;">Share Selected Files</button>
+                                    <button id="shareSelected" class="btn btn-primary" disabled
+                                        style="margin-top: 10px;">Share Selected Files</button>
                                     <div id="selectedFiles" style="margin-top: 15px; text-align: left;">
                                         <p>No files selected</p>
                                     </div>
@@ -156,7 +159,8 @@
                             <div class="form-group">
                                 <label for="searchInput">Search Query</label>
                                 <div class="input-group">
-                                    <input type="text" id="searchInput" class="form-control" placeholder="Search files...">
+                                    <input type="text" id="searchInput" class="form-control"
+                                        placeholder="Search files...">
                                     <button id="searchFiles" class="btn">Search</button>
                                 </div>
                             </div>
@@ -180,7 +184,8 @@
                             <div id="activeDownloads" class="download-list">
                                 <p>No active downloads</p>
                             </div>
-                            <button id="refreshDownloads" class="btn" style="margin-top: 16px;">Refresh Downloads</button>
+                            <button id="refreshDownloads" class="btn" style="margin-top: 16px;">Refresh
+                                Downloads</button>
                         </div>
                     </div>
                 </div>
@@ -222,7 +227,8 @@
             <aside class="settings-sidebar">
                 <nav class="nav-menu">
                     <div class="nav-item active" data-category="window">
-                        <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2">
                             <rect x="2" y="4" width="20" height="16" rx="2" />
                             <path d="M10 4v4" />
                             <path d="M2 8h20" />
@@ -231,31 +237,16 @@
                         <span>Window & Interface</span>
                     </div>
                     <div class="nav-item" data-category="download">
-                        <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                             <polyline points="7,10 12,15 17,10" />
                             <line x1="12" y1="15" x2="12" y2="3" />
                         </svg>
                         <span>Download & Files</span>
                     </div>
-                    <div class="nav-item" data-category="network">
-                        <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="3"/>
-                            <path d="M8 12H3"/>
-                            <path d="M21 12h-5"/>
-                            <path d="M12 8V3"/>
-                            <path d="M12 21v-5"/>
-                        </svg>
-                        <span>Network & Connections</span>
-                    </div>
 
-                    <div class="nav-item" data-category="performance">
-                        <svg class="nav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10" />
-                            <polyline points="12,6 12,12 16,14" />
-                        </svg>
-                        <span>Performance</span>
-                    </div>
+
 
                 </nav>
             </aside>
@@ -280,4 +271,5 @@
     <!-- Load JavaScript -->
     <script src="renderer.js"></script>
 </body>
+
 </html>
