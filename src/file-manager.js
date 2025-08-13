@@ -10,6 +10,8 @@ const PROTOCOL_ID = '/p2p-file-sharing/1.0.0'
 const NETWORK_PROTOCOL_ID = '/p2p-file-sharing/network-transfer/1.0.0'
 const CHUNK_SIZE = 64 * 1024 // 64KB chunks
 
+// src/file-manager.js - 修改部分
+
 export class FileManager {
   constructor(p2pNode, dhtManager, downloadDir = './downloads') {
     this.p2pNode = p2pNode
@@ -41,8 +43,210 @@ export class FileManager {
       await fs.mkdir(this.downloadDir, { recursive: true })
       // 创建网络下载临时目录
       await fs.mkdir(path.join(this.downloadDir, '.tmp'), { recursive: true })
+      console.log(`Download directory ensured: ${this.downloadDir}`)
     } catch (error) {
       console.error('Error creating download directory:', error)
+    }
+  }
+
+  // 新增：更新下载目录
+  async updateDownloadDirectory(newDownloadDir) {
+    console.log(`Updating download directory from ${this.downloadDir} to ${newDownloadDir}`)
+    this.downloadDir = newDownloadDir
+    await this.ensureDownloadDir()
+  }
+
+  // 新增：获取当前下载目录
+  getDownloadDirectory() {
+    return this.downloadDir
+  }
+
+  // 修改：创建网络下载任务，使用当前设置的下载目录
+  async createNetworkDownloadTask(fileHash, fileName, fileInfo, providers) {
+    const downloadId = `net_${fileHash}_${Date.now()}`
+    
+    // 使用当前的下载目录
+    const downloadPath = path.join(this.downloadDir, fileName)
+    const tempDir = path.join(this.downloadDir, '.tmp', downloadId)
+
+    // 确保目录存在
+    await fs.mkdir(tempDir, { recursive: true })
+
+    // 选择最佳提供者
+    const selectedProviders = await this.selectOptimalProviders(providers, fileHash)
+
+    const downloadTask = {
+      id: downloadId,
+      fileHash,
+      fileName,
+      fileInfo,
+      downloadPath,
+      tempDir,
+      providers: selectedProviders,
+      totalChunks: fileInfo.chunks || 1,
+      chunkSize: fileInfo.chunkSize || CHUNK_SIZE,
+      completedChunks: new Set(),
+      failedChunks: new Set(),
+      activeChunks: new Map(),
+      startTime: Date.now(),
+      status: 'initializing',
+      progress: 0,
+      downloadedBytes: 0,
+      totalBytes: fileInfo.size || 0,
+      currentSpeed: 0,
+      averageSpeed: 0,
+      estimatedTime: 0,
+      providerStats: new Map()
+    }
+
+    this.networkTransfers.set(fileHash, downloadTask)
+    return downloadTask
+  }
+
+  // 修改：简单网络下载，使用当前下载目录
+  async executeSimpleNetworkDownload(downloadTask) {
+    const { fileHash, fileName, providers } = downloadTask
+    
+    // 使用当前的下载目录
+    const downloadPath = path.join(this.downloadDir, fileName)
+
+    console.log(`📥 Executing simple network download for ${fileName} to ${downloadPath}`)
+
+    for (const provider of providers) {
+      try {
+        console.log(`📡 Attempting download from provider: ${provider.peerId}`)
+
+        const fileData = await this.requestNetworkFile(provider.peerId, fileHash, fileName)
+        
+        if (fileData) {
+          // 验证文件哈希
+          const receivedHash = createHash('sha256').update(fileData).digest('hex')
+          if (receivedHash !== fileHash) {
+            throw new Error('File hash verification failed')
+          }
+
+          // 保存文件到设置的下载目录
+          await fs.writeFile(downloadPath, fileData)
+          
+          downloadTask.status = 'completed'
+          downloadTask.progress = 100
+          downloadTask.downloadedBytes = fileData.length
+
+          console.log(`✅ Simple network download completed: ${downloadPath}`)
+
+          return {
+            success: true,
+            filePath: downloadPath,
+            downloadTime: Date.now() - downloadTask.startTime,
+            provider: provider.peerId
+          }
+        }
+
+      } catch (error) {
+        console.warn(`Provider ${provider.peerId} failed:`, error.message)
+        continue
+      }
+    }
+
+    throw new Error('All providers failed for simple download')
+  }
+
+  // 修改：组装网络文件，使用正确的下载路径
+  async assembleNetworkFile(downloadTask) {
+    const { tempDir, fileName } = downloadTask
+    
+    // 使用当前的下载目录
+    const downloadPath = path.join(this.downloadDir, fileName)
+    downloadTask.downloadPath = downloadPath
+
+    console.log(`🔧 Assembling network file: ${fileName} to ${downloadPath}`)
+
+    const outputFile = await fs.open(downloadPath, 'w')
+
+    try {
+      for (let i = 0; i < downloadTask.totalChunks; i++) {
+        const chunkPath = path.join(tempDir, `chunk_${i}`)
+
+        try {
+          const chunkData = await fs.readFile(chunkPath)
+          await outputFile.write(chunkData)
+        } catch (error) {
+          throw new Error(`Failed to read chunk ${i}: ${error.message}`)
+        }
+      }
+    } finally {
+      await outputFile.close()
+    }
+
+    // 验证最终文件哈希
+    const finalFileData = await fs.readFile(downloadPath)
+    const finalHash = createHash('sha256').update(finalFileData).digest('hex')
+    
+    if (finalHash !== downloadTask.fileHash) {
+      throw new Error('Final file hash verification failed')
+    }
+
+    console.log(`✅ Network file assembled and verified: ${downloadPath}`)
+  }
+
+  // 新增：检查下载目录是否可写
+  async checkDownloadDirectoryWritable() {
+    try {
+      const testFile = path.join(this.downloadDir, '.write-test')
+      await fs.writeFile(testFile, 'test')
+      await fs.unlink(testFile)
+      return true
+    } catch (error) {
+      console.error('Download directory is not writable:', error)
+      return false
+    }
+  }
+
+  // 新增：获取下载目录信息
+  async getDownloadDirectoryInfo() {
+    try {
+      const stats = await fs.stat(this.downloadDir)
+      const isWritable = await this.checkDownloadDirectoryWritable()
+      
+      return {
+        path: this.downloadDir,
+        exists: true,
+        isDirectory: stats.isDirectory(),
+        isWritable,
+        size: stats.size,
+        modified: stats.mtime
+      }
+    } catch (error) {
+      return {
+        path: this.downloadDir,
+        exists: false,
+        isDirectory: false,
+        isWritable: false,
+        error: error.message
+      }
+    }
+  }
+
+  // 新增：清理下载目录中的临时文件
+  async cleanupDownloadDirectory() {
+    try {
+      const tempDir = path.join(this.downloadDir, '.tmp')
+      
+      // 清理临时目录
+      try {
+        await fs.rm(tempDir, { recursive: true, force: true })
+        console.log('Cleaned up temporary download files')
+      } catch (error) {
+        console.debug('No temporary files to clean up')
+      }
+
+      // 重新创建临时目录
+      await fs.mkdir(tempDir, { recursive: true })
+      
+      return { success: true, message: 'Download directory cleaned up' }
+    } catch (error) {
+      console.error('Error cleaning up download directory:', error)
+      return { success: false, error: error.message }
     }
   }
 
@@ -215,45 +419,6 @@ export class FileManager {
     }
   }
 
-  // 创建网络下载任务
-  async createNetworkDownloadTask(fileHash, fileName, fileInfo, providers) {
-    const downloadId = `net_${fileHash}_${Date.now()}`
-    const downloadPath = path.join(this.downloadDir, fileName)
-    const tempDir = path.join(this.downloadDir, '.tmp', downloadId)
-
-    await fs.mkdir(tempDir, { recursive: true })
-
-    // 选择最佳提供者
-    const selectedProviders = await this.selectOptimalProviders(providers, fileHash)
-
-    const downloadTask = {
-      id: downloadId,
-      fileHash,
-      fileName,
-      fileInfo,
-      downloadPath,
-      tempDir,
-      providers: selectedProviders,
-      totalChunks: fileInfo.chunks || 1,
-      chunkSize: fileInfo.chunkSize || CHUNK_SIZE,
-      completedChunks: new Set(),
-      failedChunks: new Set(),
-      activeChunks: new Map(),
-      startTime: Date.now(),
-      status: 'initializing',
-      progress: 0,
-      downloadedBytes: 0,
-      totalBytes: fileInfo.size || 0,
-      currentSpeed: 0,
-      averageSpeed: 0,
-      estimatedTime: 0,
-      providerStats: new Map()
-    }
-
-    this.networkTransfers.set(fileHash, downloadTask)
-    return downloadTask
-  }
-
   // 选择最佳提供者
   async selectOptimalProviders(providers, fileHash) {
     console.log(`🔍 Selecting optimal providers from ${providers.length} available`)
@@ -331,51 +496,6 @@ export class FileManager {
       // 清理临时文件
       await this.cleanupNetworkDownload(downloadTask)
     }
-  }
-
-  // 简单网络下载（单文件）
-  async executeSimpleNetworkDownload(downloadTask) {
-    const { fileHash, fileName, providers, downloadPath } = downloadTask
-
-    console.log(`📥 Executing simple network download for ${fileName}`)
-
-    for (const provider of providers) {
-      try {
-        console.log(`📡 Attempting download from provider: ${provider.peerId}`)
-
-        const fileData = await this.requestNetworkFile(provider.peerId, fileHash, fileName)
-        
-        if (fileData) {
-          // 验证文件哈希
-          const receivedHash = createHash('sha256').update(fileData).digest('hex')
-          if (receivedHash !== fileHash) {
-            throw new Error('File hash verification failed')
-          }
-
-          // 保存文件
-          await fs.writeFile(downloadPath, fileData)
-          
-          downloadTask.status = 'completed'
-          downloadTask.progress = 100
-          downloadTask.downloadedBytes = fileData.length
-
-          console.log(`✅ Simple network download completed: ${fileName}`)
-
-          return {
-            success: true,
-            filePath: downloadPath,
-            downloadTime: Date.now() - downloadTask.startTime,
-            provider: provider.peerId
-          }
-        }
-
-      } catch (error) {
-        console.warn(`Provider ${provider.peerId} failed:`, error.message)
-        continue
-      }
-    }
-
-    throw new Error('All providers failed for simple download')
   }
 
   // 分块网络下载
@@ -664,40 +784,6 @@ export class FileManager {
       console.error('Error handling network chunk request:', error)
       return { success: false, error: error.message }
     }
-  }
-
-  // 组装网络文件
-  async assembleNetworkFile(downloadTask) {
-    const { tempDir, downloadPath, totalChunks, fileName } = downloadTask
-
-    console.log(`🔧 Assembling network file: ${fileName}`)
-
-    const outputFile = await fs.open(downloadPath, 'w')
-
-    try {
-      for (let i = 0; i < totalChunks; i++) {
-        const chunkPath = path.join(tempDir, `chunk_${i}`)
-
-        try {
-          const chunkData = await fs.readFile(chunkPath)
-          await outputFile.write(chunkData)
-        } catch (error) {
-          throw new Error(`Failed to read chunk ${i}: ${error.message}`)
-        }
-      }
-    } finally {
-      await outputFile.close()
-    }
-
-    // 验证最终文件哈希
-    const finalFileData = await fs.readFile(downloadPath)
-    const finalHash = createHash('sha256').update(finalFileData).digest('hex')
-    
-    if (finalHash !== downloadTask.fileHash) {
-      throw new Error('Final file hash verification failed')
-    }
-
-    console.log(`✅ Network file assembled and verified: ${downloadPath}`)
   }
 
   // 更新网络下载进度

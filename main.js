@@ -191,10 +191,10 @@ async function gracefulShutdown() {
 // 自动启动P2P节点
 async function autoStartP2PNode(window) {
   let startTimeout
-  
+
   try {
     console.log('Auto-starting P2P node...')
-    
+
     startTimeout = setTimeout(() => {
       console.error('Auto-start timeout - sending failure message')
       if (window && !window.isDestroyed()) {
@@ -216,17 +216,17 @@ async function autoStartP2PNode(window) {
       console.log('Creating other managers...')
       dhtManager = new DHTManager(p2pNode)
       databaseManager = new DatabaseManager(path.join('./data'))
-      
+
       console.log('Initializing database...')
       await databaseManager.initialize()
-      
+
       fileManager = new FileManager(p2pNode, dhtManager, './downloads')
       chunkManager = new ChunkManager(fileManager, databaseManager)
     }
 
     console.log('Starting P2P node...')
     await p2pNode.start()
-    
+
     console.log('Initializing DHT...')
     await dhtManager.initialize()
 
@@ -238,13 +238,13 @@ async function autoStartP2PNode(window) {
     if (window && !window.isDestroyed()) {
       const shortPeerId = nodeInfo.peerId.slice(-8)
       window.setTitle(`P2P - ${shortPeerId} (Started)`)
-      
+
       window.webContents.send('p2p-node-started', {
         success: true,
         nodeInfo
       })
     }
-    
+
   } catch (error) {
     clearTimeout(startTimeout)
     console.error('Failed to auto-start P2P node:', error)
@@ -342,7 +342,7 @@ ipcMain.handle('start-p2p-node', async () => {
 
     if (!p2pNode) {
       const natSettings = settingsManager ? settingsManager.getNATTraversalSettings() : {}
-      
+
       p2pNode = new P2PNode({
         enableHolePunching: natSettings.holePunching?.enabled !== false,
         enableUPnP: natSettings.upnp?.enabled !== false,
@@ -350,7 +350,7 @@ ipcMain.handle('start-p2p-node', async () => {
         customBootstrapNodes: natSettings.customNodes?.bootstrapNodes || [],
         customRelayNodes: natSettings.customNodes?.relayNodes || []
       })
-      
+
       dhtManager = new DHTManager(p2pNode)
       databaseManager = new DatabaseManager('./data')
       await databaseManager.initialize()
@@ -368,8 +368,8 @@ ipcMain.handle('start-p2p-node', async () => {
     if (currentWindow && nodeInfo) {
       const shortPeerId = nodeInfo.peerId.slice(-8)
       const processId = process.pid
-      const natInfo = natStatus.isPublicNode ? 'Public' : 
-                      natStatus.reachability === 'private' ? 'NAT' : 'Unknown'
+      const natInfo = natStatus.isPublicNode ? 'Public' :
+        natStatus.reachability === 'private' ? 'NAT' : 'Unknown'
       currentWindow.setTitle(`P2P - ${shortPeerId} (${natInfo})`)
     }
 
@@ -521,7 +521,7 @@ ipcMain.handle('find-file', async (event, fileHash) => {
 ipcMain.handle('search-files', async (event, query) => {
   try {
     const searchStartTime = Date.now()
-    
+
     // 取消之前的搜索
     if (currentSearchController) {
       currentSearchController.abort()
@@ -544,11 +544,11 @@ ipcMain.handle('search-files', async (event, query) => {
 
     // 合并结果
     const allResults = []
-    
+
     if (localResults.status === 'fulfilled') {
-      allResults.push(...localResults.value.map(r => ({...r, source: 'local'})))
+      allResults.push(...localResults.value.map(r => ({ ...r, source: 'local' })))
     }
-    
+
     if (dhtResults.status === 'fulfilled') {
       dhtResults.value.forEach(dhtFile => {
         if (!allResults.find(f => f.hash === dhtFile.hash)) {
@@ -570,12 +570,27 @@ ipcMain.handle('search-files', async (event, query) => {
     }
   } catch (error) {
     currentSearchController = null
-    
+
     if (error.name === 'AbortError') {
       return { success: false, error: 'Search cancelled', cancelled: true }
     }
-    
+
     console.error('Error searching files:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+// 获取当前下载目录
+ipcMain.handle('get-download-directory', async () => {
+  try {
+    if (!settingsManager) {
+      return { success: false, error: 'Settings manager not initialized' }
+    }
+
+    const downloadPath = settingsManager.get('downloadPath', path.join('./downloads'))
+    return { success: true, downloadPath }
+  } catch (error) {
+    console.error('Error getting download directory:', error)
     return { success: false, error: error.message }
   }
 })
@@ -584,7 +599,7 @@ ipcMain.handle('search-files', async (event, query) => {
 ipcMain.handle('open-file-location', async (event, filePath) => {
   try {
     console.log(`Opening file location: ${filePath}`)
-    
+
     if (!filePath) {
       throw new Error('File path is required')
     }
@@ -602,10 +617,10 @@ ipcMain.handle('open-file-location', async (event, filePath) => {
 
     // 获取文件的绝对路径
     const absolutePath = path.resolve(filePath)
-    
+
     // 根据平台打开文件位置
     let success = false
-    
+
     if (process.platform === 'win32') {
       // Windows: 使用 explorer 选中文件
       const { spawn } = await import('child_process')
@@ -634,132 +649,6 @@ ipcMain.handle('open-file-location', async (event, filePath) => {
 
   } catch (error) {
     console.error('Error opening file location:', error.message)
-    return { 
-      success: false, 
-      error: error.message 
-    }
-  }
-})
-
-// 本地文件下载处理器（更新版本）
-ipcMain.handle('download-local-file', async (event, fileHash, fileName) => {
-  try {
-    console.log(`Local file download request: ${fileName} (${fileHash})`)
-
-    if (!databaseManager) {
-      throw new Error('Database manager not initialized')
-    }
-
-    // 查找本地文件信息
-    const dbFileInfo = await databaseManager.getFileInfo(fileHash)
-    if (!dbFileInfo || !dbFileInfo.localPath) {
-      throw new Error('Local file path not found in database')
-    }
-
-    console.log('Found local file path:', dbFileInfo.localPath)
-
-    // 验证本地文件是否存在
-    const fs = await import('fs/promises')
-    const path = await import('path')
-
-    try {
-      await fs.access(dbFileInfo.localPath)
-      console.log('Local file exists, proceeding with copy')
-    } catch (accessError) {
-      throw new Error(`Local file not accessible: ${accessError.message}`)
-    }
-
-    // 验证文件哈希
-    const { createHash } = await import('crypto')
-    const fileData = await fs.readFile(dbFileInfo.localPath)
-    const calculatedHash = createHash('sha256').update(fileData).digest('hex')
-
-    if (calculatedHash !== fileHash) {
-      throw new Error('File hash verification failed - file may have been modified')
-    }
-
-    console.log('File hash verified successfully')
-
-    // 设置下载路径
-    const downloadDir = './downloads'
-    await fs.mkdir(downloadDir, { recursive: true })
-    const downloadPath = path.join(downloadDir, fileName)
-    const absoluteDownloadPath = path.resolve(downloadPath)
-
-    // 检查目标文件是否已存在
-    try {
-      await fs.access(downloadPath)
-      
-      // 文件已存在，生成新名称
-      const ext = path.extname(fileName)
-      const baseName = path.basename(fileName, ext)
-      const timestamp = Date.now()
-      const newFileName = `${baseName}_copy_${timestamp}${ext}`
-      const newDownloadPath = path.join(downloadDir, newFileName)
-      const absoluteNewDownloadPath = path.resolve(newDownloadPath)
-      
-      await fs.copyFile(dbFileInfo.localPath, newDownloadPath)
-      console.log(`Local file copied successfully to: ${newDownloadPath}`)
-
-      // 记录传输
-      if (databaseManager) {
-        await databaseManager.saveTransferRecord(`local-copy-${fileHash}-${Date.now()}`, {
-          type: 'local_copy',
-          fileHash,
-          fileName: newFileName,
-          status: 'completed',
-          completedAt: Date.now(),
-          sourcePath: dbFileInfo.localPath,
-          downloadPath: absoluteNewDownloadPath
-        })
-      }
-
-      return {
-        success: true,
-        message: `Local file copied successfully (renamed to avoid conflict)`,
-        filePath: absoluteNewDownloadPath,
-        source: 'local',
-        renamed: true,
-        originalName: fileName,
-        newName: newFileName
-      }
-
-    } catch {
-      // 文件不存在，直接复制
-      await fs.copyFile(dbFileInfo.localPath, downloadPath)
-      console.log(`Local file copied successfully to: ${downloadPath}`)
-
-      // 记录传输
-      if (databaseManager) {
-        await databaseManager.saveTransferRecord(`local-copy-${fileHash}-${Date.now()}`, {
-          type: 'local_copy',
-          fileHash,
-          fileName,
-          status: 'completed',
-          completedAt: Date.now(),
-          sourcePath: dbFileInfo.localPath,
-          downloadPath: absoluteDownloadPath
-        })
-
-        // 更新文件信息
-        await databaseManager.saveFileInfo(fileHash, {
-          ...dbFileInfo,
-          downloadPath: absoluteDownloadPath,
-          downloadedAt: Date.now()
-        })
-      }
-
-      return {
-        success: true,
-        message: 'Local file copied successfully',
-        filePath: absoluteDownloadPath,
-        source: 'local',
-        renamed: false
-      }
-    }
-
-  } catch (error) {
-    console.error('Local file download failed:', error.message)
     return {
       success: false,
       error: error.message
@@ -840,6 +729,266 @@ ipcMain.handle('share-file', async (event, filePath) => {
   }
 })
 
+// 下载管理
+ipcMain.handle('get-active-downloads', async () => {
+  try {
+    const downloads = []
+
+    if (fileManager) {
+      const transfers = fileManager.getActiveTransfers()
+      downloads.push(...transfers.map(transfer => ({
+        ...transfer,
+        type: 'simple',
+        status: 'downloading'
+      })))
+    }
+
+    if (chunkManager) {
+      const chunkedDownloads = chunkManager.getAllActiveDownloads()
+      downloads.push(...chunkedDownloads.map(download => ({
+        ...download,
+        type: 'chunked',
+        fileHash: download.fileHash,
+        fileName: download.fileName,
+        progress: download.progress,
+        status: download.status,
+        downloadedChunks: download.completedChunks.size,
+        totalChunks: download.totalChunks,
+        estimatedTime: download.estimatedTime
+      })))
+    }
+
+    return downloads
+  } catch (error) {
+    console.error('Error getting active downloads:', error)
+    return []
+  }
+})
+
+// 获取下载目录详细信息
+ipcMain.handle('get-download-directory-info', async () => {
+  try {
+    if (!settingsManager) {
+      return { success: false, error: 'Settings manager not initialized' }
+    }
+
+    const downloadPath = settingsManager.get('downloadPath', path.join('./downloads'))
+
+    // 检查目录状态
+    let directoryInfo = {
+      path: downloadPath,
+      exists: false,
+      isDirectory: false,
+      isWritable: false,
+      size: 0,
+      freeSpace: 0,
+      error: null
+    }
+
+    try {
+      // 检查路径是否存在
+      const stats = await fs.stat(downloadPath)
+      directoryInfo.exists = true
+      directoryInfo.isDirectory = stats.isDirectory()
+      directoryInfo.size = stats.size
+
+      // 检查是否可写
+      if (directoryInfo.isDirectory) {
+        try {
+          const testFile = path.join(downloadPath, '.write-test-' + Date.now())
+          await fs.writeFile(testFile, 'test')
+          await fs.unlink(testFile)
+          directoryInfo.isWritable = true
+        } catch (writeError) {
+          directoryInfo.isWritable = false
+          directoryInfo.error = 'Directory is not writable'
+        }
+      }
+
+      // 尝试获取磁盘空间信息
+      try {
+        if (process.platform === 'win32') {
+          const { execSync } = await import('child_process')
+          const output = execSync(`fsutil volume diskfree "${downloadPath}"`, { encoding: 'utf8' })
+          const match = output.match(/Total # of free bytes\s*:\s*(\d+)/)
+          if (match) {
+            directoryInfo.freeSpace = parseInt(match[1])
+          }
+        } else {
+          const { execSync } = await import('child_process')
+          const output = execSync(`df -k "${downloadPath}"`, { encoding: 'utf8' })
+          const lines = output.split('\n')
+          if (lines[1]) {
+            const parts = lines[1].split(/\s+/)
+            if (parts[3]) {
+              directoryInfo.freeSpace = parseInt(parts[3]) * 1024 // Convert KB to bytes
+            }
+          }
+        }
+      } catch (spaceError) {
+        console.debug('Could not get disk space info:', spaceError.message)
+      }
+
+    } catch (statError) {
+      directoryInfo.error = statError.message
+    }
+
+    return {
+      success: true,
+      downloadPath,
+      directoryInfo
+    }
+  } catch (error) {
+    console.error('Error getting download directory info:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+// 验证下载目录
+ipcMain.handle('validate-download-directory', async (event, dirPath) => {
+  try {
+    // 检查路径是否存在，如果不存在则尝试创建
+    try {
+      await fs.access(dirPath)
+    } catch (accessError) {
+      // 路径不存在，尝试创建
+      try {
+        await fs.mkdir(dirPath, { recursive: true })
+      } catch (mkdirError) {
+        return {
+          success: false,
+          error: `Cannot create directory: ${mkdirError.message}`,
+          code: 'CREATE_FAILED'
+        }
+      }
+    }
+
+    // 验证是否为目录
+    const stats = await fs.stat(dirPath)
+    if (!stats.isDirectory()) {
+      return {
+        success: false,
+        error: 'Path exists but is not a directory',
+        code: 'NOT_DIRECTORY'
+      }
+    }
+
+    // 检查是否可写
+    try {
+      const testFile = path.join(dirPath, '.write-test-' + Date.now())
+      await fs.writeFile(testFile, 'test')
+      await fs.unlink(testFile)
+    } catch (writeError) {
+      return {
+        success: false,
+        error: `Directory is not writable: ${writeError.message}`,
+        code: 'NOT_WRITABLE'
+      }
+    }
+
+    return {
+      success: true,
+      message: 'Directory is valid and writable',
+      path: dirPath
+    }
+  } catch (error) {
+    console.error('Error validating download directory:', error)
+    return {
+      success: false,
+      error: error.message,
+      code: 'VALIDATION_ERROR'
+    }
+  }
+})
+
+// 清理下载目录临时文件
+ipcMain.handle('cleanup-download-directory', async () => {
+  try {
+    if (!settingsManager) {
+      return { success: false, error: 'Settings manager not initialized' }
+    }
+
+    const downloadPath = settingsManager.get('downloadPath', path.join('./downloads'))
+    const tempDir = path.join(downloadPath, '.tmp')
+
+    let cleanedFiles = 0
+    let cleanedSize = 0
+
+    try {
+      // 检查临时目录是否存在
+      await fs.access(tempDir)
+
+      // 获取临时文件列表
+      const files = await fs.readdir(tempDir, { withFileTypes: true })
+
+      for (const file of files) {
+        const filePath = path.join(tempDir, file.name)
+        try {
+          const stats = await fs.stat(filePath)
+          cleanedSize += stats.size
+
+          if (file.isDirectory()) {
+            await fs.rm(filePath, { recursive: true, force: true })
+          } else {
+            await fs.unlink(filePath)
+          }
+          cleanedFiles++
+        } catch (deleteError) {
+          console.warn(`Failed to delete ${filePath}:`, deleteError.message)
+        }
+      }
+
+      console.log(`Cleaned up ${cleanedFiles} temporary files, freed ${cleanedSize} bytes`)
+
+    } catch (accessError) {
+      // 临时目录不存在，创建它
+      await fs.mkdir(tempDir, { recursive: true })
+    }
+
+    return {
+      success: true,
+      message: `Cleaned up ${cleanedFiles} temporary files`,
+      cleanedFiles,
+      cleanedSize
+    }
+  } catch (error) {
+    console.error('Error cleaning up download directory:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+// 设置下载目录
+ipcMain.handle('set-download-directory', async (event, newPath) => {
+  try {
+    if (!settingsManager) {
+      throw new Error('Settings manager not initialized')
+    }
+
+    // 验证路径是否存在，如果不存在则创建
+    try {
+      await fs.access(newPath)
+    } catch (accessError) {
+      // 路径不存在，尝试创建
+      await fs.mkdir(newPath, { recursive: true })
+    }
+
+    // 保存新的下载路径
+    await settingsManager.set('downloadPath', newPath)
+
+    // 更新 FileManager 的下载目录
+    if (fileManager) {
+      fileManager.downloadDir = newPath
+      await fileManager.ensureDownloadDir()
+    }
+
+    return { success: true, downloadPath: newPath }
+  } catch (error) {
+    console.error('Error setting download directory:', error)
+    return { success: false, error: error.message }
+  }
+})
+
+// 修改文件下载处理器，使用设置中的下载路径
 ipcMain.handle('download-file', async (event, fileHash, fileName) => {
   try {
     if (!fileManager) throw new Error('File manager not initialized')
@@ -848,6 +997,17 @@ ipcMain.handle('download-file', async (event, fileHash, fileName) => {
     console.log(`Starting download process`)
     console.log(`File name: ${fileName}`)
     console.log(`File hash: ${fileHash}`)
+
+    // 获取当前设置的下载目录
+    const downloadPath = settingsManager ? settingsManager.get('downloadPath', './downloads') : './downloads'
+
+    // 确保下载目录存在
+    await fs.mkdir(downloadPath, { recursive: true })
+
+    // 更新 fileManager 的下载目录
+    if (fileManager) {
+      fileManager.downloadDir = downloadPath
+    }
 
     // 检查本地文件状态
     console.log('Checking local file status...')
@@ -861,7 +1021,6 @@ ipcMain.handle('download-file', async (event, fileHash, fileName) => {
       if (dbFileInfo && dbFileInfo.localPath) {
         console.log('Found local file path in database:', dbFileInfo.localPath)
         try {
-          const fs = await import('fs/promises')
           await fs.access(dbFileInfo.localPath)
           isLocalFile = true
           sourceFilePath = dbFileInfo.localPath
@@ -889,15 +1048,14 @@ ipcMain.handle('download-file', async (event, fileHash, fileName) => {
       console.log('Trying to find file in known directories...')
 
       const possiblePaths = [
-        `./shared/${fileName}`,
-        `./uploads/${fileName}`,
-        `./files/${fileName}`,
-        `./${fileName}`
+        path.join('./shared', fileName),
+        path.join('./uploads', fileName),
+        path.join('./files', fileName),
+        path.join('./', fileName)
       ]
 
       for (const possiblePath of possiblePaths) {
         try {
-          const fs = await import('fs/promises')
           await fs.access(possiblePath)
 
           const { createHash } = await import('crypto')
@@ -916,46 +1074,81 @@ ipcMain.handle('download-file', async (event, fileHash, fileName) => {
       }
     }
 
-    // 如果是本地文件，直接复制
+    // 如果是本地文件，直接复制到设置的下载目录
     if (isLocalFile && sourceFilePath) {
       console.log('Performing local file copy...')
 
       try {
-        const fs = await import('fs/promises')
-        const path = await import('path')
+        const finalDownloadPath = path.join(downloadPath, fileName)
 
-        const downloadDir = './downloads'
-        await fs.mkdir(downloadDir, { recursive: true })
-        const downloadPath = path.join(downloadDir, fileName)
-        await fs.copyFile(sourceFilePath, downloadPath)
+        // 检查目标文件是否已存在
+        try {
+          await fs.access(finalDownloadPath)
 
-        console.log(`Local file copy successful: ${downloadPath}`)
+          // 文件已存在，生成新名称
+          const ext = path.extname(fileName)
+          const baseName = path.basename(fileName, ext)
+          const timestamp = Date.now()
+          const newFileName = `${baseName}_copy_${timestamp}${ext}`
+          const newDownloadPath = path.join(downloadPath, newFileName)
 
-        if (databaseManager) {
-          await databaseManager.saveTransferRecord(`local-copy-${fileHash}-${Date.now()}`, {
-            type: 'local_copy',
-            fileHash,
-            fileName,
-            status: 'completed',
-            completedAt: Date.now(),
-            sourcePath: sourceFilePath,
-            downloadPath: downloadPath
-          })
+          await fs.copyFile(sourceFilePath, newDownloadPath)
+          console.log(`Local file copied successfully to: ${newDownloadPath}`)
 
-          await databaseManager.saveFileInfo(fileHash, {
-            name: fileName,
-            hash: fileHash,
-            localPath: sourceFilePath,
-            downloadPath: downloadPath,
-            downloadedAt: Date.now()
-          })
-        }
+          if (databaseManager) {
+            await databaseManager.saveTransferRecord(`local-copy-${fileHash}-${Date.now()}`, {
+              type: 'local_copy',
+              fileHash,
+              fileName: newFileName,
+              status: 'completed',
+              completedAt: Date.now(),
+              sourcePath: sourceFilePath,
+              downloadPath: newDownloadPath
+            })
+          }
 
-        return {
-          success: true,
-          message: 'Local file copy successful',
-          filePath: downloadPath,
-          source: 'local'
+          return {
+            success: true,
+            message: `Local file copied successfully (renamed to avoid conflict)`,
+            filePath: newDownloadPath,
+            source: 'local',
+            renamed: true,
+            originalName: fileName,
+            newName: newFileName
+          }
+
+        } catch {
+          // 文件不存在，直接复制
+          await fs.copyFile(sourceFilePath, finalDownloadPath)
+          console.log(`Local file copy successful: ${finalDownloadPath}`)
+
+          if (databaseManager) {
+            await databaseManager.saveTransferRecord(`local-copy-${fileHash}-${Date.now()}`, {
+              type: 'local_copy',
+              fileHash,
+              fileName,
+              status: 'completed',
+              completedAt: Date.now(),
+              sourcePath: sourceFilePath,
+              downloadPath: finalDownloadPath
+            })
+
+            await databaseManager.saveFileInfo(fileHash, {
+              name: fileName,
+              hash: fileHash,
+              localPath: sourceFilePath,
+              downloadPath: finalDownloadPath,
+              downloadedAt: Date.now()
+            })
+          }
+
+          return {
+            success: true,
+            message: 'Local file copy successful',
+            filePath: finalDownloadPath,
+            source: 'local',
+            renamed: false
+          }
         }
 
       } catch (copyError) {
@@ -964,6 +1157,7 @@ ipcMain.handle('download-file', async (event, fileHash, fileName) => {
       }
     }
 
+    // 继续原有的网络下载逻辑...
     // 检查网络连接状态
     const dhtStats = await dhtManager.getDHTStats()
     console.log('DHT status:', JSON.stringify(dhtStats, null, 2))
@@ -1079,39 +1273,128 @@ Suggestion: Please try again later, or contact file sharer to confirm their node
   }
 })
 
-// 下载管理
-ipcMain.handle('get-active-downloads', async () => {
+// 修改本地文件下载处理器，使用设置中的下载路径
+ipcMain.handle('download-local-file', async (event, fileHash, fileName) => {
   try {
-    const downloads = []
+    console.log(`Local file download request: ${fileName} (${fileHash})`)
 
-    if (fileManager) {
-      const transfers = fileManager.getActiveTransfers()
-      downloads.push(...transfers.map(transfer => ({
-        ...transfer,
-        type: 'simple',
-        status: 'downloading'
-      })))
+    if (!databaseManager) {
+      throw new Error('Database manager not initialized')
     }
 
-    if (chunkManager) {
-      const chunkedDownloads = chunkManager.getAllActiveDownloads()
-      downloads.push(...chunkedDownloads.map(download => ({
-        ...download,
-        type: 'chunked',
-        fileHash: download.fileHash,
-        fileName: download.fileName,
-        progress: download.progress,
-        status: download.status,
-        downloadedChunks: download.completedChunks.size,
-        totalChunks: download.totalChunks,
-        estimatedTime: download.estimatedTime
-      })))
+    // 获取当前设置的下载目录
+    const downloadDir = settingsManager ? settingsManager.get('downloadPath', './downloads') : './downloads'
+    await fs.mkdir(downloadDir, { recursive: true })
+
+    // 查找本地文件信息
+    const dbFileInfo = await databaseManager.getFileInfo(fileHash)
+    if (!dbFileInfo || !dbFileInfo.localPath) {
+      throw new Error('Local file path not found in database')
     }
 
-    return downloads
+    console.log('Found local file path:', dbFileInfo.localPath)
+
+    // 验证本地文件是否存在
+    try {
+      await fs.access(dbFileInfo.localPath)
+      console.log('Local file exists, proceeding with copy')
+    } catch (accessError) {
+      throw new Error(`Local file not accessible: ${accessError.message}`)
+    }
+
+    // 验证文件哈希
+    const { createHash } = await import('crypto')
+    const fileData = await fs.readFile(dbFileInfo.localPath)
+    const calculatedHash = createHash('sha256').update(fileData).digest('hex')
+
+    if (calculatedHash !== fileHash) {
+      throw new Error('File hash verification failed - file may have been modified')
+    }
+
+    console.log('File hash verified successfully')
+
+    // 设置下载路径
+    const downloadPath = path.join(downloadDir, fileName)
+    const absoluteDownloadPath = path.resolve(downloadPath)
+
+    // 检查目标文件是否已存在
+    try {
+      await fs.access(downloadPath)
+
+      // 文件已存在，生成新名称
+      const ext = path.extname(fileName)
+      const baseName = path.basename(fileName, ext)
+      const timestamp = Date.now()
+      const newFileName = `${baseName}_copy_${timestamp}${ext}`
+      const newDownloadPath = path.join(downloadDir, newFileName)
+      const absoluteNewDownloadPath = path.resolve(newDownloadPath)
+
+      await fs.copyFile(dbFileInfo.localPath, newDownloadPath)
+      console.log(`Local file copied successfully to: ${newDownloadPath}`)
+
+      // 记录传输
+      if (databaseManager) {
+        await databaseManager.saveTransferRecord(`local-copy-${fileHash}-${Date.now()}`, {
+          type: 'local_copy',
+          fileHash,
+          fileName: newFileName,
+          status: 'completed',
+          completedAt: Date.now(),
+          sourcePath: dbFileInfo.localPath,
+          downloadPath: absoluteNewDownloadPath
+        })
+      }
+
+      return {
+        success: true,
+        message: `Local file copied successfully (renamed to avoid conflict)`,
+        filePath: absoluteNewDownloadPath,
+        source: 'local',
+        renamed: true,
+        originalName: fileName,
+        newName: newFileName
+      }
+
+    } catch {
+      // 文件不存在，直接复制
+      await fs.copyFile(dbFileInfo.localPath, downloadPath)
+      console.log(`Local file copied successfully to: ${downloadPath}`)
+
+      // 记录传输
+      if (databaseManager) {
+        await databaseManager.saveTransferRecord(`local-copy-${fileHash}-${Date.now()}`, {
+          type: 'local_copy',
+          fileHash,
+          fileName,
+          status: 'completed',
+          completedAt: Date.now(),
+          sourcePath: dbFileInfo.localPath,
+          downloadPath: absoluteDownloadPath
+        })
+
+        // 更新文件信息
+        await databaseManager.saveFileInfo(fileHash, {
+          ...dbFileInfo,
+          downloadPath: absoluteDownloadPath,
+          downloadedAt: Date.now()
+        })
+      }
+
+      return {
+        success: true,
+        message: 'Local file copied successfully',
+        filePath: absoluteDownloadPath,
+        source: 'local',
+        renamed: false
+      }
+    }
+
   } catch (error) {
-    console.error('Error getting active downloads:', error)
-    return []
+    console.error('Local file download failed:', error.message)
+    return {
+      success: false,
+      error: error.message
+    }
   }
 })
 
@@ -1131,7 +1414,7 @@ ipcMain.handle('save-settings', async (event, settings) => {
     if (!settingsManager) throw new Error('Settings manager not initialized')
 
     await settingsManager.setMultiple(settings)
-    
+
     // 如果NAT穿透设置改变了，重新配置节点
     if (p2pNode && (
       settings.hasOwnProperty('enableNATTraversal') ||
@@ -1249,7 +1532,7 @@ ipcMain.handle('cleanup-database', async () => {
 ipcMain.handle('export-data', async () => {
   try {
     if (!databaseManager) throw new Error('Database manager not initialized')
-    
+
     const result = await dialog.showSaveDialog({
       title: 'Export Database',
       defaultPath: `p2p-data-export-${new Date().toISOString().split('T')[0]}.json`,
@@ -1276,7 +1559,7 @@ ipcMain.handle('export-data', async () => {
 ipcMain.handle('import-data', async () => {
   try {
     if (!databaseManager) throw new Error('Database manager not initialized')
-    
+
     const result = await dialog.showOpenDialog({
       title: 'Import Database',
       filters: [

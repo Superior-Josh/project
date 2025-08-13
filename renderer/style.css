@@ -253,9 +253,11 @@ body {
   0% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.7;
   }
+
   100% {
     opacity: 1;
   }
@@ -511,6 +513,7 @@ body {
     transform: translateX(100%);
     opacity: 0;
   }
+
   to {
     transform: translateX(0);
     opacity: 1;
@@ -522,6 +525,7 @@ body {
     transform: translateX(0);
     opacity: 1;
   }
+
   to {
     transform: translateX(100%);
     opacity: 0;
@@ -1937,6 +1941,7 @@ input[type="checkbox"] {
 
 /* 打印样式 */
 @media print {
+
   .settings-header,
   .settings-sidebar,
   .settings-actions,
@@ -1965,7 +1970,8 @@ input[type="checkbox"] {
 /* 在 renderer/style.css 中添加以下CSS代码 */
 
 /* 页面切换动画容器 */
-.app-container, .settings-container {
+.app-container,
+.settings-container {
   position: relative;
   overflow: hidden;
   transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -2065,13 +2071,15 @@ input[type="checkbox"] {
 }
 
 /* 按钮点击动画效果 */
-#openSettings, .back-btn {
+#openSettings,
+.back-btn {
   position: relative;
   overflow: hidden;
   transition: all 0.3s ease;
 }
 
-#openSettings::before, .back-btn::before {
+#openSettings::before,
+.back-btn::before {
   content: '';
   position: absolute;
   top: 50%;
@@ -2084,7 +2092,8 @@ input[type="checkbox"] {
   transition: width 0.6s, height 0.6s;
 }
 
-#openSettings:active::before, .back-btn:active::before {
+#openSettings:active::before,
+.back-btn:active::before {
   width: 300px;
   height: 300px;
 }
@@ -2109,18 +2118,20 @@ body.page-transitioning #openSettings {
   .page-slide-container {
     transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   }
-  
-  #mainInterface, #settingsInterface {
+
+  #mainInterface,
+  #settingsInterface {
     transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   }
-  
+
   .page-overlay {
     transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   }
 }
 
 /* 动画性能优化 */
-#mainInterface, #settingsInterface {
+#mainInterface,
+#settingsInterface {
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   transform-style: preserve-3d;
@@ -2129,6 +2140,7 @@ body.page-transitioning #openSettings {
 
 /* 减弱动画效果选项（可选，用于辅助功能） */
 @media (prefers-reduced-motion: reduce) {
+
   .page-slide-container,
   #mainInterface,
   #settingsInterface,
@@ -2199,11 +2211,11 @@ body.page-transitioning #openSettings {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(45deg, 
-    transparent 35%, 
-    rgba(255, 255, 255, 0.2) 35%, 
-    rgba(255, 255, 255, 0.2) 65%, 
-    transparent 65%);
+  background: linear-gradient(45deg,
+      transparent 35%,
+      rgba(255, 255, 255, 0.2) 35%,
+      rgba(255, 255, 255, 0.2) 65%,
+      transparent 65%);
   background-size: 20px 20px;
   animation: progressStripes 1s linear infinite;
 }
@@ -2212,6 +2224,7 @@ body.page-transitioning #openSettings {
   from {
     background-position: 0 0;
   }
+
   to {
     background-position: 20px 0;
   }
@@ -2364,20 +2377,21 @@ body.page-transitioning #openSettings {
 
 /* 下载状态动画 */
 .file-item[data-downloading="true"] {
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(52, 152, 219, 0.1),
-    transparent
-  );
+  background: linear-gradient(90deg,
+      transparent,
+      rgba(52, 152, 219, 0.1),
+      transparent);
   background-size: 200% 100%;
   animation: downloadingPulse 2s ease-in-out infinite;
 }
 
 @keyframes downloadingPulse {
-  0%, 100% {
+
+  0%,
+  100% {
     background-position: -200% 0;
   }
+
   50% {
     background-position: 200% 0;
   }
@@ -2412,7 +2426,8 @@ body.page-transitioning #openSettings {
   border-radius: 8px;
   margin-bottom: 16px;
   border: 1px solid var(--border-color);
-  display: none; /* 默认隐藏，有选中文件时显示 */
+  display: none;
+  /* 默认隐藏，有选中文件时显示 */
 }
 
 .bulk-download-controls.visible {
@@ -2462,7 +2477,8 @@ body.page-transitioning #openSettings {
 }
 
 .file-item.selectable {
-  padding-left: 45px; /* 为复选框留出空间 */
+  padding-left: 45px;
+  /* 为复选框留出空间 */
 }
 
 /* 下载队列状态 */
@@ -2490,6 +2506,7 @@ body.page-transitioning #openSettings {
     transform: translateY(100%);
     opacity: 0;
   }
+
   to {
     transform: translateY(0);
     opacity: 1;
@@ -2586,8 +2603,13 @@ body.page-transitioning #openSettings {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* 空状态样式 */
@@ -2747,11 +2769,11 @@ body.page-transitioning #openSettings {
 /* 深色主题支持（可选） */
 @media (prefers-color-scheme: dark) {
   .download-progress .progress-fill::after {
-    background: linear-gradient(45deg, 
-      transparent 35%, 
-      rgba(255, 255, 255, 0.1) 35%, 
-      rgba(255, 255, 255, 0.1) 65%, 
-      transparent 65%);
+    background: linear-gradient(45deg,
+        transparent 35%,
+        rgba(255, 255, 255, 0.1) 35%,
+        rgba(255, 255, 255, 0.1) 65%,
+        transparent 65%);
   }
 
   .download-status.downloaded {
@@ -2770,6 +2792,7 @@ body.page-transitioning #openSettings {
 
 /* 打印样式 */
 @media print {
+
   .file-actions,
   .download-progress,
   .download-queue-indicator,
@@ -2819,11 +2842,11 @@ body.page-transitioning #openSettings {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(45deg, 
-    transparent 35%, 
-    rgba(255, 255, 255, 0.2) 35%, 
-    rgba(255, 255, 255, 0.2) 65%, 
-    transparent 65%);
+  background: linear-gradient(45deg,
+      transparent 35%,
+      rgba(255, 255, 255, 0.2) 35%,
+      rgba(255, 255, 255, 0.2) 65%,
+      transparent 65%);
   background-size: 20px 20px;
   animation: progressStripes 1s linear infinite;
 }
@@ -2832,6 +2855,7 @@ body.page-transitioning #openSettings {
   from {
     background-position: 0 0;
   }
+
   to {
     background-position: 20px 0;
   }
@@ -2984,20 +3008,21 @@ body.page-transitioning #openSettings {
 
 /* 下载状态动画 */
 .file-item[data-downloading="true"] {
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(52, 152, 219, 0.1),
-    transparent
-  );
+  background: linear-gradient(90deg,
+      transparent,
+      rgba(52, 152, 219, 0.1),
+      transparent);
   background-size: 200% 100%;
   animation: downloadingPulse 2s ease-in-out infinite;
 }
 
 @keyframes downloadingPulse {
-  0%, 100% {
+
+  0%,
+  100% {
     background-position: -200% 0;
   }
+
   50% {
     background-position: 200% 0;
   }
@@ -3032,7 +3057,8 @@ body.page-transitioning #openSettings {
   border-radius: 8px;
   margin-bottom: 16px;
   border: 1px solid var(--border-color);
-  display: none; /* 默认隐藏，有选中文件时显示 */
+  display: none;
+  /* 默认隐藏，有选中文件时显示 */
 }
 
 .bulk-download-controls.visible {
@@ -3082,7 +3108,8 @@ body.page-transitioning #openSettings {
 }
 
 .file-item.selectable {
-  padding-left: 45px; /* 为复选框留出空间 */
+  padding-left: 45px;
+  /* 为复选框留出空间 */
 }
 
 /* 下载队列状态 */
@@ -3110,6 +3137,7 @@ body.page-transitioning #openSettings {
     transform: translateY(100%);
     opacity: 0;
   }
+
   to {
     transform: translateY(0);
     opacity: 1;
@@ -3206,8 +3234,13 @@ body.page-transitioning #openSettings {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* 空状态样式 */
@@ -3367,11 +3400,11 @@ body.page-transitioning #openSettings {
 /* 深色主题支持（可选） */
 @media (prefers-color-scheme: dark) {
   .download-progress .progress-fill::after {
-    background: linear-gradient(45deg, 
-      transparent 35%, 
-      rgba(255, 255, 255, 0.1) 35%, 
-      rgba(255, 255, 255, 0.1) 65%, 
-      transparent 65%);
+    background: linear-gradient(45deg,
+        transparent 35%,
+        rgba(255, 255, 255, 0.1) 35%,
+        rgba(255, 255, 255, 0.1) 65%,
+        transparent 65%);
   }
 
   .download-status.downloaded {
@@ -3390,6 +3423,7 @@ body.page-transitioning #openSettings {
 
 /* 打印样式 */
 @media print {
+
   .file-actions,
   .download-progress,
   .download-queue-indicator,
@@ -3401,4 +3435,329 @@ body.page-transitioning #openSettings {
     break-inside: avoid;
     margin-bottom: 12px;
   }
+}
+
+/* 在现有 CSS 基础上添加以下样式 */
+
+/* 下载路径信息样式 */
+.download-path-info {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--bg-tertiary);
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  transition: background-color 0.3s ease;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.info-item:last-child {
+  margin-bottom: 0;
+}
+
+.info-label {
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+
+.info-value {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+}
+
+.info-value.status-success {
+  color: #27ae60;
+  font-weight: 600;
+}
+
+.info-value.status-error {
+  color: #e74c3c;
+  font-weight: 600;
+}
+
+.info-value.status-warning {
+  color: #f39c12;
+  font-weight: 600;
+}
+
+/* 下载路径控制组样式 */
+.setting-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.setting-control input[type="text"][readonly] {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: default;
+}
+
+.setting-control input[type="text"][readonly]:focus {
+  border-color: var(--border-accent);
+  box-shadow: none;
+}
+
+/* 下载操作按钮组 */
+.download-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.download-actions button {
+  font-size: 0.875rem;
+  padding: 8px 16px;
+  min-width: auto;
+  height: 36px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* 浏览按钮特殊样式 */
+#browseDownloadPath {
+  background: linear-gradient(135deg, #3498db, #2980b9);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  min-width: 80px;
+  height: 40px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+#browseDownloadPath:hover {
+  background: linear-gradient(135deg, #2980b9, #1f639a);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
+}
+
+#browseDownloadPath:active {
+  transform: translateY(0);
+}
+
+#browseDownloadPath::before {
+  content: '📁';
+  margin-right: 6px;
+  font-size: 0.875rem;
+}
+
+/* 下载文件夹管理按钮样式 */
+#openDownloadFolder {
+  background: linear-gradient(135deg, #27ae60, #2ecc71);
+}
+
+#openDownloadFolder:hover:not(:disabled) {
+  background: linear-gradient(135deg, #229954, #27ae60);
+}
+
+#openDownloadFolder::before {
+  content: '📂';
+  margin-right: 6px;
+}
+
+#cleanupDownloadFolder {
+  background: linear-gradient(135deg, #e67e22, #d35400);
+}
+
+#cleanupDownloadFolder:hover:not(:disabled) {
+  background: linear-gradient(135deg, #d35400, #c0392b);
+}
+
+#cleanupDownloadFolder::before {
+  content: '🧹';
+  margin-right: 6px;
+}
+
+#refreshDownloadInfo {
+  background: linear-gradient(135deg, #9b59b6, #8e44ad);
+}
+
+#refreshDownloadInfo:hover:not(:disabled) {
+  background: linear-gradient(135deg, #8e44ad, #7d3c98);
+}
+
+#refreshDownloadInfo::before {
+  content: '🔄';
+  margin-right: 6px;
+}
+
+/* 设置项分组标题 */
+.setting-item h3 {
+  margin: 0 0 12px 0;
+  color: var(--text-accent);
+  font-size: 1rem;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 6px;
+}
+
+/* 下载路径验证动画 */
+.download-path-info.checking {
+  background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+  border-color: #f39c12;
+}
+
+.download-path-info.valid {
+  background: linear-gradient(135deg, #d5f4e6, #c8f7c5);
+  border-color: #27ae60;
+}
+
+.download-path-info.invalid {
+  background: linear-gradient(135deg, #fadbd8, #f2d7d5);
+  border-color: #e74c3c;
+}
+
+/* 路径输入框状态 */
+.setting-control input[type="text"].path-valid {
+  border-color: #27ae60;
+  background: linear-gradient(135deg, #d5f4e6, var(--bg-secondary));
+}
+
+.setting-control input[type="text"].path-invalid {
+  border-color: #e74c3c;
+  background: linear-gradient(135deg, #fadbd8, var(--bg-secondary));
+}
+
+.setting-control input[type="text"].path-checking {
+  border-color: #f39c12;
+  background: linear-gradient(135deg, #fff3cd, var(--bg-secondary));
+}
+
+/* 加载状态指示器 */
+.info-value.loading::after {
+  content: '';
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-left: 6px;
+  border: 2px solid var(--border-color);
+  border-top: 2px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* 响应式设计 */
+@media screen and (max-width: 768px) {
+  .download-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .download-actions button {
+    width: 100%;
+    min-width: unset;
+  }
+
+  .setting-control {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .setting-control input[type="text"] {
+    min-width: unset;
+    width: 100%;
+  }
+
+  #browseDownloadPath {
+    width: 100%;
+    min-width: unset;
+  }
+
+  .info-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .download-path-info {
+    padding: 8px;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .download-actions button {
+    font-size: 0.8125rem;
+    height: 32px;
+    padding: 6px 12px;
+  }
+
+  .setting-control input[type="text"] {
+    font-size: 0.8125rem;
+    height: 36px;
+    padding: 6px 10px;
+  }
+
+  #browseDownloadPath {
+    font-size: 0.8125rem;
+    height: 36px;
+    padding: 6px 12px;
+  }
+
+  .info-label,
+  .info-value {
+    font-size: 0.8125rem;
+  }
+}
+
+/* 深色主题支持（如果需要） */
+@media (prefers-color-scheme: dark) {
+  .download-path-info {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .download-path-info.checking {
+    background: rgba(243, 156, 18, 0.1);
+    border-color: #f39c12;
+  }
+
+  .download-path-info.valid {
+    background: rgba(39, 174, 96, 0.1);
+    border-color: #27ae60;
+  }
+
+  .download-path-info.invalid {
+    background: rgba(231, 76, 60, 0.1);
+    border-color: #e74c3c;
+  }
+}
+
+/* 路径信息项悬停效果 */
+.info-item:hover {
+  background: rgba(52, 152, 219, 0.05);
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin: 2px -6px;
+  transition: all 0.2s ease;
+}
+
+/* 按钮组对齐 */
+.download-actions {
+  justify-content: flex-start;
+  align-items: center;
+}
+
+/* 设置项间距调整 */
+.setting-item {
+  margin-bottom: 24px;
+}
+
+.setting-item:last-child {
+  margin-bottom: 0;
 }

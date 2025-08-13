@@ -24,9 +24,9 @@ let downloadingFiles = new Map() // 存储正在下载的文件
 // ==========================================
 
 // 开始下载（全局函数）
-window.startDownload = function(fileHash, encodedFileName) {
+window.startDownload = function (fileHash, encodedFileName) {
   const fileName = decodeURIComponent(encodedFileName)
-  
+
   console.log('Starting download:', { fileHash, fileName })
 
   // 直接访问实际的变量，而不是window.isNodeStarted
@@ -62,7 +62,7 @@ window.startDownload = function(fileHash, encodedFileName) {
 }
 
 // 取消下载（全局函数）
-window.cancelDownload = function(fileHash) {
+window.cancelDownload = function (fileHash) {
   if (downloadingFiles && downloadingFiles.has(fileHash)) {
     downloadingFiles.delete(fileHash)
     updateFileDownloadCancelledUI(fileHash)
@@ -75,7 +75,7 @@ window.cancelDownload = function(fileHash) {
 }
 
 // 打开文件位置（全局函数）
-window.openFileLocation = function(encodedFilePath) {
+window.openFileLocation = function (encodedFilePath) {
   if (!encodedFilePath) {
     if (window.showMessage) {
       window.showMessage('File path not available', 'error')
@@ -86,7 +86,7 @@ window.openFileLocation = function(encodedFilePath) {
   }
 
   const filePath = decodeURIComponent(encodedFilePath)
-  
+
   if (window.electronAPI && window.electronAPI.openFileLocation) {
     window.electronAPI.openFileLocation(filePath)
       .then(result => {
@@ -123,7 +123,7 @@ window.openFileLocation = function(encodedFilePath) {
 }
 
 // 移除选择的文件（全局函数）
-window.removeSelectedFile = function(filePath) {
+window.removeSelectedFile = function (filePath) {
   if (selectedFiles) {
     selectedFiles = selectedFiles.filter(path => path !== filePath)
     updateSelectedFilesDisplay()
@@ -135,7 +135,7 @@ window.removeSelectedFile = function(filePath) {
 }
 
 // 连接到发现的对等节点（全局函数）
-window.connectToDiscoveredPeer = async function(peerId) {
+window.connectToDiscoveredPeer = async function (peerId) {
   try {
     if (isBootstrapPeerId(peerId)) {
       if (window.showMessage) {
@@ -170,7 +170,7 @@ window.connectToDiscoveredPeer = async function(peerId) {
 }
 
 // 暂停下载（全局函数）
-window.pauseDownload = async function(downloadId) {
+window.pauseDownload = async function (downloadId) {
   try {
     const result = await window.electronAPI.pauseDownload(downloadId)
     if (result.success) {
@@ -191,7 +191,7 @@ window.pauseDownload = async function(downloadId) {
 }
 
 // 恢复下载（全局函数）
-window.resumeDownload = async function(downloadId) {
+window.resumeDownload = async function (downloadId) {
   try {
     const result = await window.electronAPI.resumeDownload(downloadId)
     if (result.success) {
@@ -224,15 +224,15 @@ const elements = {
   openSettings: null,
   nodeStatus: null,
   nodeInfo: null,
-  
+
   // 连接相关
   peerAddress: null,
   connectPeer: null,
-  
+
   // DHT和统计
   dhtStats: null,
   refreshStats: null,
-  
+
   // 文件相关
   selectFiles: null,
   shareSelected: null,
@@ -241,11 +241,11 @@ const elements = {
   searchFiles: null,
   localFiles: null,
   searchResults: null,
-  
+
   // 下载相关
   activeDownloads: null,
   refreshDownloads: null,
-  
+
   // 数据库相关
   databaseStats: null,
   refreshDatabaseStats: null,
@@ -1350,7 +1350,7 @@ async function searchFiles() {
 
   try {
     currentSearchAbort = new AbortController()
-    
+
     // 更新UI状态
     elements.searchFiles.disabled = true
     elements.searchFiles.textContent = 'Searching...'
@@ -1373,7 +1373,7 @@ async function searchFiles() {
 
     if (result.success) {
       displaySearchResults(result.results, result.searchTime, result.sources)
-      
+
       if (result.results.length === 0) {
         showMessage('No files found matching your search', 'info')
       } else {
@@ -1393,7 +1393,7 @@ async function searchFiles() {
     elements.searchFiles.disabled = false
     elements.searchFiles.textContent = 'Search'
     currentSearchAbort = null
-    
+
     if (searchTimeout) {
       clearTimeout(searchTimeout)
       searchTimeout = null
@@ -1406,14 +1406,14 @@ function displaySearchResults(results, searchTime, sources) {
   if (results.length === 0) {
     elements.searchResults.innerHTML = '<p>No matching files found</p>'
   } else {
-    const sourceInfo = sources ? 
-      `<p class="search-info">Found ${results.length} files in ${searchTime}ms (Local: ${sources.local}, Network: ${sources.network})</p>` 
+    const sourceInfo = sources ?
+      `<p class="search-info">Found ${results.length} files in ${searchTime}ms (Local: ${sources.local}, Network: ${sources.network})</p>`
       : ''
-    
+
     const resultList = results.map(file => {
       const isDownloading = downloadingFiles.has(file.hash)
       const isDownloaded = downloadedFiles.has(file.hash)
-      
+
       return `
         <div class="file-item ${file.source === 'local' ? 'local-file' : 'network-file'}" data-file-hash="${file.hash}">
           <div class="file-info">
@@ -1432,12 +1432,12 @@ function displaySearchResults(results, searchTime, sources) {
             ` : ''}
           </div>
           <div class="file-actions">
-            ${isDownloaded ? 
-              '<span class="download-status downloaded">✓ Downloaded</span>' :
-              isDownloading ?
-                '<button onclick="cancelDownload(\'' + file.hash + '\')" class="btn btn-cancel">Cancel</button>' :
-                '<button onclick="startDownload(\'' + file.hash + '\', \'' + encodeURIComponent(file.name) + '\')" class="btn btn-download">Download</button>'
-            }
+            ${isDownloaded ?
+          '<span class="download-status downloaded">✓ Downloaded</span>' :
+          isDownloading ?
+            '<button onclick="cancelDownload(\'' + file.hash + '\')" class="btn btn-cancel">Cancel</button>' :
+            '<button onclick="startDownload(\'' + file.hash + '\', \'' + encodeURIComponent(file.name) + '\')" class="btn btn-download">Download</button>'
+        }
           </div>
         </div>
       `
@@ -1482,7 +1482,7 @@ async function executeDownload(fileHash, fileName) {
 
       try {
         const activeDownloads = await window.electronAPI.getActiveDownloads()
-        const activeDownload = activeDownloads.find(d => 
+        const activeDownload = activeDownloads.find(d =>
           d.fileHash === fileHash || d.fileName === fileName
         )
 
@@ -1490,7 +1490,7 @@ async function executeDownload(fileHash, fileName) {
           const downloadInfo = downloadingFiles.get(fileHash)
           const now = Date.now()
           const timeDiff = (now - downloadInfo.lastUpdateTime) / 1000 // 秒
-          
+
           // 计算下载速度
           const bytesDiff = (activeDownload.downloadedBytes || 0) - downloadInfo.lastDownloadedBytes
           const speed = timeDiff > 0 ? bytesDiff / timeDiff : 0
@@ -1530,9 +1530,9 @@ async function executeDownload(fileHash, fileName) {
       downloadInfo.status = 'copying'
       downloadInfo.progress = 50
       updateFileDownloadUI(fileHash, downloadInfo)
-      
+
       result = await window.electronAPI.downloadLocalFile(fileHash, fileName)
-      
+
       if (!result.success) {
         console.log('Local file copy failed, trying network download:', result.error)
         downloadInfo.status = 'network'
@@ -1564,7 +1564,7 @@ async function executeDownload(fileHash, fileName) {
       downloadInfo.status = 'completed'
       updateFileDownloadUI(fileHash, downloadInfo)
       showMessage(`Download completed: ${fileName}`, 'success')
-      
+
       // 3秒后更新UI显示已下载状态
       setTimeout(() => {
         updateFileDownloadedUI(fileHash, result.filePath)
@@ -1616,11 +1616,11 @@ function updateFileDownloadUI(fileHash, downloadInfo) {
   const speedElement = progressContainer.querySelector('.download-speed')
   const etaElement = progressContainer.querySelector('.download-eta')
   const sizeElement = progressContainer.querySelector('.download-size')
-  
+
   if (progressFill) {
     progressFill.style.width = `${downloadInfo.progress}%`
   }
-  
+
   // 状态文本
   let statusText = ''
   switch (downloadInfo.status) {
@@ -1642,7 +1642,7 @@ function updateFileDownloadUI(fileHash, downloadInfo) {
     default:
       statusText = downloadInfo.status
   }
-  
+
   if (progressText) {
     progressText.textContent = `${statusText} (${downloadInfo.progress.toFixed(1)}%)`
   }
@@ -2016,28 +2016,6 @@ function setupSettingsNavigation() {
   setupFormEventListeners()
 }
 
-// 设置表单事件监听器
-function setupFormEventListeners() {
-  console.log('Setting up form event listeners...')
-
-  // 范围输入
-  const rangeInputs = document.querySelectorAll('#settingsContent input[type="range"]')
-  rangeInputs.forEach(input => {
-    input.addEventListener('input', updateRangeValue)
-    input.addEventListener('change', markUnsaved)
-  })
-
-  // 其他输入
-  const inputs = document.querySelectorAll('#settingsContent input, #settingsContent select')
-  inputs.forEach(input => {
-    if (input.type !== 'range') {
-      input.addEventListener('change', markUnsaved)
-    }
-  })
-
-  updateAllRangeValues()
-}
-
 // 加载设置
 async function loadSettings() {
   try {
@@ -2048,32 +2026,6 @@ async function loadSettings() {
     console.error('Error loading settings:', error)
     showMessage('Failed to load settings', 'error')
   }
-}
-
-// 填充设置表单
-function populateSettingsForm(settings) {
-  // 下载设置
-  const downloadPath = document.getElementById('downloadPath')
-  if (downloadPath) downloadPath.value = settings.downloadPath || ''
-
-  const autoCreateSubfolders = document.getElementById('autoCreateSubfolders')
-  if (autoCreateSubfolders) autoCreateSubfolders.checked = settings.autoCreateSubfolders || false
-
-  const maxConcurrentDownloads = document.getElementById('maxConcurrentDownloads')
-  if (maxConcurrentDownloads) maxConcurrentDownloads.value = settings.maxConcurrentDownloads || 3
-
-  const chunkSize = document.getElementById('chunkSize')
-  if (chunkSize) chunkSize.value = settings.chunkSize || 262144
-
-  const enableResumeDownload = document.getElementById('enableResumeDownload')
-  if (enableResumeDownload) enableResumeDownload.checked = settings.enableResumeDownload !== false
-
-  // 窗口设置
-  const windowBehavior = document.getElementById('windowBehavior')
-  if (windowBehavior) windowBehavior.value = settings.windowBehavior || 'close'
-
-  const autoStartNode = document.getElementById('autoStartNode')
-  if (autoStartNode) autoStartNode.checked = settings.autoStartNode !== false
 }
 
 // 更新范围值显示
@@ -2111,48 +2063,6 @@ function markUnsaved() {
   window.hasUnsavedChanges = true
 }
 
-// 保存所有设置
-async function saveAllSettings() {
-  console.log('Starting to save settings...')
-
-  try {
-    const settings = collectSettingsFromForm()
-    console.log('Collected settings:', settings)
-
-    const result = await window.electronAPI.saveSettings(settings)
-    console.log('Save result:', result)
-
-    if (result && result.success === false) {
-      throw new Error(result.error || 'Settings save failed')
-    }
-
-    hasUnsavedChanges = false
-    window.hasUnsavedChanges = false
-
-    showMessage('Settings saved successfully', 'success')
-
-    currentSettings = settings
-    console.log('Settings saved successfully')
-
-  } catch (error) {
-    console.error('Error saving settings:', error)
-    showMessage(`Failed to save settings: ${error.message}`, 'error')
-  }
-}
-
-// 从表单收集设置
-function collectSettingsFromForm() {
-  return {
-    downloadPath: document.getElementById('downloadPath')?.value || '',
-    autoCreateSubfolders: document.getElementById('autoCreateSubfolders')?.checked || false,
-    maxConcurrentDownloads: parseInt(document.getElementById('maxConcurrentDownloads')?.value) || 3,
-    chunkSize: parseInt(document.getElementById('chunkSize')?.value) || 262144,
-    enableResumeDownload: document.getElementById('enableResumeDownload')?.checked !== false,
-    windowBehavior: document.getElementById('windowBehavior')?.value || 'close',
-    autoStartNode: document.getElementById('autoStartNode')?.checked !== false,
-  }
-}
-
 // 重置所有设置
 async function resetAllSettings() {
   const confirmMessage = 'This will reset all settings to their default values. This action cannot be undone.'
@@ -2182,20 +2092,258 @@ async function resetAllSettings() {
   }
 }
 
-// 选择下载路径
+// renderer/renderer.js - 在现有代码基础上添加以下功能
+
+// 在设置相关的函数部分添加以下代码
+
+// 选择下载路径（修改版）
 async function selectDownloadPath() {
   try {
     const result = await window.electronAPI.selectFolder('Select Download Location')
     if (result && result.success && !result.cancelled && result.filePaths.length > 0) {
+      const newDownloadPath = result.filePaths[0]
+
+      // 更新UI显示
       const downloadPath = document.getElementById('downloadPath')
       if (downloadPath) {
-        downloadPath.value = result.filePaths[0]
+        downloadPath.value = newDownloadPath
         hasUnsavedChanges = true
+      }
+
+      // 立即应用新的下载路径设置
+      try {
+        const setResult = await window.electronAPI.setDownloadDirectory(newDownloadPath)
+        if (setResult.success) {
+          showMessage('Download directory updated successfully', 'success')
+          await refreshDownloadPathInfo()
+        } else {
+          showMessage(`Failed to set download directory: ${setResult.error}`, 'error')
+        }
+      } catch (error) {
+        showMessage(`Error setting download directory: ${error.message}`, 'error')
       }
     }
   } catch (error) {
     console.error('Error selecting download path:', error)
     showMessage('Failed to select folder', 'error')
+  }
+}
+
+// 新增：刷新下载路径信息
+async function refreshDownloadPathInfo() {
+  try {
+    const result = await window.electronAPI.getDownloadDirectory()
+    if (result.success) {
+      const downloadPath = document.getElementById('downloadPath')
+      if (downloadPath) {
+        downloadPath.value = result.downloadPath
+      }
+
+      // 显示下载路径详细信息
+      await updateDownloadPathInfo(result.downloadPath)
+    }
+  } catch (error) {
+    console.error('Error refreshing download path info:', error)
+  }
+}
+
+// 新增：更新下载路径信息显示
+async function updateDownloadPathInfo(downloadPath) {
+  const infoContainer = document.getElementById('downloadPathInfo')
+  const statusElement = document.getElementById('downloadPathStatus')
+  const writableElement = document.getElementById('downloadPathWritable')
+  const spaceElement = document.getElementById('downloadPathSpace')
+
+  if (!infoContainer) return
+
+  try {
+    // 显示信息容器
+    infoContainer.style.display = 'block'
+
+    // 检查路径状态
+    const { promises: fs } = await import('fs')
+    const path = await import('path')
+
+    try {
+      const stats = await fs.stat(downloadPath)
+      if (stats.isDirectory()) {
+        statusElement.textContent = '✅ Valid Directory'
+        statusElement.className = 'info-value status-success'
+      } else {
+        statusElement.textContent = '❌ Not a Directory'
+        statusElement.className = 'info-value status-error'
+      }
+
+      // 检查是否可写
+      try {
+        const testFile = path.join(downloadPath, '.write-test-' + Date.now())
+        await fs.writeFile(testFile, 'test')
+        await fs.unlink(testFile)
+        writableElement.textContent = '✅ Writable'
+        writableElement.className = 'info-value status-success'
+      } catch (writeError) {
+        writableElement.textContent = '❌ Not Writable'
+        writableElement.className = 'info-value status-error'
+      }
+
+      // 尝试获取磁盘空间信息（简化版）
+      try {
+        const { spawn } = await import('child_process')
+        const process = await import('process')
+        
+        if (process.platform === 'win32') {
+          // Windows
+          const child = spawn('fsutil', ['volume', 'diskfree', downloadPath])
+          child.stdout.on('data', (data) => {
+            const output = data.toString()
+            const match = output.match(/Total # of free bytes\s*:\s*(\d+)/)
+            if (match) {
+              const freeBytes = parseInt(match[1])
+              spaceElement.textContent = formatFileSize(freeBytes) + ' Free'
+              spaceElement.className = 'info-value'
+            }
+          })
+        } else {
+          // Unix-like systems
+          const child = spawn('df', ['-h', downloadPath])
+          child.stdout.on('data', (data) => {
+            const lines = data.toString().split('\n')
+            if (lines[1]) {
+              const parts = lines[1].split(/\s+/)
+              if (parts[3]) {
+                spaceElement.textContent = parts[3] + ' Free'
+                spaceElement.className = 'info-value'
+              }
+            }
+          })
+        }
+      } catch (spaceError) {
+        spaceElement.textContent = 'Unknown'
+        spaceElement.className = 'info-value'
+      }
+
+    } catch (statError) {
+      statusElement.textContent = '❌ Path Not Found'
+      statusElement.className = 'info-value status-error'
+      writableElement.textContent = 'N/A'
+      writableElement.className = 'info-value'
+      spaceElement.textContent = 'N/A'
+      spaceElement.className = 'info-value'
+    }
+
+  } catch (error) {
+    console.error('Error updating download path info:', error)
+    infoContainer.style.display = 'none'
+  }
+}
+
+// 修改：设置表单事件监听器
+function setupFormEventListeners() {
+  console.log('Setting up form event listeners...')
+
+  // 下载路径浏览按钮
+  const browseDownloadPath = document.getElementById('browseDownloadPath')
+  if (browseDownloadPath) {
+    browseDownloadPath.addEventListener('click', selectDownloadPath)
+  }
+
+  // 范围输入
+  const rangeInputs = document.querySelectorAll('#settingsContent input[type="range"]')
+  rangeInputs.forEach(input => {
+    input.addEventListener('input', updateRangeValue)
+    input.addEventListener('change', markUnsaved)
+  })
+
+  // 其他输入
+  const inputs = document.querySelectorAll('#settingsContent input, #settingsContent select')
+  inputs.forEach(input => {
+    if (input.type !== 'range') {
+      input.addEventListener('change', markUnsaved)
+    }
+  })
+
+  updateAllRangeValues()
+}
+
+// 修改：填充设置表单
+function populateSettingsForm(settings) {
+  // 下载设置
+  const downloadPath = document.getElementById('downloadPath')
+  if (downloadPath) {
+    downloadPath.value = settings.downloadPath || ''
+    // 异步更新下载路径信息
+    setTimeout(() => updateDownloadPathInfo(settings.downloadPath || ''), 100)
+  }
+
+  const chunkSize = document.getElementById('chunkSize')
+  if (chunkSize) chunkSize.value = settings.chunkSize || 262144
+
+  const enableResumeDownload = document.getElementById('enableResumeDownload')
+  if (enableResumeDownload) enableResumeDownload.checked = settings.enableResumeDownload !== false
+
+  // 窗口设置
+  const windowBehavior = document.getElementById('windowBehavior')
+  if (windowBehavior) windowBehavior.value = settings.windowBehavior || 'close'
+
+  const autoStartNode = document.getElementById('autoStartNode')
+  if (autoStartNode) autoStartNode.checked = settings.autoStartNode !== false
+}
+
+// 修改：从表单收集设置
+function collectSettingsFromForm() {
+  return {
+    downloadPath: document.getElementById('downloadPath')?.value || '',
+    chunkSize: parseInt(document.getElementById('chunkSize')?.value) || 262144,
+    enableResumeDownload: document.getElementById('enableResumeDownload')?.checked !== false,
+    windowBehavior: document.getElementById('windowBehavior')?.value || 'close',
+    autoStartNode: document.getElementById('autoStartNode')?.checked !== false,
+  }
+}
+
+// 修改：保存所有设置
+async function saveAllSettings() {
+  console.log('Starting to save settings...')
+
+  try {
+    const settings = collectSettingsFromForm()
+    console.log('Collected settings:', settings)
+
+    // 特别处理下载路径更改
+    if (settings.downloadPath) {
+      try {
+        const setDirResult = await window.electronAPI.setDownloadDirectory(settings.downloadPath)
+        if (!setDirResult.success) {
+          throw new Error(`Failed to set download directory: ${setDirResult.error}`)
+        }
+        console.log('Download directory updated successfully')
+      } catch (dirError) {
+        console.error('Error setting download directory:', dirError)
+        showMessage(`Failed to update download directory: ${dirError.message}`, 'error')
+        return
+      }
+    }
+
+    const result = await window.electronAPI.saveSettings(settings)
+    console.log('Save result:', result)
+
+    if (result && result.success === false) {
+      throw new Error(result.error || 'Settings save failed')
+    }
+
+    hasUnsavedChanges = false
+    window.hasUnsavedChanges = false
+
+    showMessage('Settings saved successfully', 'success')
+
+    currentSettings = settings
+    console.log('Settings saved successfully')
+
+    // 刷新下载路径信息
+    await refreshDownloadPathInfo()
+
+  } catch (error) {
+    console.error('Error saving settings:', error)
+    showMessage(`Failed to save settings: ${error.message}`, 'error')
   }
 }
 
@@ -2325,6 +2473,9 @@ Object.assign(window, {
   updateRangeValue,
   updateAllRangeValues,
   showSettings,
+  selectDownloadPath,
+  refreshDownloadPathInfo,
+  updateDownloadPathInfo,
   pageTransitionManager,
   hasUnsavedChanges: false
 })
@@ -2370,21 +2521,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.messageManager = messageManager
 
   // 更新showMessage函数，现在messageManager已经初始化
-  window.showMessage = function(message, type = 'info', duration = null) {
+  window.showMessage = function (message, type = 'info', duration = null) {
     return messageManager.show(message, type, duration)
   }
 
   // 确保其他消息函数也可用
-  window.showSuccess = function(message, duration = null) {
+  window.showSuccess = function (message, duration = null) {
     return messageManager.show(message, 'success', duration)
   }
-  window.showError = function(message, duration = null) {
+  window.showError = function (message, duration = null) {
     return messageManager.show(message, 'error', duration)
   }
-  window.showWarning = function(message, duration = null) {
+  window.showWarning = function (message, duration = null) {
     return messageManager.show(message, 'warning', duration)
   }
-  window.showInfo = function(message, duration = null) {
+  window.showInfo = function (message, duration = null) {
     return messageManager.show(message, 'info', duration)
   }
 
@@ -2430,7 +2581,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   console.log('window.isNodeStarted:', window.isNodeStarted)
 
   // 添加一个调试函数到window
-  window.debugNodeState = function() {
+  window.debugNodeState = function () {
     console.log('=== Node State Debug ===')
     console.log('isNodeStarted (local):', isNodeStarted)
     console.log('window.isNodeStarted:', window.isNodeStarted)
@@ -2445,5 +2596,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       windowIsNodeStarted: window.isNodeStarted,
       isAutoStarting
     }
+  }
+
+  // 在设置界面显示时刷新下载路径信息
+  const showSettingsOriginal = showSettings
+  showSettings = function () {
+    showSettingsOriginal()
+    setTimeout(refreshDownloadPathInfo, 500)
   }
 })

@@ -1,4 +1,4 @@
-// preload.js
+// preload.js - 修改部分
 
 const { contextBridge, ipcRenderer } = require('electron')
 
@@ -50,6 +50,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
   resetSettings: () => ipcRenderer.invoke('reset-settings'),
   selectFolder: (title) => ipcRenderer.invoke('select-folder', title),
+  
+  // Download directory management - 更新版
+  getDownloadDirectory: () => ipcRenderer.invoke('get-download-directory'),
+  getDownloadDirectoryInfo: () => ipcRenderer.invoke('get-download-directory-info'),
+  setDownloadDirectory: (newPath) => ipcRenderer.invoke('set-download-directory', newPath),
+  validateDownloadDirectory: (dirPath) => ipcRenderer.invoke('validate-download-directory', dirPath),
+  cleanupDownloadDirectory: () => ipcRenderer.invoke('cleanup-download-directory'),
   
   // Settings backup management
   createSettingsBackup: () => ipcRenderer.invoke('create-settings-backup'),

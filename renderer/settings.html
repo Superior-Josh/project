@@ -37,27 +37,24 @@
     <div class="setting-item">
       <label for="downloadPath">Download Location</label>
       <div class="setting-control">
-        <input type="text" id="downloadPath" readonly>
-        <button onclick="selectDownloadPath()">Browse</button>
+        <input type="text" id="downloadPath" readonly placeholder="Select download folder">
+        <button id="browseDownloadPath" type="button">Browse</button>
       </div>
       <p class="setting-description">Where downloaded files will be saved</p>
-    </div>
-
-    <div class="setting-item">
-      <label>
-        <input type="checkbox" id="autoCreateSubfolders">
-        <span>Auto Create Subfolders</span>
-      </label>
-      <p class="setting-description">Automatically create subfolders for different file types</p>
-    </div>
-
-    <div class="setting-item">
-      <label for="maxConcurrentDownloads">Max Concurrent Downloads</label>
-      <div class="setting-control">
-        <input type="range" id="maxConcurrentDownloads" min="1" max="10" step="1" oninput="updateRangeValue(event)">
-        <span class="range-value">3</span>
+      <div id="downloadPathInfo" class="download-path-info" style="display: none;">
+        <div class="info-item">
+          <span class="info-label">Status:</span>
+          <span id="downloadPathStatus" class="info-value">Checking...</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Writable:</span>
+          <span id="downloadPathWritable" class="info-value">Unknown</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Free Space:</span>
+          <span id="downloadPathSpace" class="info-value">Unknown</span>
+        </div>
       </div>
-      <p class="setting-description">Maximum number of files to download simultaneously</p>
     </div>
 
     <div class="setting-item">
@@ -94,6 +91,7 @@
       </div>
       <p class="setting-description">Application logging level</p>
     </div>
+
   </div>
 </div>
 
