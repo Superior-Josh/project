@@ -15,7 +15,6 @@ export class SettingsManager {
       // Window & UI Settings
       windowBehavior: 'close',
       autoStartNode: true,
-      theme: 'system',
 
       // File & Download Settings
       downloadPath: path.join(os.homedir(), 'Downloads', 'P2P-Files'),
