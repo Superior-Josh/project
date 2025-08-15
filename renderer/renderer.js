@@ -2264,36 +2264,17 @@ async function selectDownloadPath() {
   }
 }
 
-// 修改：设置表单事件监听器
-function setupFormEventListeners() {
-  console.log('Setting up form event listeners...')
+// 以下函数需要在 renderer/renderer.js 中更新
 
-  // 下载路径浏览按钮
-  const browseDownloadPath = document.getElementById('browseDownloadPath')
-  if (browseDownloadPath) {
-    browseDownloadPath.addEventListener('click', selectDownloadPath)
-  }
-
-  // 范围输入
-  const rangeInputs = document.querySelectorAll('#settingsContent input[type="range"]')
-  rangeInputs.forEach(input => {
-    input.addEventListener('input', updateRangeValue)
-    input.addEventListener('change', markUnsaved)
-  })
-
-  // 其他输入
-  const inputs = document.querySelectorAll('#settingsContent input, #settingsContent select')
-  inputs.forEach(input => {
-    if (input.type !== 'range') {
-      input.addEventListener('change', markUnsaved)
-    }
-  })
-
-  updateAllRangeValues()
-}
-
-// 修改：填充设置表单
+// 修改：填充设置表单 - 简化版
 function populateSettingsForm(settings) {
+  // 窗口设置
+  const windowBehavior = document.getElementById('windowBehavior')
+  if (windowBehavior) windowBehavior.value = settings.windowBehavior || 'close'
+
+  const autoStartNode = document.getElementById('autoStartNode')
+  if (autoStartNode) autoStartNode.checked = settings.autoStartNode !== false
+
   // 下载设置
   const downloadPath = document.getElementById('downloadPath')
   if (downloadPath) {
@@ -2307,24 +2288,37 @@ function populateSettingsForm(settings) {
 
   const enableResumeDownload = document.getElementById('enableResumeDownload')
   if (enableResumeDownload) enableResumeDownload.checked = settings.enableResumeDownload !== false
-
-  // 窗口设置
-  const windowBehavior = document.getElementById('windowBehavior')
-  if (windowBehavior) windowBehavior.value = settings.windowBehavior || 'close'
-
-  const autoStartNode = document.getElementById('autoStartNode')
-  if (autoStartNode) autoStartNode.checked = settings.autoStartNode !== false
 }
 
-// 修改：从表单收集设置
+// 修改：从表单收集设置 - 简化版
 function collectSettingsFromForm() {
   return {
-    downloadPath: document.getElementById('downloadPath')?.value || '',
-    chunkSize: parseInt(document.getElementById('chunkSize')?.value) || 262144,
-    enableResumeDownload: document.getElementById('enableResumeDownload')?.checked !== false,
+    // 窗口设置
     windowBehavior: document.getElementById('windowBehavior')?.value || 'close',
     autoStartNode: document.getElementById('autoStartNode')?.checked !== false,
+
+    // 下载设置
+    downloadPath: document.getElementById('downloadPath')?.value || '',
+    chunkSize: parseInt(document.getElementById('chunkSize')?.value) || 262144,
+    enableResumeDownload: document.getElementById('enableResumeDownload')?.checked !== false
   }
+}
+
+// 修改：设置表单事件监听器 - 简化版
+function setupFormEventListeners() {
+  console.log('Setting up form event listeners...')
+
+  // 下载路径浏览按钮
+  const browseDownloadPath = document.getElementById('browseDownloadPath')
+  if (browseDownloadPath) {
+    browseDownloadPath.addEventListener('click', selectDownloadPath)
+  }
+
+  // 其他输入
+  const inputs = document.querySelectorAll('#settingsContent input, #settingsContent select')
+  inputs.forEach(input => {
+    input.addEventListener('change', markUnsaved)
+  })
 }
 
 // 修改：保存所有设置
