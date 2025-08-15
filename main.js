@@ -120,19 +120,19 @@ function createTray() {
           }
         }
       },
-      {
-        label: 'Network Status',
-        click: () => {
-          if (p2pNode && dhtManager) {
-            const networkStats = dhtManager.getGlobalFileStats()
-            const natStatus = p2pNode.getNATTraversalStatus()
-            console.log('Network File Sharing Status:', {
-              ...networkStats,
-              natTraversal: natStatus
-            })
-          }
-        }
-      },
+      // {
+      //   label: 'Network Status',
+      //   click: () => {
+      //     if (p2pNode && dhtManager) {
+      //       const networkStats = dhtManager.getGlobalFileStats()
+      //       const natStatus = p2pNode.getNATTraversalStatus()
+      //       console.log('Network File Sharing Status:', {
+      //         ...networkStats,
+      //         natTraversal: natStatus
+      //       })
+      //     }
+      //   }
+      // },
       { type: 'separator' },
       {
         label: 'Quit',
@@ -1406,6 +1406,16 @@ ipcMain.handle('download-local-file', async (event, fileHash, fileName) => {
       success: false,
       error: error.message
     }
+  }
+})
+
+ipcMain.handle('refresh-relay-connections', async () => {
+  if (!p2pNode) return { success: false, error: 'P2P node not started' }
+  try {
+    await p2pNode.refreshRelayConnections()
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: error.message }
   }
 })
 

@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   findFile: (fileHash) => ipcRenderer.invoke('find-file', fileHash),
   searchFiles: (query) => ipcRenderer.invoke('search-files', query),
   getLocalFiles: () => ipcRenderer.invoke('get-local-files'),
+  refreshRelayConnections: () => ipcRenderer.invoke('refresh-relay-connections'),
 
   // Peer discovery
   getDiscoveredPeers: () => ipcRenderer.invoke('get-discovered-peers'),
