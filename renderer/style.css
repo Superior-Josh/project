@@ -1,12 +1,21 @@
-/* Base styles */
+/* ==============================================
+   P2P文件共享系统 - 重构后的样式文件
+   ============================================== */
+
+/* ==============================================
+   1. CSS变量和基础重置
+   ============================================== */
+
+/* 重置所有元素的默认样式 */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-/* CSS Variables - Light Theme Only */
+/* CSS变量定义 */
 :root {
+  /* 颜色主题 */
   --bg-primary: #f8f9fa;
   --bg-secondary: #ffffff;
   --bg-tertiary: #f8f9fa;
@@ -15,16 +24,32 @@
   --text-accent: #212529;
   --border-color: #e9ecef;
   --border-accent: #ced4da;
+  
+  /* 阴影效果 */
   --shadow-light: rgba(0, 0, 0, 0.1);
   --shadow-medium: rgba(0, 0, 0, 0.15);
   --shadow-heavy: rgba(0, 0, 0, 0.2);
+  
+  /* 交互状态颜色 */
   --hover-bg: #f8f9fa;
   --active-bg: #e3f2fd;
   --active-color: #1976d2;
+  
+  /* 状态颜色 */
+  --success-color: #27ae60;
+  --success-bg: #d5f4e6;
+  --error-color: #e74c3c;
+  --error-bg: #fadbd8;
+  --warning-color: #f39c12;
+  --warning-bg: #fff3cd;
+  --info-color: #3498db;
+  --info-bg: #e3f2fd;
+  
+  /* 渐变效果 */
   --gradient-light: linear-gradient(135deg, #ecf0f1, #d5dbdb);
   --gradient-info: linear-gradient(135deg, #f8f9fa, #e9ecef);
-
-  /* Fixed dimensions */
+  
+  /* 布局尺寸 */
   --header-height: 80px;
   --sidebar-width: 280px;
   --content-padding: 24px;
@@ -32,12 +57,32 @@
   --settings-sidebar-width: 280px;
   --settings-actions-height: 80px;
   --settings-content-padding: 32px;
+  
+  /* 动画时间 */
+  --transition-fast: 0.2s;
+  --transition-normal: 0.3s;
+  --transition-slow: 0.4s;
+  
+  /* 圆角半径 */
+  --border-radius-small: 4px;
+  --border-radius-medium: 6px;
+  --border-radius-large: 8px;
+  
+  /* 间距 */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 20px;
+  --spacing-xxl: 24px;
 }
 
+/* ==============================================
+   2. 基础HTML元素样式
+   ============================================== */
+
 html {
-  /* 防止水平滚动 */
   overflow-x: hidden;
-  /* 固定字体大小，避免缩放影响 */
   font-size: 16px;
 }
 
@@ -47,27 +92,322 @@ body {
   color: var(--text-primary);
   line-height: 1.6;
   overflow-x: hidden;
-  transition: background-color 0.3s ease, color 0.3s ease;
-  /* 固定最小宽度，防止过度收缩 */
+  transition: background-color var(--transition-normal) ease, color var(--transition-normal) ease;
   min-width: 320px;
-  /* 使用系统字体大小 */
   font-size: 1rem;
 }
 
-/* Main Layout */
+/* ==============================================
+   3. 通用组件样式
+   ============================================== */
+
+/* 3.1 按钮样式 */
+.btn {
+  background: var(--info-color);
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: var(--border-radius-medium);
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all var(--transition-normal) ease;
+  min-width: 100px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  height: 40px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px var(--shadow-light);
+}
+
+.btn:disabled {
+  background: var(--border-accent);
+  color: var(--text-secondary);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  opacity: 0.6;
+}
+
+/* 按钮变体 */
+.btn-primary {
+  background: linear-gradient(135deg, #4CAF50, #43A047);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #45a049, #3e8e41);
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, var(--error-color), #D32F2F);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: linear-gradient(135deg, #d32f2f, #b71c1c);
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: white;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #545b62;
+}
+
+.btn-outline {
+  background: var(--bg-secondary);
+  color: var(--info-color);
+  border: 1px solid var(--info-color);
+}
+
+.btn-outline:hover:not(:disabled) {
+  background: var(--info-color);
+  color: white;
+}
+
+/* 特殊按钮样式 */
+.btn-download {
+  background: linear-gradient(135deg, var(--success-color), #2ecc71);
+}
+
+.btn-download:hover:not(:disabled) {
+  background: linear-gradient(135deg, #229954, var(--success-color));
+}
+
+.btn-download::before {
+  content: '⬇';
+  margin-right: 6px;
+  font-size: 0.875rem;
+}
+
+.btn-cancel {
+  background: linear-gradient(135deg, var(--error-color), #c0392b);
+}
+
+.btn-cancel:hover:not(:disabled) {
+  background: linear-gradient(135deg, #c0392b, #a93226);
+}
+
+.btn-cancel::before {
+  content: '✕';
+  margin-right: 6px;
+  font-size: 0.875rem;
+}
+
+.btn-folder {
+  background: linear-gradient(135deg, var(--warning-color), #e67e22);
+  min-width: 40px;
+  padding: 8px;
+}
+
+.btn-folder:hover:not(:disabled) {
+  background: linear-gradient(135deg, #e67e22, #d35400);
+}
+
+/* 3.2 表单控件样式 */
+.form-group {
+  margin-bottom: var(--spacing-lg);
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: var(--spacing-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.form-control {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid var(--border-accent);
+  border-radius: var(--border-radius-medium);
+  font-size: 0.875rem;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  transition: all var(--transition-normal) ease;
+  height: 44px;
+  box-sizing: border-box;
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: var(--info-color);
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+}
+
+.input-group {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* 3.3 状态指示器 */
+.status-indicator {
+  padding: 8px 14px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  min-width: 80px;
+  text-align: center;
+  box-shadow: 0 2px 4px var(--shadow-light);
+  border: 2px solid transparent;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.status-indicator.online {
+  background: linear-gradient(135deg, var(--success-bg), #c8f7c5);
+  color: var(--success-color);
+  border-color: var(--success-color);
+}
+
+.status-indicator.offline {
+  background: linear-gradient(135deg, var(--error-bg), #f2d7d5);
+  color: var(--error-color);
+  border-color: var(--error-color);
+}
+
+.status-indicator.connecting {
+  background: linear-gradient(135deg, var(--warning-bg), #ffeaa7);
+  color: var(--warning-color);
+  border-color: var(--warning-color);
+  animation: pulse 2s infinite;
+}
+
+.status-indicator.downloaded {
+  color: var(--success-color);
+  font-weight: 600;
+  font-size: 0.8125rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, var(--success-bg), #c8f7c5);
+  border-radius: var(--border-radius-small);
+  border: 1px solid var(--success-color);
+}
+
+/* 3.4 信息面板 */
+.info-panel {
+  background: var(--gradient-info);
+  border-left: 4px solid var(--info-color);
+  padding: var(--spacing-lg);
+  border-radius: 0 var(--border-radius-small) var(--border-radius-small) 0;
+}
+
+.info-panel p {
+  margin: var(--spacing-sm) 0;
+}
+
+.info-panel strong {
+  color: var(--text-accent);
+  font-weight: 600;
+}
+
+.info-panel ul {
+  margin: 10px 0 0 20px;
+}
+
+.info-panel li {
+  margin: 5px 0;
+  font-family: 'Courier New', monospace;
+  font-size: 0.75rem;
+  background: var(--bg-tertiary);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--border-radius-small);
+  border-left: 3px solid var(--info-color);
+  word-break: break-all;
+}
+
+/* 3.5 进度条 */
+.progress-bar {
+  width: 100%;
+  height: 10px;
+  background: var(--border-color);
+  border-radius: 5px;
+  overflow: hidden;
+  margin: var(--spacing-sm) 0;
+  box-shadow: inset 0 2px 4px var(--shadow-light);
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--success-color), #2ecc71);
+  transition: width var(--transition-normal) ease;
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(39, 174, 96, 0.3);
+  position: relative;
+}
+
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg,
+      transparent 35%,
+      rgba(255, 255, 255, 0.2) 35%,
+      rgba(255, 255, 255, 0.2) 65%,
+      transparent 65%);
+  background-size: 20px 20px;
+  animation: progressStripes 1s linear infinite;
+}
+
+/* 3.6 节标题和内容 */
+.section {
+  background: var(--bg-secondary);
+  margin-bottom: var(--spacing-xl);
+  border-radius: var(--border-radius-large);
+  box-shadow: 0 2px 4px var(--shadow-light);
+  overflow: hidden;
+  transition: all var(--transition-normal) ease;
+}
+
+.section h2 {
+  background: var(--gradient-light);
+  padding: 15px 20px;
+  margin: 0;
+  color: var(--text-accent);
+  font-size: 1.125rem;
+  border-bottom: 1px solid var(--border-accent);
+  font-weight: 600;
+}
+
+.section-content {
+  padding: var(--spacing-xl);
+}
+
+/* ==============================================
+   4. 布局组件
+   ============================================== */
+
+/* 4.1 主应用容器 */
 .app-container {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  /* 固定容器，防止内容溢出 */
   overflow: hidden;
   position: relative;
 }
 
-/* Header - 固定高度和位置 */
+/* 4.2 头部 */
 .header {
   background: var(--bg-secondary);
-  padding: 16px 24px;
+  padding: var(--spacing-lg) var(--spacing-xxl);
   box-shadow: 0 2px 8px var(--shadow-light);
   border-bottom: 1px solid var(--border-color);
   position: fixed;
@@ -75,10 +415,8 @@ body {
   left: 0;
   right: 0;
   z-index: 1000;
-  transition: background-color 0.3s ease, box-shadow 0.3s ease;
-  /* 固定高度 */
+  transition: background-color var(--transition-normal) ease, box-shadow var(--transition-normal) ease;
   height: var(--header-height);
-  /* 防止缩放时变形 */
   flex-shrink: 0;
 }
 
@@ -89,7 +427,6 @@ body {
   justify-content: space-between;
   align-items: center;
   height: 100%;
-  /* 防止内容换行 */
   white-space: nowrap;
 }
 
@@ -98,66 +435,59 @@ body {
   font-size: 1.5rem;
   margin: 0;
   flex-shrink: 0;
-  /* 防止标题被压缩 */
   min-width: fit-content;
 }
 
 .header-controls {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--spacing-md);
   flex-shrink: 0;
 }
 
-/* Main Content Area - 固定布局 */
+/* 4.3 主内容区域 */
 .main-content {
   display: flex;
   flex: 1;
-  /* 固定 margin-top，基于 header 高度 */
   margin-top: var(--header-height);
   max-width: 1200px;
   margin-left: auto;
   margin-right: auto;
   width: 100%;
-  /* 固定高度计算 */
   height: calc(100vh - var(--header-height));
   overflow: hidden;
 }
 
-/* Navigation Sidebar - 固定宽度 */
+/* 4.4 导航侧边栏 */
 .nav-sidebar {
   width: var(--sidebar-width);
   background: var(--bg-secondary);
   border-right: 1px solid var(--border-color);
   padding: var(--content-padding) 0;
   overflow-y: auto;
-  /* 完全固定，不收缩 */
   flex-shrink: 0;
-  transition: background-color 0.3s ease;
-  /* 固定最小宽度 */
+  transition: background-color var(--transition-normal) ease;
   min-width: var(--sidebar-width);
 }
 
 .nav-menu {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 0 16px;
+  gap: var(--spacing-xs);
+  padding: 0 var(--spacing-lg);
 }
 
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  border-radius: 8px;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-radius: var(--border-radius-large);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--transition-fast) ease;
   color: var(--text-secondary);
   text-decoration: none;
-  /* 防止文字换行 */
   white-space: nowrap;
-  /* 固定最小高度 */
   min-height: 44px;
 }
 
@@ -178,13 +508,12 @@ body {
   flex-shrink: 0;
 }
 
-/* Content Area - 自适应剩余空间 */
+/* 4.5 内容区域 */
 .content-area {
   flex: 1;
   padding: var(--content-padding);
   overflow-y: auto;
   background: var(--bg-primary);
-  /* 确保不会超出容器 */
   min-width: 0;
 }
 
@@ -196,24 +525,28 @@ body {
   display: block;
 }
 
-/* Status Controls */
+/* ==============================================
+   5. 特定功能组件
+   ============================================== */
+
+/* 5.1 状态控制区域 */
 .status-section {
   background: var(--bg-secondary);
-  border-radius: 8px;
-  padding: 20px;
-  margin-bottom: 20px;
+  border-radius: var(--border-radius-large);
+  padding: var(--spacing-xl);
+  margin-bottom: var(--spacing-xl);
   box-shadow: 0 2px 4px var(--shadow-light);
 }
 
 .status-controls {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-  /* 防止在小屏幕上换行太早 */
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
   flex-wrap: wrap;
 }
 
+/* 节点状态样式 - 继承 status-indicator 的所有样式 */
 .node-status {
   padding: 8px 14px;
   border-radius: 20px;
@@ -225,314 +558,30 @@ body {
   text-align: center;
   box-shadow: 0 2px 4px var(--shadow-light);
   border: 2px solid transparent;
-  /* 防止缩放时变形 */
   flex-shrink: 0;
   white-space: nowrap;
 }
 
 .node-status.online {
-  background: linear-gradient(135deg, #d5f4e6, #c8f7c5);
-  color: #27ae60;
-  border-color: #27ae60;
+  background: linear-gradient(135deg, var(--success-bg), #c8f7c5);
+  color: var(--success-color);
+  border-color: var(--success-color);
 }
 
 .node-status.offline {
-  background: linear-gradient(135deg, #fadbd8, #f2d7d5);
-  color: #e74c3c;
-  border-color: #e74c3c;
+  background: linear-gradient(135deg, var(--error-bg), #f2d7d5);
+  color: var(--error-color);
+  border-color: var(--error-color);
 }
 
 .node-status.connecting {
-  background: linear-gradient(135deg, #fff3cd, #ffeaa7);
-  color: #f39c12;
-  border-color: #f39c12;
+  background: linear-gradient(135deg, var(--warning-bg), #ffeaa7);
+  color: var(--warning-color);
+  border-color: var(--warning-color);
   animation: pulse 2s infinite;
 }
 
-@keyframes pulse {
-  0% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.7;
-  }
-
-  100% {
-    opacity: 1;
-  }
-}
-
-/* Buttons - 固定尺寸 */
-.btn {
-  background: #3498db;
-  color: white;
-  border: none;
-  padding: 10px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: all 0.3s ease;
-  min-width: 100px;
-  flex-shrink: 0;
-  white-space: nowrap;
-  /* 固定高度 */
-  height: 40px;
-  /* 防止内容溢出 */
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn:hover:not(:disabled) {
-  background: #2980b9;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px var(--shadow-light);
-}
-
-.btn:disabled {
-  background: var(--border-accent);
-  color: var(--text-secondary);
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-  opacity: 0.6;
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, #4CAF50, #43A047);
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, #45a049, #3e8e41);
-}
-
-.btn-danger {
-  background: linear-gradient(135deg, #E53935, #D32F2F);
-}
-
-.btn-danger:hover:not(:disabled) {
-  background: linear-gradient(135deg, #d32f2f, #b71c1c);
-}
-
-.btn-secondary {
-  background: #6c757d;
-  color: white;
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: #545b62;
-}
-
-.btn-outline {
-  background: var(--bg-secondary);
-  color: #007bff;
-  border: 1px solid #007bff;
-}
-
-.btn-outline:hover {
-  background: #007bff;
-  color: white;
-}
-
-/* Section Styles */
-.section {
-  background: var(--bg-secondary);
-  margin-bottom: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px var(--shadow-light);
-  overflow: hidden;
-  transition: all 0.3s ease;
-}
-
-.section h2 {
-  background: var(--gradient-light);
-  padding: 15px 20px;
-  margin: 0;
-  color: var(--text-accent);
-  font-size: 1.125rem;
-  border-bottom: 1px solid var(--border-accent);
-  font-weight: 600;
-}
-
-.section-content {
-  padding: 20px;
-}
-
-/* Info Panel */
-.info-panel {
-  background: var(--gradient-info);
-  border-left: 4px solid #3498db;
-  padding: 16px;
-  border-radius: 0 4px 4px 0;
-}
-
-.info-panel p {
-  margin: 8px 0;
-}
-
-.info-panel strong {
-  color: var(--text-accent);
-  font-weight: 600;
-}
-
-.info-panel ul {
-  margin: 10px 0 0 20px;
-}
-
-.info-panel li {
-  margin: 5px 0;
-  font-family: 'Courier New', monospace;
-  font-size: 0.75rem;
-  background: var(--bg-tertiary);
-  padding: 4px 8px;
-  border-radius: 4px;
-  border-left: 3px solid #3498db;
-  /* 防止长文本溢出 */
-  word-break: break-all;
-}
-
-/* Input Styles */
-.form-group {
-  margin-bottom: 16px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.form-control {
-  width: 100%;
-  padding: 12px;
-  border: 2px solid var(--border-accent);
-  border-radius: 6px;
-  font-size: 0.875rem;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  transition: all 0.3s ease;
-  /* 固定高度 */
-  height: 44px;
-  /* 防止内容溢出 */
-  box-sizing: border-box;
-}
-
-.form-control:focus {
-  outline: none;
-  border-color: #3498db;
-  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
-}
-
-.input-group {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-/* Message Container - 固定位置 */
-.message-container {
-  position: fixed;
-  top: calc(var(--header-height) + 20px);
-  right: 20px;
-  z-index: 999;
-  max-width: 350px;
-  width: 100%;
-  pointer-events: none;
-  /* 确保不会被其他元素遮挡 */
-  max-height: calc(100vh - var(--header-height) - 40px);
-  overflow-y: auto;
-}
-
-.message {
-  position: relative;
-  padding: 14px 20px;
-  border-radius: 8px;
-  color: white;
-  font-weight: 600;
-  margin-bottom: 10px;
-  max-width: 100%;
-  animation: slideInRight 0.3s ease;
-  white-space: pre-line;
-  box-shadow: 0 4px 12px var(--shadow-heavy);
-  border-left: 5px solid rgba(255, 255, 255, 0.5);
-  pointer-events: auto;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  /* 防止文本溢出 */
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-}
-
-.message::after {
-  content: '×';
-  position: absolute;
-  top: 8px;
-  right: 12px;
-  font-size: 1.125rem;
-  font-weight: bold;
-  opacity: 0.7;
-  transition: opacity 0.2s ease;
-}
-
-.message:hover::after {
-  opacity: 1;
-}
-
-.message:hover {
-  transform: translateX(-5px);
-  box-shadow: 0 6px 16px var(--shadow-heavy);
-}
-
-.message.removing {
-  animation: slideOutRight 0.3s ease forwards;
-}
-
-.message-success {
-  background: linear-gradient(135deg, #27ae60, #2ecc71);
-}
-
-.message-error {
-  background: linear-gradient(135deg, #e74c3c, #c0392b);
-}
-
-.message-warning {
-  background: linear-gradient(135deg, #f39c12, #e67e22);
-}
-
-.message-info {
-  background: linear-gradient(135deg, #3498db, #2980b9);
-}
-
-@keyframes slideInRight {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-@keyframes slideOutRight {
-  from {
-    transform: translateX(0);
-    opacity: 1;
-  }
-
-  to {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-}
-
-/* File List Styles */
+/* 5.2 文件列表 */
 .file-list {
   max-height: 400px;
   overflow-y: auto;
@@ -544,9 +593,10 @@ body {
   align-items: center;
   padding: 15px;
   border-bottom: 1px solid var(--border-color);
-  transition: all 0.3s ease;
-  /* 确保项目不会在缩放时重叠 */
+  transition: all var(--transition-normal) ease;
   min-height: 60px;
+  position: relative;
+  overflow: hidden;
 }
 
 .file-item:last-child {
@@ -556,7 +606,7 @@ body {
 .file-item:hover {
   background: var(--bg-tertiary);
   transform: translateX(5px);
-  box-shadow: inset 3px 0 0 #3498db;
+  box-shadow: inset 3px 0 0 var(--info-color);
 }
 
 .file-info {
@@ -565,10 +615,9 @@ body {
 }
 
 .file-info h4 {
-  margin: 0 0 8px 0;
+  margin: 0 0 var(--spacing-sm) 0;
   color: var(--text-accent);
   font-weight: 600;
-  /* 防止长文件名溢出 */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -582,33 +631,93 @@ body {
 
 .file-actions {
   display: flex;
-  gap: 8px;
+  gap: var(--spacing-sm);
   flex-shrink: 0;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .file-actions button {
-  padding: 8px 12px;
+  padding: var(--spacing-sm) var(--spacing-md);
   font-size: 0.75rem;
   min-width: auto;
   height: 32px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-/* Selected files display */
-.selected-files {
-  margin-top: 15px;
-  text-align: left;
+/* 文件类型样式 */
+.local-file {
+  border-left: 4px solid var(--success-color);
+  background: linear-gradient(to right, rgba(39, 174, 96, 0.05), transparent);
 }
 
+.network-file {
+  border-left: 4px solid var(--info-color);
+  background: linear-gradient(to right, rgba(52, 152, 219, 0.05), transparent);
+}
+
+.file-item.local-file:hover {
+  box-shadow: inset 4px 0 0 var(--success-color), 0 4px 8px var(--shadow-light);
+  background: linear-gradient(to right, rgba(39, 174, 96, 0.1), transparent);
+}
+
+.file-item.network-file:hover {
+  box-shadow: inset 4px 0 0 var(--info-color), 0 4px 8px var(--shadow-light);
+  background: linear-gradient(to right, rgba(52, 152, 219, 0.1), transparent);
+}
+
+/* 5.3 下载进度 */
+.download-progress {
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-sm) 0;
+}
+
+.download-progress .progress-bar {
+  height: 8px;
+  margin-bottom: var(--spacing-sm);
+}
+
+.download-progress .progress-text {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin: 0;
+  text-align: center;
+}
+
+.download-progress .progress-info {
+  margin-top: var(--spacing-xs);
+}
+
+.download-stats {
+  display: flex;
+  gap: var(--spacing-lg);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: var(--spacing-xs);
+}
+
+.download-stat {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.download-stat-icon {
+  font-size: 0.875rem;
+}
+
+/* 5.4 选择的文件 */
 .selected-file {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 12px;
+  padding: 10px var(--spacing-md);
   background: var(--gradient-light);
-  border-radius: 6px;
-  margin: 8px 0;
-  border-left: 4px solid #3498db;
-  transition: all 0.3s ease;
+  border-radius: var(--border-radius-medium);
+  margin: var(--spacing-sm) 0;
+  border-left: 4px solid var(--info-color);
+  transition: all var(--transition-normal) ease;
   min-height: 44px;
 }
 
@@ -627,7 +736,7 @@ body {
 }
 
 .selected-file button {
-  background: #e74c3c;
+  background: var(--error-color);
   padding: 6px 10px;
   font-size: 0.75rem;
   min-width: auto;
@@ -635,7 +744,7 @@ body {
   flex-shrink: 0;
 }
 
-/* Download List Styles */
+/* 5.5 下载项目 */
 .download-list {
   max-height: 300px;
   overflow-y: auto;
@@ -643,15 +752,15 @@ body {
 
 .download-item {
   border: 2px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--border-radius-large);
   margin: 10px 0;
   padding: 15px;
   background: var(--bg-secondary);
-  transition: all 0.3s ease;
+  transition: all var(--transition-normal) ease;
 }
 
 .download-item:hover {
-  border-color: #3498db;
+  border-color: var(--info-color);
   box-shadow: 0 4px 8px var(--shadow-light);
 }
 
@@ -665,534 +774,32 @@ body {
 }
 
 .download-info p {
-  margin: 4px 0;
+  margin: var(--spacing-xs) 0;
   font-size: 0.8125rem;
   color: var(--text-secondary);
 }
 
-.progress-bar {
-  width: 100%;
-  height: 10px;
-  background: var(--border-color);
-  border-radius: 5px;
-  overflow: hidden;
-  margin: 8px 0;
-  box-shadow: inset 0 2px 4px var(--shadow-light);
-}
-
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #27ae60, #2ecc71);
-  transition: width 0.3s ease;
-  border-radius: 5px;
-  box-shadow: 0 2px 4px rgba(39, 174, 96, 0.3);
-}
-
 .download-actions {
-  margin-top: 12px;
+  margin-top: var(--spacing-md);
   display: flex;
-  gap: 8px;
+  gap: var(--spacing-sm);
   flex-wrap: wrap;
 }
 
 .download-actions button {
-  padding: 8px 12px;
+  padding: var(--spacing-sm) var(--spacing-md);
   font-size: 0.75rem;
   min-width: auto;
   height: 32px;
 }
 
-/* Settings Container - 固定布局 */
-.settings-container {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  position: relative;
-}
-
-/* Settings Header - 固定在顶部，固定高度 */
-.settings-header {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 16px 24px;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
-  box-shadow: 0 2px 4px var(--shadow-light);
-  height: var(--settings-header-height);
-  transition: background-color 0.3s ease, box-shadow 0.3s ease;
-  flex-shrink: 0;
-}
-
-.back-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding: 8px 12px;
-  border-radius: 6px;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
-  white-space: nowrap;
-  height: 40px;
-}
-
-.back-btn:hover {
-  background: var(--hover-bg);
-  color: var(--text-primary);
-}
-
-.settings-title {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: var(--text-accent);
-  margin: 0;
-  margin-left: 24px;
-}
-
-/* Settings Content - 可滚动区域，固定布局 */
-.settings-content {
-  flex: 1;
-  display: flex;
-  max-width: 1200px;
-  margin: 0 auto;
-  width: 100%;
-  margin-top: var(--settings-header-height);
-  overflow: hidden;
-  height: calc(100vh - var(--settings-header-height));
-}
-
-/* Settings Sidebar - 固定宽度，可滚动 */
-.settings-sidebar {
-  width: var(--settings-sidebar-width);
-  background: var(--bg-secondary);
-  border-right: 1px solid var(--border-color);
-  padding: 24px 0;
-  overflow-y: auto;
-  flex-shrink: 0;
-  transition: background-color 0.3s ease;
-  min-width: var(--settings-sidebar-width);
-}
-
-.settings-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 0 16px;
-}
-
-/* Settings Main Content - 自适应剩余空间，可滚动，为底部按钮留出空间 */
-.settings-main {
-  flex: 1;
-  background: var(--bg-secondary);
-  overflow-y: auto;
-  transition: background-color 0.3s ease;
-  position: relative;
-  min-width: 0;
-  /* 为固定的底部按钮留出空间 */
-  padding-bottom: var(--settings-actions-height);
-}
-
-/* Settings Panels - 正常滚动，底部留出按钮空间 */
-.settings-panel {
-  display: none;
-  padding: var(--settings-content-padding);
-  /* 移除最小高度限制，让内容自然流动 */
-  /* 底部不需要额外padding，因为.settings-main已经有了 */
-}
-
-.settings-panel.active {
-  display: block;
-}
-
-.panel-header {
-  margin-bottom: 32px;
-  border-bottom: 1px solid var(--border-color);
-  padding-bottom: 16px;
-}
-
-.panel-header h2 {
-  font-size: 1.75rem;
-  font-weight: 600;
-  color: var(--text-accent);
-  margin-bottom: 8px;
-}
-
-.panel-header p {
-  color: var(--text-secondary);
-  font-size: 1rem;
-  margin: 0;
-}
-
-/* Settings Actions - 固定在底部 */
-.settings-actions {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 16px var(--settings-content-padding);
-  background: var(--bg-secondary);
-  border-top: 1px solid var(--border-color);
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  z-index: 1000;
-  box-shadow: 0 -2px 4px var(--shadow-light);
-  transition: background-color 0.3s ease, box-shadow 0.3s ease;
-  height: var(--settings-actions-height);
-  align-items: center;
-}
-
-/* Settings groups */
-.settings-group {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  padding-bottom: 20px;
-}
-
-/* Setting items */
-.setting-item {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  position: relative;
-}
-
-.setting-item label {
-  font-weight: 500;
-  color: var(--text-primary);
-  font-size: 0.875rem;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.setting-item label input[type="checkbox"] {
-  margin: 0;
-  flex-shrink: 0;
-}
-
-.setting-control {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.setting-control input[type="text"],
-.setting-control select {
-  flex: 1;
-  min-width: 200px;
-  padding: 8px 12px;
-  border: 1px solid var(--border-accent);
-  border-radius: 4px;
-  font-size: 0.875rem;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  transition: all 0.2s ease;
-  height: 40px;
-  box-sizing: border-box;
-}
-
-.setting-control input[type="text"]:focus,
-.setting-control select:focus {
-  outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
-}
-
-.setting-control input[type="range"] {
-  flex: 1;
-  min-width: 150px;
-  height: 6px;
-  -webkit-appearance: none;
-  appearance: none;
-  background: var(--border-color);
-  border-radius: 3px;
-  outline: none;
-}
-
-.setting-control input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 18px;
-  height: 18px;
-  background: #007bff;
-  border-radius: 50%;
-  cursor: pointer;
-}
-
-.setting-control input[type="range"]::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
-  background: #007bff;
-  border-radius: 50%;
-  cursor: pointer;
-  border: none;
-}
-
-.range-value {
-  font-weight: 500;
-  color: #007bff;
-  min-width: 60px;
-  text-align: center;
-  flex-shrink: 0;
-  font-size: 0.875rem;
-}
-
-.setting-description {
-  color: var(--text-secondary);
-  font-size: 0.8125rem;
-  margin: 0;
-  line-height: 1.4;
-}
-
-/* Checkbox styling */
-input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  accent-color: #007bff;
-  flex-shrink: 0;
-}
-
-/* Backup actions */
-.backup-actions {
-  padding: 20px;
-  background: var(--bg-tertiary);
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-  transition: background-color 0.3s ease;
-}
-
-.backup-buttons,
-.import-export-buttons {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-}
-
-.import-export-buttons {
-  margin-bottom: 0;
-}
-
-/* Backup list */
-.backup-list {
-  margin-top: 24px;
-  padding: 20px;
-  background: var(--bg-tertiary);
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-  transition: background-color 0.3s ease;
-}
-
-.backup-list h3 {
-  margin-bottom: 16px;
-  color: var(--text-primary);
-  font-size: 1.125rem;
-}
-
-.backup-items {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.backup-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  background: var(--bg-secondary);
-  border-radius: 6px;
-  border: 1px solid var(--border-accent);
-  transition: background-color 0.3s ease;
-  min-height: 60px;
-}
-
-.backup-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.backup-name {
-  font-weight: 500;
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.backup-date {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-}
-
-.backup-actions-small {
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.backup-actions-small button {
-  padding: 4px 8px;
-  font-size: 0.75rem;
-  min-width: auto;
-  height: 28px;
-}
-
-/* Toast notifications */
-.toast-container {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 1000;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  pointer-events: none;
-}
-
-.toast {
-  background: var(--bg-secondary);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px var(--shadow-medium);
-  padding: 16px 20px;
-  border-left: 4px solid #007bff;
-  max-width: 300px;
-  pointer-events: auto;
-  animation: slideInRight 0.3s ease;
-  color: var(--text-primary);
-  transition: background-color 0.3s ease, color 0.3s ease;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
-}
-
-.toast.success {
-  border-left-color: #28a745;
-}
-
-.toast.error {
-  border-left-color: #dc3545;
-}
-
-.toast.warning {
-  border-left-color: #ffc107;
-}
-
-/* Modal */
-.modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background: var(--bg-secondary);
-  border-radius: 8px;
-  padding: 24px;
-  max-width: 400px;
-  width: 90%;
-  box-shadow: 0 8px 32px var(--shadow-heavy);
-  transition: background-color 0.3s ease;
-  max-height: 80vh;
-  overflow-y: auto;
-}
-
-.modal-content h3 {
-  margin-bottom: 12px;
-  color: var(--text-accent);
-  font-size: 1.25rem;
-}
-
-.modal-content p {
-  color: var(--text-secondary);
-  margin-bottom: 20px;
-  line-height: 1.5;
-}
-
-.modal-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-}
-
-/* 文件上传和搜索区域 */
-.file-panel {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-}
-
-.upload-area,
-.search-area {
-  padding: 20px;
-  border: 2px dashed var(--border-accent);
-  border-radius: 8px;
-  text-align: center;
-  transition: all 0.3s ease;
-  min-height: 120px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 10px;
-}
-
-.upload-area:hover,
-.search-area:hover {
-  border-color: #3498db;
-  background: var(--bg-tertiary);
-}
-
-.search-area {
-  text-align: left;
-}
-
-.search-area input {
-  padding: 12px;
-  border: 2px solid var(--border-accent);
-  border-radius: 6px;
-  font-size: 0.875rem;
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  transition: all 0.3s ease;
-  width: 100%;
-  height: 44px;
-}
-
-.search-area input:focus {
-  outline: none;
-  border-color: #3498db;
-  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
-}
-
-/* 对等节点样式 */
+/* 5.6 对等节点 */
 .discovered-peers {
   max-height: 300px;
   overflow-y: auto;
   margin-top: 10px;
   border: 2px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: var(--border-radius-large);
   background: var(--bg-tertiary);
 }
 
@@ -1200,9 +807,9 @@ input[type="checkbox"] {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 15px;
+  padding: var(--spacing-md) 15px;
   border-bottom: 1px solid var(--border-color);
-  transition: all 0.3s ease;
+  transition: all var(--transition-normal) ease;
   position: relative;
   min-height: 60px;
 }
@@ -1214,12 +821,12 @@ input[type="checkbox"] {
 .peer-item:hover {
   background: var(--bg-secondary);
   transform: translateX(3px);
-  box-shadow: inset 3px 0 0 #3498db;
+  box-shadow: inset 3px 0 0 var(--info-color);
 }
 
 .peer-item.bootstrap-peer {
-  background: linear-gradient(135deg, #fff3cd, #ffeaa7);
-  border-left: 4px solid #f39c12;
+  background: linear-gradient(135deg, var(--warning-bg), #ffeaa7);
+  border-left: 4px solid var(--warning-color);
 }
 
 .peer-item.bootstrap-peer:hover {
@@ -1234,8 +841,8 @@ input[type="checkbox"] {
   margin-right: 10px;
   word-break: break-all;
   background: var(--bg-secondary);
-  padding: 4px 8px;
-  border-radius: 4px;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--border-radius-small);
   border: 1px solid var(--border-color);
   min-width: 0;
 }
@@ -1244,19 +851,19 @@ input[type="checkbox"] {
   color: #856404;
   font-weight: 600;
   background: rgba(255, 243, 205, 0.8);
-  border-color: #f39c12;
+  border-color: var(--warning-color);
 }
 
 .connect-btn {
   background: linear-gradient(135deg, #2196F3, #1976D2);
   color: white;
   border: none;
-  padding: 6px 12px;
-  border-radius: 4px;
+  padding: 6px var(--spacing-md);
+  border-radius: var(--border-radius-small);
   cursor: pointer;
   font-size: 0.6875rem;
   font-weight: 500;
-  transition: all 0.3s ease;
+  transition: all var(--transition-normal) ease;
   min-width: auto;
   box-shadow: 0 2px 4px rgba(33, 150, 243, 0.3);
   height: 28px;
@@ -1273,10 +880,10 @@ input[type="checkbox"] {
 .bootstrap-label {
   font-size: 0.625rem;
   color: #856404;
-  background: linear-gradient(135deg, #fff3cd, #ffeaa7);
-  padding: 4px 8px;
-  border-radius: 4px;
-  border: 1px solid #f39c12;
+  background: linear-gradient(135deg, var(--warning-bg), #ffeaa7);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--border-radius-small);
+  border: 1px solid var(--warning-color);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -1284,22 +891,549 @@ input[type="checkbox"] {
   white-space: nowrap;
 }
 
-/* 数据库控制 */
-.database-controls {
+/* ==============================================
+   6. 设置界面样式
+   ============================================== */
+
+/* 6.1 设置容器 */
+.settings-container {
+  height: 100vh;
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+/* 6.2 设置头部 */
+.settings-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: var(--spacing-lg) var(--spacing-xxl);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: 0 2px 4px var(--shadow-light);
+  height: var(--settings-header-height);
+  transition: background-color var(--transition-normal) ease, box-shadow var(--transition-normal) ease;
+  flex-shrink: 0;
+}
+
+.back-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--border-radius-medium);
+  transition: all var(--transition-fast) ease;
+  flex-shrink: 0;
+  white-space: nowrap;
+  height: 40px;
+}
+
+.back-btn:hover {
+  background: var(--hover-bg);
+  color: var(--text-primary);
+}
+
+.settings-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-accent);
+  margin: 0;
+  margin-left: var(--spacing-xxl);
+}
+
+/* 6.3 设置内容 */
+.settings-content {
+  flex: 1;
+  display: flex;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  margin-top: var(--settings-header-height);
+  overflow: hidden;
+  height: calc(100vh - var(--settings-header-height));
+}
+
+/* 6.4 设置侧边栏 */
+.settings-sidebar {
+  width: var(--settings-sidebar-width);
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-color);
+  padding: var(--spacing-xxl) 0;
+  overflow-y: auto;
+  flex-shrink: 0;
+  transition: background-color var(--transition-normal) ease;
+  min-width: var(--settings-sidebar-width);
+}
+
+.settings-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding: 0 var(--spacing-lg);
+}
+
+/* 6.5 设置主区域 */
+.settings-main {
+  flex: 1;
+  background: var(--bg-secondary);
+  overflow-y: auto;
+  transition: background-color var(--transition-normal) ease;
+  position: relative;
+  min-width: 0;
+  padding-bottom: var(--settings-actions-height);
+}
+
+/* 6.6 设置面板 */
+.settings-panel {
+  display: none;
+  padding: var(--settings-content-padding);
+}
+
+.settings-panel.active {
+  display: block;
+}
+
+.panel-header {
+  margin-bottom: 32px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: var(--spacing-lg);
+}
+
+.panel-header h2 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: var(--text-accent);
+  margin-bottom: var(--spacing-sm);
+}
+
+.panel-header p {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  margin: 0;
+}
+
+/* 6.7 设置操作区域 */
+.settings-actions {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: var(--spacing-lg) var(--settings-content-padding);
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-md);
+  z-index: 1000;
+  box-shadow: 0 -2px 4px var(--shadow-light);
+  transition: background-color var(--transition-normal) ease, box-shadow var(--transition-normal) ease;
+  height: var(--settings-actions-height);
+  align-items: center;
+}
+
+/* 6.8 设置组和项目 */
+.settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xxl);
+  padding-bottom: var(--spacing-xl);
+}
+
+.setting-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  position: relative;
+}
+
+.setting-item label {
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-shrink: 0;
+}
+
+.setting-item label input[type="checkbox"] {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.setting-control {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
   flex-wrap: wrap;
-  margin-top: 15px;
 }
 
-.database-controls button {
-  font-size: 0.75rem;
-  padding: 10px 14px;
-  min-width: auto;
-  height: 36px;
+.setting-control input[type="text"],
+.setting-control select {
+  flex: 1;
+  min-width: 200px;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--border-accent);
+  border-radius: var(--border-radius-small);
+  font-size: 0.875rem;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  transition: all var(--transition-fast) ease;
+  height: 40px;
+  box-sizing: border-box;
 }
 
-/* Scrollbar styles */
+.setting-control input[type="text"]:focus,
+.setting-control select:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.setting-control input[type="text"][readonly] {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: default;
+}
+
+.setting-control input[type="text"][readonly]:focus {
+  border-color: var(--border-accent);
+  box-shadow: none;
+}
+
+.setting-description {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* 6.9 下载路径信息 */
+.download-path-info {
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--bg-tertiary);
+  border-radius: var(--border-radius-medium);
+  border: 1px solid var(--border-color);
+  transition: background-color var(--transition-normal) ease;
+}
+
+.download-path-info.checking {
+  background: linear-gradient(135deg, var(--warning-bg), #ffeaa7);
+  border-color: var(--warning-color);
+}
+
+.download-path-info.valid {
+  background: linear-gradient(135deg, var(--success-bg), #c8f7c5);
+  border-color: var(--success-color);
+}
+
+.download-path-info.invalid {
+  background: linear-gradient(135deg, var(--error-bg), #f2d7d5);
+  border-color: var(--error-color);
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.info-item:last-child {
+  margin-bottom: 0;
+}
+
+.info-item:hover {
+  background: rgba(52, 152, 219, 0.05);
+  border-radius: var(--border-radius-small);
+  padding: 2px 6px;
+  margin: 2px -6px;
+  transition: all var(--transition-fast) ease;
+}
+
+.info-label {
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 0.875rem;
+}
+
+.info-value {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+}
+
+.info-value.status-success {
+  color: var(--success-color);
+  font-weight: 600;
+}
+
+.info-value.status-error {
+  color: var(--error-color);
+  font-weight: 600;
+}
+
+.info-value.status-warning {
+  color: var(--warning-color);
+  font-weight: 600;
+}
+
+.info-value.loading::after {
+  content: '';
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-left: 6px;
+  border: 2px solid var(--border-color);
+  border-top: 2px solid var(--info-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* 6.10 复选框样式 */
+input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #007bff;
+  flex-shrink: 0;
+}
+
+/* ==============================================
+   7. 消息和通知系统
+   ============================================== */
+
+.message-container {
+  position: fixed;
+  top: calc(var(--header-height) + 20px);
+  right: 20px;
+  z-index: 999;
+  max-width: 350px;
+  width: 100%;
+  pointer-events: none;
+  max-height: calc(100vh - var(--header-height) - 40px);
+  overflow-y: auto;
+}
+
+.message {
+  position: relative;
+  padding: 14px 20px;
+  border-radius: var(--border-radius-large);
+  color: white;
+  font-weight: 600;
+  margin-bottom: 10px;
+  max-width: 100%;
+  animation: slideInRight var(--transition-normal) ease;
+  white-space: pre-line;
+  box-shadow: 0 4px 12px var(--shadow-heavy);
+  border-left: 5px solid rgba(255, 255, 255, 0.5);
+  pointer-events: auto;
+  cursor: pointer;
+  transition: all var(--transition-normal) ease;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.message::after {
+  content: '×';
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  font-size: 1.125rem;
+  font-weight: bold;
+  opacity: 0.7;
+  transition: opacity var(--transition-fast) ease;
+}
+
+.message:hover::after {
+  opacity: 1;
+}
+
+.message:hover {
+  transform: translateX(-5px);
+  box-shadow: 0 6px 16px var(--shadow-heavy);
+}
+
+.message.removing {
+  animation: slideOutRight var(--transition-normal) ease forwards;
+}
+
+.message-success {
+  background: linear-gradient(135deg, var(--success-color), #2ecc71);
+}
+
+.message-error {
+  background: linear-gradient(135deg, var(--error-color), #c0392b);
+}
+
+.message-warning {
+  background: linear-gradient(135deg, var(--warning-color), #e67e22);
+}
+
+.message-info {
+  background: linear-gradient(135deg, var(--info-color), #2980b9);
+}
+
+/* ==============================================
+   8. 搜索和结果
+   ============================================== */
+
+.search-info {
+  background: linear-gradient(135deg, #e8f5e8, #f0f8f0);
+  border-left: 4px solid var(--success-color);
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-radius: 0 var(--border-radius-large) var(--border-radius-large) 0;
+  font-size: 0.875rem;
+  color: #2d5a3d;
+  margin-bottom: var(--spacing-lg);
+  box-shadow: 0 2px 4px rgba(39, 174, 96, 0.1);
+}
+
+.search-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-md);
+  padding: 40px 20px;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.search-loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border-color);
+  border-top: 2px solid var(--info-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-secondary);
+}
+
+.empty-state-icon {
+  font-size: 3rem;
+  margin-bottom: var(--spacing-lg);
+  opacity: 0.5;
+}
+
+.empty-state-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-sm);
+}
+
+.empty-state-description {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  max-width: 400px;
+  margin: 0 auto var(--spacing-xl);
+}
+
+.empty-state-action {
+  margin-top: var(--spacing-lg);
+}
+
+/* ==============================================
+   9. 文件上传和选择区域
+   ============================================== */
+
+.file-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-xl);
+}
+
+.upload-area,
+.search-area {
+  padding: var(--spacing-xl);
+  border: 2px dashed var(--border-accent);
+  border-radius: var(--border-radius-large);
+  text-align: center;
+  transition: all var(--transition-normal) ease;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
+.upload-area:hover,
+.search-area:hover {
+  border-color: var(--info-color);
+  background: var(--bg-tertiary);
+}
+
+.search-area {
+  text-align: left;
+}
+
+.search-area input {
+  padding: var(--spacing-md);
+  border: 2px solid var(--border-accent);
+  border-radius: var(--border-radius-medium);
+  font-size: 0.875rem;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  transition: all var(--transition-normal) ease;
+  width: 100%;
+  height: 44px;
+}
+
+.search-area input:focus {
+  outline: none;
+  border-color: var(--info-color);
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+}
+
+/* ==============================================
+   10. 下载错误和特殊状态
+   ============================================== */
+
+.download-error {
+  margin-top: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: linear-gradient(135deg, var(--error-bg), #f2d7d5);
+  border-left: 4px solid var(--error-color);
+  border-radius: 0 var(--border-radius-small) var(--border-radius-small) 0;
+}
+
+.download-error p {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: #c0392b;
+}
+
+/* 下载状态动画 */
+.file-item[data-downloading="true"] {
+  background: linear-gradient(90deg,
+      transparent,
+      rgba(52, 152, 219, 0.1),
+      transparent);
+  background-size: 200% 100%;
+  animation: downloadingPulse 2s ease-in-out infinite;
+}
+
+/* ==============================================
+   11. 滚动条样式
+   ============================================== */
+
 ::-webkit-scrollbar {
   width: 10px;
 }
@@ -1319,50 +1453,200 @@ input[type="checkbox"] {
   background: var(--text-secondary);
 }
 
-/* 确保所有弹性容器都有合适的最小宽度 */
-.status-controls,
-.header-controls,
-.download-actions,
-.file-actions,
-.database-controls {
-  min-width: 0;
-}
+/* ==============================================
+   12. 页面切换动画
+   ============================================== */
 
-/* 确保文本不会溢出容器 */
-.file-info,
-.download-info,
-.info-panel,
-.selected-file {
-  min-width: 0;
+/* 页面切换动画容器 */
+.app-container,
+.settings-container {
+  position: relative;
   overflow: hidden;
+  transition: transform var(--transition-slow) cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  will-change: transform;
 }
 
-/* 确保所有容器不会溢出 */
-.settings-container,
-.settings-content,
-.settings-main,
-.settings-panel {
-  min-width: 0;
-  overflow-wrap: break-word;
-  word-wrap: break-word;
+/* 主界面动画状态 */
+#mainInterface {
+  opacity: 1;
+  transform: translateX(0);
+  transition: all var(--transition-slow) cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-/* 确保长文本不会破坏布局 */
-.setting-item,
-.backup-item,
-.modal-content {
-  min-width: 0;
+#mainInterface.slide-out-left {
+  transform: translateX(-100%);
+  opacity: 0.8;
 }
 
-.setting-item label,
-.backup-name,
-.setting-description {
+#mainInterface.slide-in-left {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+/* 设置界面动画状态 */
+#settingsInterface {
+  opacity: 0;
+  transform: translateX(100%);
+  transition: all var(--transition-slow) cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+}
+
+#settingsInterface.slide-in-right {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+#settingsInterface.slide-out-right {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+/* 页面切换时的遮罩效果 */
+.page-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0);
+  z-index: 999;
+  opacity: 0;
+  transition: all var(--transition-slow) cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  pointer-events: none;
+}
+
+.page-overlay.active {
+  background: rgba(0, 0, 0, 0.1);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* 按钮点击动画效果 */
+#openSettings,
+.back-btn {
+  position: relative;
   overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
+  transition: all var(--transition-normal) ease;
 }
 
-/* 响应式设计 - 使用更精确的断点 */
+#openSettings::before,
+.back-btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+#openSettings:active::before,
+.back-btn:active::before {
+  width: 300px;
+  height: 300px;
+}
+
+/* 页面切换时禁用交互 */
+body.page-transitioning {
+  pointer-events: none;
+}
+
+body.page-transitioning * {
+  pointer-events: none;
+}
+
+/* 保持按钮在切换时可点击 */
+body.page-transitioning .back-btn,
+body.page-transitioning #openSettings {
+  pointer-events: auto;
+}
+
+/* ==============================================
+   13. 关键帧动画定义
+   ============================================== */
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes progressStripes {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 20px 0;
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutRight {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes downloadingPulse {
+  0%, 100% {
+    background-position: -200% 0;
+  }
+  50% {
+    background-position: 200% 0;
+  }
+}
+
+/* ==============================================
+   14. 响应式设计
+   ============================================== */
+
+/* 中等屏幕 (1024px及以下) */
 @media screen and (max-width: 1024px) {
   :root {
     --sidebar-width: 240px;
@@ -1375,7 +1659,7 @@ input[type="checkbox"] {
     font-size: 1.25rem;
   }
 
-  .settings-header h1 {
+  .settings-title {
     font-size: 1.375rem;
   }
 
@@ -1389,6 +1673,7 @@ input[type="checkbox"] {
   }
 }
 
+/* 平板设备 (768px及以下) */
 @media screen and (max-width: 768px) {
   :root {
     --header-height: 120px;
@@ -1432,8 +1717,8 @@ input[type="checkbox"] {
   .nav-menu {
     flex-direction: row;
     overflow-x: auto;
-    padding: 0 16px;
-    gap: 8px;
+    padding: 0 var(--spacing-lg);
+    gap: var(--spacing-sm);
   }
 
   .nav-item {
@@ -1464,10 +1749,10 @@ input[type="checkbox"] {
     justify-content: center;
   }
 
-  .settings-header h1 {
+  .settings-title {
     font-size: 1.25rem;
     margin-left: 0;
-    margin-top: 8px;
+    margin-top: var(--spacing-sm);
   }
 
   .back-btn {
@@ -1480,7 +1765,7 @@ input[type="checkbox"] {
     height: 120px;
     border-right: none;
     border-bottom: 1px solid var(--border-color);
-    padding: 16px 0;
+    padding: var(--spacing-lg) 0;
     min-width: unset;
     overflow-x: auto;
     overflow-y: hidden;
@@ -1489,8 +1774,8 @@ input[type="checkbox"] {
   .settings-nav {
     flex-direction: row;
     overflow-x: auto;
-    padding: 0 16px;
-    gap: 8px;
+    padding: 0 var(--spacing-lg);
+    gap: var(--spacing-sm);
     height: 100%;
     align-items: center;
   }
@@ -1505,19 +1790,16 @@ input[type="checkbox"] {
 
   .settings-main {
     height: calc(100vh - var(--settings-header-height) - 120px);
-    /* 为固定的底部按钮留出空间 */
     padding-bottom: var(--settings-actions-height);
   }
 
   .settings-panel {
     padding: var(--settings-content-padding);
-    /* 移除额外的底部padding */
   }
 
   .settings-actions {
-    padding: 16px var(--settings-content-padding);
+    padding: var(--spacing-lg) var(--settings-content-padding);
     height: var(--settings-actions-height);
-    /* 确保在移动设备上也是固定定位 */
     position: fixed;
   }
 
@@ -1528,54 +1810,12 @@ input[type="checkbox"] {
   .setting-control {
     flex-direction: column;
     align-items: stretch;
-    gap: 8px;
+    gap: var(--spacing-sm);
   }
 
   .setting-control input[type="text"],
   .setting-control select {
     min-width: unset;
-    width: 100%;
-  }
-
-  .setting-control input[type="range"] {
-    min-width: unset;
-    width: 100%;
-  }
-
-  .backup-buttons,
-  .import-export-buttons {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .backup-buttons button,
-  .import-export-buttons button {
-    width: 100%;
-  }
-
-  .backup-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-    min-height: 80px;
-  }
-
-  .backup-actions-small {
-    width: 100%;
-    justify-content: flex-end;
-  }
-
-  .modal-content {
-    margin: 20px;
-    width: calc(100% - 40px);
-    max-width: none;
-  }
-
-  .modal-actions {
-    flex-direction: column;
-  }
-
-  .modal-actions button {
     width: 100%;
   }
 
@@ -1588,7 +1828,7 @@ input[type="checkbox"] {
 
   .file-panel {
     grid-template-columns: 1fr;
-    gap: 16px;
+    gap: var(--spacing-lg);
   }
 
   .file-item {
@@ -1601,11 +1841,18 @@ input[type="checkbox"] {
   .file-actions {
     width: 100%;
     justify-content: flex-end;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .file-actions button {
+    width: 100%;
+    min-width: unset;
   }
 
   .input-group {
     flex-direction: column;
-    gap: 8px;
+    gap: var(--spacing-sm);
   }
 
   .input-group .form-control {
@@ -1614,7 +1861,7 @@ input[type="checkbox"] {
 
   .status-controls {
     flex-direction: column;
-    gap: 12px;
+    gap: var(--spacing-md);
     align-items: stretch;
   }
 
@@ -1623,22 +1870,17 @@ input[type="checkbox"] {
     min-width: unset;
   }
 
-  .download-actions,
-  .file-actions {
-    flex-wrap: wrap;
-  }
-
   .selected-file {
     flex-direction: column;
     align-items: flex-start;
-    gap: 8px;
+    gap: var(--spacing-sm);
     min-height: 60px;
   }
 
   .selected-file span {
     width: 100%;
     margin-right: 0;
-    margin-bottom: 8px;
+    margin-bottom: var(--spacing-sm);
   }
 
   .selected-file button {
@@ -1646,6 +1888,7 @@ input[type="checkbox"] {
   }
 }
 
+/* 手机设备 (480px及以下) */
 @media screen and (max-width: 480px) {
   :root {
     --header-height: 140px;
@@ -1669,7 +1912,7 @@ input[type="checkbox"] {
   .nav-item {
     min-width: 100px;
     font-size: 0.75rem;
-    padding: 8px 12px;
+    padding: var(--spacing-sm) var(--spacing-md);
   }
 
   .content-area {
@@ -1693,7 +1936,7 @@ input[type="checkbox"] {
     height: calc(100vh - var(--settings-header-height));
   }
 
-  .settings-header h1 {
+  .settings-title {
     font-size: 1.125rem;
   }
 
@@ -1706,7 +1949,7 @@ input[type="checkbox"] {
   .nav-item {
     min-width: 120px;
     font-size: 0.75rem;
-    padding: 8px 12px;
+    padding: var(--spacing-sm) var(--spacing-md);
     height: 36px;
   }
 
@@ -1721,7 +1964,7 @@ input[type="checkbox"] {
 
   .settings-actions {
     padding: 12px var(--settings-content-padding);
-    gap: 8px;
+    gap: var(--spacing-sm);
     height: var(--settings-actions-height);
     position: fixed;
   }
@@ -1737,7 +1980,7 @@ input[type="checkbox"] {
   .btn-primary,
   .btn-secondary,
   .btn-outline {
-    padding: 6px 12px;
+    padding: 6px var(--spacing-md);
     font-size: 0.75rem;
     height: 36px;
     min-width: 80px;
@@ -1758,44 +2001,9 @@ input[type="checkbox"] {
     font-size: 0.75rem;
   }
 
-  .range-value {
-    font-size: 0.8125rem;
-    min-width: 50px;
-  }
-
-  .backup-list h3 {
-    font-size: 1rem;
-  }
-
-  .backup-actions-small button {
-    font-size: 0.6875rem;
-    height: 24px;
-    padding: 2px 6px;
-  }
-
-  .toast {
-    padding: 12px 16px;
-    font-size: 0.875rem;
-    max-width: 280px;
-  }
-
-  .modal-content {
-    padding: 20px;
-    margin: 10px;
-    width: calc(100% - 20px);
-  }
-
-  .modal-content h3 {
-    font-size: 1.125rem;
-  }
-
-  .modal-content p {
-    font-size: 0.875rem;
-  }
-
   .btn {
     font-size: 0.75rem;
-    padding: 6px 12px;
+    padding: 6px var(--spacing-md);
     height: 36px;
   }
 
@@ -1820,9 +2028,14 @@ input[type="checkbox"] {
   .file-info p {
     font-size: 0.6875rem;
   }
+
+  .info-label,
+  .info-value {
+    font-size: 0.8125rem;
+  }
 }
 
-/* 防止过度缩放的额外保护 */
+/* 极小屏幕防护 (320px及以下) */
 @media screen and (max-width: 320px) {
   :root {
     --sidebar-width: 100%;
@@ -1848,7 +2061,7 @@ input[type="checkbox"] {
     right: 2px;
   }
 
-  .settings-header h1 {
+  .settings-title {
     font-size: 1rem;
   }
 
@@ -1884,15 +2097,9 @@ input[type="checkbox"] {
   .panel-header h2 {
     font-size: 1.125rem;
   }
-
-  .modal-content {
-    padding: 16px;
-    margin: 5px;
-    width: calc(100% - 10px);
-  }
 }
 
-/* 特殊情况：极小屏幕的兼容性 */
+/* 超小屏幕 (280px及以下) */
 @media screen and (max-width: 280px) {
   .header h1 {
     font-size: 1rem;
@@ -1923,7 +2130,7 @@ input[type="checkbox"] {
   }
 }
 
-/* 特殊情况：非常宽的屏幕 */
+/* 超宽屏幕 (1440px及以上) */
 @media screen and (min-width: 1440px) {
   .settings-content {
     max-width: 1400px;
@@ -1939,14 +2146,96 @@ input[type="checkbox"] {
   }
 }
 
-/* 打印样式 */
-@media print {
+/* ==============================================
+   15. 减弱动画模式 (辅助功能)
+   ============================================== */
 
+@media (prefers-reduced-motion: reduce) {
+  .page-slide-container,
+  #mainInterface,
+  #settingsInterface,
+  .page-overlay {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  .btn,
+  .nav-item,
+  .file-item,
+  .message {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  .progress-fill::after {
+    animation: none !important;
+  }
+
+  .status-indicator.connecting {
+    animation: none !important;
+  }
+}
+
+/* ==============================================
+   16. 深色主题支持 (可选)
+   ============================================== */
+
+@media (prefers-color-scheme: dark) {
+  .download-progress .progress-fill::after {
+    background: linear-gradient(45deg,
+        transparent 35%,
+        rgba(255, 255, 255, 0.1) 35%,
+        rgba(255, 255, 255, 0.1) 65%,
+        transparent 65%);
+  }
+
+  .download-status.downloaded {
+    background: linear-gradient(135deg, #1e3d2b, #2d5a3d);
+    color: #58d68d;
+  }
+
+  .download-error {
+    background: linear-gradient(135deg, #3d1e1e, #5a2d2d);
+  }
+
+  .download-error p {
+    color: #ec7063;
+  }
+
+  .download-path-info {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .download-path-info.checking {
+    background: rgba(243, 156, 18, 0.1);
+    border-color: var(--warning-color);
+  }
+
+  .download-path-info.valid {
+    background: rgba(39, 174, 96, 0.1);
+    border-color: var(--success-color);
+  }
+
+  .download-path-info.invalid {
+    background: rgba(231, 76, 60, 0.1);
+    border-color: var(--error-color);
+  }
+}
+
+/* ==============================================
+   17. 打印样式
+   ============================================== */
+
+@media print {
   .settings-header,
   .settings-sidebar,
   .settings-actions,
-  .back-btn {
-    display: none;
+  .back-btn,
+  .file-actions,
+  .download-progress,
+  .message-container {
+    display: none !important;
   }
 
   .settings-content {
@@ -1965,1799 +2254,131 @@ input[type="checkbox"] {
     padding: 20px;
     page-break-inside: avoid;
   }
-}
-
-/* 在 renderer/style.css 中添加以下CSS代码 */
-
-/* 页面切换动画容器 */
-.app-container,
-.settings-container {
-  position: relative;
-  overflow: hidden;
-  transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  will-change: transform;
-}
-
-/* 页面切换动画类 */
-.page-transition-container {
-  position: relative;
-  width: 100%;
-  height: 100vh;
-  overflow: hidden;
-}
-
-.page-slide-container {
-  display: flex;
-  width: 200%;
-  height: 100vh;
-  transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  will-change: transform;
-}
-
-.page-slide-container.show-settings {
-  transform: translateX(-50%);
-}
-
-.page-slide-container.show-main {
-  transform: translateX(0%);
-}
-
-/* 页面内容样式 */
-.page-content {
-  width: 50%;
-  height: 100vh;
-  flex-shrink: 0;
-  position: relative;
-}
-
-/* 主界面动画状态 */
-#mainInterface {
-  opacity: 1;
-  transform: translateX(0);
-  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-
-#mainInterface.slide-out-left {
-  transform: translateX(-100%);
-  opacity: 0.8;
-}
-
-#mainInterface.slide-in-left {
-  transform: translateX(0);
-  opacity: 1;
-}
-
-/* 设置界面动画状态 */
-#settingsInterface {
-  opacity: 0;
-  transform: translateX(100%);
-  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 1000;
-}
-
-#settingsInterface.slide-in-right {
-  transform: translateX(0);
-  opacity: 1;
-}
-
-#settingsInterface.slide-out-right {
-  transform: translateX(100%);
-  opacity: 0;
-}
-
-/* 页面切换时的遮罩效果 */
-.page-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0);
-  z-index: 999;
-  opacity: 0;
-  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  pointer-events: none;
-}
-
-.page-overlay.active {
-  background: rgba(0, 0, 0, 0.1);
-  opacity: 1;
-  pointer-events: auto;
-}
-
-/* 按钮点击动画效果 */
-#openSettings,
-.back-btn {
-  position: relative;
-  overflow: hidden;
-  transition: all 0.3s ease;
-}
-
-#openSettings::before,
-.back-btn::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  transition: width 0.6s, height 0.6s;
-}
-
-#openSettings:active::before,
-.back-btn:active::before {
-  width: 300px;
-  height: 300px;
-}
-
-/* 页面切换时禁用交互 */
-body.page-transitioning {
-  pointer-events: none;
-}
-
-body.page-transitioning * {
-  pointer-events: none;
-}
-
-/* 保持按钮在切换时可点击 */
-body.page-transitioning .back-btn,
-body.page-transitioning #openSettings {
-  pointer-events: auto;
-}
-
-/* 响应式设计下的动画调整 */
-@media screen and (max-width: 768px) {
-  .page-slide-container {
-    transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  }
-
-  #mainInterface,
-  #settingsInterface {
-    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  }
-
-  .page-overlay {
-    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  }
-}
-
-/* 动画性能优化 */
-#mainInterface,
-#settingsInterface {
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  transform-style: preserve-3d;
-  -webkit-transform-style: preserve-3d;
-}
-
-/* 减弱动画效果选项（可选，用于辅助功能） */
-@media (prefers-reduced-motion: reduce) {
-
-  .page-slide-container,
-  #mainInterface,
-  #settingsInterface,
-  .page-overlay {
-    transition: none !important;
-    animation: none !important;
-  }
-}
-
-.search-info {
-  background: var(--bg-tertiary);
-  padding: 8px 12px;
-  border-radius: 4px;
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  margin-bottom: 10px;
-}
-
-.local-file {
-  border-left: 4px solid #28a745;
-}
-
-.network-file {
-  border-left: 4px solid #007bff;
-}
-
-.file-item.local-file:hover {
-  box-shadow: inset 3px 0 0 #28a745;
-}
-
-.file-item.network-file:hover {
-  box-shadow: inset 3px 0 0 #007bff;
-}
-
-.file-item {
-  position: relative;
-  overflow: hidden;
-}
-
-.download-progress {
-  margin-top: 12px;
-  padding: 8px 0;
-}
-
-.download-progress .progress-bar {
-  width: 100%;
-  height: 8px;
-  background: var(--border-color);
-  border-radius: 4px;
-  overflow: hidden;
-  margin-bottom: 8px;
-  box-shadow: inset 0 1px 3px var(--shadow-light);
-}
-
-.download-progress .progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #3498db, #2980b9);
-  transition: width 0.3s ease;
-  border-radius: 4px;
-  box-shadow: 0 1px 3px rgba(52, 152, 219, 0.3);
-  position: relative;
-}
-
-.download-progress .progress-fill::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(45deg,
-      transparent 35%,
-      rgba(255, 255, 255, 0.2) 35%,
-      rgba(255, 255, 255, 0.2) 65%,
-      transparent 65%);
-  background-size: 20px 20px;
-  animation: progressStripes 1s linear infinite;
-}
-
-@keyframes progressStripes {
-  from {
-    background-position: 0 0;
-  }
-
-  to {
-    background-position: 20px 0;
-  }
-}
-
-.download-progress .progress-text {
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-  margin: 0;
-  text-align: center;
-}
-
-/* 下载按钮样式 */
-.btn-download {
-  background: linear-gradient(135deg, #27ae60, #2ecc71);
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  transition: all 0.3s ease;
-  min-width: 80px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-
-.btn-download:hover {
-  background: linear-gradient(135deg, #229954, #27ae60);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(39, 174, 96, 0.3);
-}
-
-.btn-download:active {
-  transform: translateY(0);
-}
-
-.btn-download::before {
-  content: '⬇';
-  font-size: 0.875rem;
-}
-
-/* 取消按钮样式 */
-.btn-cancel {
-  background: linear-gradient(135deg, #e74c3c, #c0392b);
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  transition: all 0.3s ease;
-  min-width: 80px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-
-.btn-cancel:hover {
-  background: linear-gradient(135deg, #c0392b, #a93226);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(231, 76, 60, 0.3);
-}
-
-.btn-cancel::before {
-  content: '✕';
-  font-size: 0.875rem;
-}
-
-/* 已下载状态样式 */
-.download-status.downloaded {
-  color: #27ae60;
-  font-weight: 600;
-  font-size: 0.8125rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  background: linear-gradient(135deg, #d5f4e6, #c8f7c5);
-  border-radius: 4px;
-  border: 1px solid #27ae60;
-}
-
-/* 下载错误样式 */
-.download-error {
-  margin-top: 8px;
-  padding: 8px 12px;
-  background: linear-gradient(135deg, #fadbd8, #f2d7d5);
-  border-left: 4px solid #e74c3c;
-  border-radius: 0 4px 4px 0;
-}
-
-.download-error p {
-  margin: 0;
-  font-size: 0.8125rem;
-  color: #c0392b;
-}
-
-/* 搜索信息样式增强 */
-.search-info {
-  background: linear-gradient(135deg, #e8f5e8, #f0f8f0);
-  border-left: 4px solid #27ae60;
-  padding: 12px 16px;
-  border-radius: 0 8px 8px 0;
-  font-size: 0.875rem;
-  color: #2d5a3d;
-  margin-bottom: 16px;
-  box-shadow: 0 2px 4px rgba(39, 174, 96, 0.1);
-}
-
-/* 文件类型标识增强 */
-.local-file {
-  border-left: 4px solid #27ae60;
-  background: linear-gradient(to right, rgba(39, 174, 96, 0.05), transparent);
-}
-
-.network-file {
-  border-left: 4px solid #3498db;
-  background: linear-gradient(to right, rgba(52, 152, 219, 0.05), transparent);
-}
-
-.file-item.local-file:hover {
-  box-shadow: inset 4px 0 0 #27ae60, 0 4px 8px var(--shadow-light);
-  background: linear-gradient(to right, rgba(39, 174, 96, 0.1), transparent);
-}
-
-.file-item.network-file:hover {
-  box-shadow: inset 4px 0 0 #3498db, 0 4px 8px var(--shadow-light);
-  background: linear-gradient(to right, rgba(52, 152, 219, 0.1), transparent);
-}
-
-/* 文件动作区域增强 */
-.file-actions {
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.file-actions button {
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-/* 下载状态动画 */
-.file-item[data-downloading="true"] {
-  background: linear-gradient(90deg,
-      transparent,
-      rgba(52, 152, 219, 0.1),
-      transparent);
-  background-size: 200% 100%;
-  animation: downloadingPulse 2s ease-in-out infinite;
-}
-
-@keyframes downloadingPulse {
-
-  0%,
-  100% {
-    background-position: -200% 0;
-  }
-
-  50% {
-    background-position: 200% 0;
-  }
-}
-
-/* 搜索结果计数器 */
-.search-results-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  padding: 12px 16px;
-  background: var(--bg-tertiary);
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-}
-
-.search-results-count {
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.search-results-actions {
-  display: flex;
-  gap: 8px;
-}
-
-/* 批量下载功能 */
-.bulk-download-controls {
-  padding: 16px;
-  background: var(--bg-secondary);
-  border-radius: 8px;
-  margin-bottom: 16px;
-  border: 1px solid var(--border-color);
-  display: none;
-  /* 默认隐藏，有选中文件时显示 */
-}
-
-.bulk-download-controls.visible {
-  display: block;
-}
-
-.bulk-download-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.bulk-download-progress {
-  margin-top: 12px;
-}
-
-.bulk-progress-bar {
-  width: 100%;
-  height: 6px;
-  background: var(--border-color);
-  border-radius: 3px;
-  overflow: hidden;
-  margin-bottom: 8px;
-}
-
-.bulk-progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #3498db, #2980b9);
-  transition: width 0.3s ease;
-  border-radius: 3px;
-}
-
-/* 文件选择复选框 */
-.file-selector {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 2;
-}
-
-.file-selector input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  accent-color: #3498db;
-  cursor: pointer;
-}
-
-.file-item.selectable {
-  padding-left: 45px;
-  /* 为复选框留出空间 */
-}
-
-/* 下载队列状态 */
-.download-queue-indicator {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 12px 16px;
-  box-shadow: 0 4px 12px var(--shadow-medium);
-  z-index: 999;
-  min-width: 250px;
-  display: none;
-}
-
-.download-queue-indicator.visible {
-  display: block;
-  animation: slideInUp 0.3s ease;
-}
-
-@keyframes slideInUp {
-  from {
-    transform: translateY(100%);
-    opacity: 0;
-  }
-
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-.download-queue-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.download-queue-title {
-  font-weight: 600;
-  color: var(--text-primary);
-  font-size: 0.875rem;
-}
-
-.download-queue-close {
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
-  transition: background-color 0.2s ease;
-}
-
-.download-queue-close:hover {
-  background: var(--hover-bg);
-}
-
-.download-queue-list {
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.download-queue-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--border-color);
-  font-size: 0.8125rem;
-}
-
-.download-queue-item:last-child {
-  border-bottom: none;
-}
-
-.download-queue-status {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.download-queue-status.waiting {
-  background: #f39c12;
-}
-
-.download-queue-status.downloading {
-  background: #3498db;
-  animation: pulse 1.5s ease-in-out infinite;
-}
-
-.download-queue-status.completed {
-  background: #27ae60;
-}
-
-.download-queue-status.failed {
-  background: #e74c3c;
-}
-
-/* 搜索加载状态 */
-.search-loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 40px 20px;
-  color: var(--text-secondary);
-  font-size: 0.875rem;
-}
-
-.search-loading-spinner {
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--border-color);
-  border-top: 2px solid #3498db;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-/* 空状态样式 */
-.empty-state {
-  text-align: center;
-  padding: 60px 20px;
-  color: var(--text-secondary);
-}
-
-.empty-state-icon {
-  font-size: 3rem;
-  margin-bottom: 16px;
-  opacity: 0.5;
-}
-
-.empty-state-title {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 8px;
-}
-
-.empty-state-description {
-  font-size: 0.875rem;
-  line-height: 1.5;
-  max-width: 400px;
-  margin: 0 auto 20px;
-}
-
-.empty-state-action {
-  margin-top: 16px;
-}
-
-/* 下载速度和统计 */
-.download-stats {
-  display: flex;
-  gap: 16px;
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  margin-top: 4px;
-}
-
-.download-stat {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.download-stat-icon {
-  font-size: 0.875rem;
-}
-
-/* 文件类型图标 */
-.file-type-icon {
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: white;
-  margin-right: 8px;
-  flex-shrink: 0;
-}
-
-.file-type-icon.document {
-  background: #e74c3c;
-}
-
-.file-type-icon.image {
-  background: #9b59b6;
-}
-
-.file-type-icon.video {
-  background: #e67e22;
-}
-
-.file-type-icon.audio {
-  background: #1abc9c;
-}
-
-.file-type-icon.archive {
-  background: #34495e;
-}
-
-.file-type-icon.code {
-  background: #2ecc71;
-}
-
-.file-type-icon.unknown {
-  background: #95a5a6;
-}
-
-/* 响应式设计增强 */
-@media screen and (max-width: 768px) {
-  .file-actions {
-    flex-direction: column;
-    gap: 6px;
-    width: 100%;
-  }
-
-  .file-actions button {
-    width: 100%;
-    min-width: unset;
-  }
-
-  .download-progress .progress-text {
-    font-size: 0.75rem;
-  }
-
-  .download-queue-indicator {
-    bottom: 10px;
-    right: 10px;
-    left: 10px;
-    min-width: unset;
-  }
-
-  .bulk-download-controls {
-    padding: 12px;
-  }
-
-  .bulk-download-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-}
-
-@media screen and (max-width: 480px) {
-  .file-item.selectable {
-    padding-left: 35px;
-  }
-
-  .file-selector {
-    top: 8px;
-    left: 8px;
-  }
-
-  .file-selector input[type="checkbox"] {
-    width: 16px;
-    height: 16px;
-  }
-
-  .download-stats {
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .search-info {
-    padding: 8px 12px;
-    font-size: 0.8125rem;
-  }
-}
-
-/* 深色主题支持（可选） */
-@media (prefers-color-scheme: dark) {
-  .download-progress .progress-fill::after {
-    background: linear-gradient(45deg,
-        transparent 35%,
-        rgba(255, 255, 255, 0.1) 35%,
-        rgba(255, 255, 255, 0.1) 65%,
-        transparent 65%);
-  }
-
-  .download-status.downloaded {
-    background: linear-gradient(135deg, #1e3d2b, #2d5a3d);
-    color: #58d68d;
-  }
-
-  .download-error {
-    background: linear-gradient(135deg, #3d1e1e, #5a2d2d);
-  }
-
-  .download-error p {
-    color: #ec7063;
-  }
-}
-
-/* 打印样式 */
-@media print {
-
-  .file-actions,
-  .download-progress,
-  .download-queue-indicator,
-  .bulk-download-controls {
-    display: none !important;
-  }
 
   .file-item {
     break-inside: avoid;
     margin-bottom: 12px;
   }
-}
 
-.file-item {
-  position: relative;
-  overflow: hidden;
-}
-
-.download-progress {
-  margin-top: 12px;
-  padding: 8px 0;
-}
-
-.download-progress .progress-bar {
-  width: 100%;
-  height: 8px;
-  background: var(--border-color);
-  border-radius: 4px;
-  overflow: hidden;
-  margin-bottom: 8px;
-  box-shadow: inset 0 1px 3px var(--shadow-light);
-}
-
-.download-progress .progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #3498db, #2980b9);
-  transition: width 0.3s ease;
-  border-radius: 4px;
-  box-shadow: 0 1px 3px rgba(52, 152, 219, 0.3);
-  position: relative;
-}
-
-.download-progress .progress-fill::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(45deg,
-      transparent 35%,
-      rgba(255, 255, 255, 0.2) 35%,
-      rgba(255, 255, 255, 0.2) 65%,
-      transparent 65%);
-  background-size: 20px 20px;
-  animation: progressStripes 1s linear infinite;
-}
-
-@keyframes progressStripes {
-  from {
-    background-position: 0 0;
+  body {
+    font-size: 12pt;
+    line-height: 1.4;
   }
 
-  to {
-    background-position: 20px 0;
+  .section {
+    page-break-inside: avoid;
+    margin-bottom: 20pt;
   }
 }
 
-.download-progress .progress-text {
-  font-size: 0.8125rem;
-  color: var(--text-secondary);
-  margin: 0;
-  text-align: center;
+/* ==============================================
+   18. 实用工具类
+   ============================================== */
+
+/* 文本对齐 */
+.text-left { text-align: left; }
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+
+/* 显示/隐藏 */
+.hidden { display: none !important; }
+.visible { display: block !important; }
+
+/* 间距工具 */
+.m-0 { margin: 0 !important; }
+.mt-1 { margin-top: var(--spacing-xs) !important; }
+.mt-2 { margin-top: var(--spacing-sm) !important; }
+.mt-3 { margin-top: var(--spacing-md) !important; }
+.mt-4 { margin-top: var(--spacing-lg) !important; }
+.mb-1 { margin-bottom: var(--spacing-xs) !important; }
+.mb-2 { margin-bottom: var(--spacing-sm) !important; }
+.mb-3 { margin-bottom: var(--spacing-md) !important; }
+.mb-4 { margin-bottom: var(--spacing-lg) !important; }
+
+/* 弹性布局工具 */
+.d-flex { display: flex !important; }
+.flex-column { flex-direction: column !important; }
+.flex-row { flex-direction: row !important; }
+.justify-center { justify-content: center !important; }
+.justify-between { justify-content: space-between !important; }
+.align-center { align-items: center !important; }
+.flex-1 { flex: 1 !important; }
+
+/* 文字颜色工具 */
+.text-primary { color: var(--text-primary) !important; }
+.text-secondary { color: var(--text-secondary) !important; }
+.text-success { color: var(--success-color) !important; }
+.text-error { color: var(--error-color) !important; }
+.text-warning { color: var(--warning-color) !important; }
+.text-info { color: var(--info-color) !important; }
+
+/* 背景颜色工具 */
+.bg-primary { background-color: var(--bg-primary) !important; }
+.bg-secondary { background-color: var(--bg-secondary) !important; }
+.bg-success { background-color: var(--success-bg) !important; }
+.bg-error { background-color: var(--error-bg) !important; }
+.bg-warning { background-color: var(--warning-bg) !important; }
+.bg-info { background-color: var(--info-bg) !important; }
+
+/* 字体权重 */
+.font-normal { font-weight: 400 !important; }
+.font-medium { font-weight: 500 !important; }
+.font-semibold { font-weight: 600 !important; }
+.font-bold { font-weight: 700 !important; }
+
+/* 圆角工具 */
+.rounded-sm { border-radius: var(--border-radius-small) !important; }
+.rounded { border-radius: var(--border-radius-medium) !important; }
+.rounded-lg { border-radius: var(--border-radius-large) !important; }
+
+/* 阴影工具 */
+.shadow-sm { box-shadow: 0 1px 2px var(--shadow-light) !important; }
+.shadow { box-shadow: 0 2px 4px var(--shadow-light) !important; }
+.shadow-lg { box-shadow: 0 4px 8px var(--shadow-medium) !important; }
+
+/* 溢出处理 */
+.overflow-hidden { overflow: hidden !important; }
+.overflow-auto { overflow: auto !important; }
+.text-ellipsis { 
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+/* 位置工具 */
+.relative { position: relative !important; }
+.absolute { position: absolute !important; }
+.fixed { position: fixed !important; }
+
+/* 宽度工具 */
+.w-full { width: 100% !important; }
+.w-auto { width: auto !important; }
+.h-full { height: 100% !important; }
+.h-auto { height: auto !important; }
+
+/* ==============================================
+   19. 开发调试样式 (生产环境中移除)
+   ============================================== */
+
+/* 调试边框 - 仅在开发模式下使用 */
+.debug-border {
+  border: 1px solid red !important;
+}
+
+.debug-bg {
+  background: rgba(255, 0, 0, 0.1) !important;
+}
+
+/* 性能提示 - 标记可能影响性能的元素 */
+.performance-warning {
+  border: 2px dashed orange !important;
 }
 
-/* 下载按钮样式 */
-.btn-download {
-  background: linear-gradient(135deg, #27ae60, #2ecc71);
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  transition: all 0.3s ease;
-  min-width: 80px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
+/* 可访问性提示 */
+.accessibility-issue {
+  outline: 2px solid purple !important;
 }
 
-.btn-download:hover {
-  background: linear-gradient(135deg, #229954, #27ae60);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(39, 174, 96, 0.3);
-}
-
-.btn-download:active {
-  transform: translateY(0);
-}
-
-.btn-download::before {
-  content: '⬇';
-  font-size: 0.875rem;
-}
-
-/* 取消按钮样式 */
-.btn-cancel {
-  background: linear-gradient(135deg, #e74c3c, #c0392b);
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  transition: all 0.3s ease;
-  min-width: 80px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-
-.btn-cancel:hover {
-  background: linear-gradient(135deg, #c0392b, #a93226);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(231, 76, 60, 0.3);
-}
-
-.btn-cancel::before {
-  content: '✕';
-  font-size: 0.875rem;
-}
-
-/* 已下载状态样式 */
-.download-status.downloaded {
-  color: #27ae60;
-  font-weight: 600;
-  font-size: 0.8125rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  background: linear-gradient(135deg, #d5f4e6, #c8f7c5);
-  border-radius: 4px;
-  border: 1px solid #27ae60;
-}
-
-/* 下载错误样式 */
-.download-error {
-  margin-top: 8px;
-  padding: 8px 12px;
-  background: linear-gradient(135deg, #fadbd8, #f2d7d5);
-  border-left: 4px solid #e74c3c;
-  border-radius: 0 4px 4px 0;
-}
-
-.download-error p {
-  margin: 0;
-  font-size: 0.8125rem;
-  color: #c0392b;
-}
-
-/* 搜索信息样式增强 */
-.search-info {
-  background: linear-gradient(135deg, #e8f5e8, #f0f8f0);
-  border-left: 4px solid #27ae60;
-  padding: 12px 16px;
-  border-radius: 0 8px 8px 0;
-  font-size: 0.875rem;
-  color: #2d5a3d;
-  margin-bottom: 16px;
-  box-shadow: 0 2px 4px rgba(39, 174, 96, 0.1);
-}
-
-/* 文件类型标识增强 */
-.local-file {
-  border-left: 4px solid #27ae60;
-  background: linear-gradient(to right, rgba(39, 174, 96, 0.05), transparent);
-}
-
-.network-file {
-  border-left: 4px solid #3498db;
-  background: linear-gradient(to right, rgba(52, 152, 219, 0.05), transparent);
-}
-
-.file-item.local-file:hover {
-  box-shadow: inset 4px 0 0 #27ae60, 0 4px 8px var(--shadow-light);
-  background: linear-gradient(to right, rgba(39, 174, 96, 0.1), transparent);
-}
-
-.file-item.network-file:hover {
-  box-shadow: inset 4px 0 0 #3498db, 0 4px 8px var(--shadow-light);
-  background: linear-gradient(to right, rgba(52, 152, 219, 0.1), transparent);
-}
-
-/* 文件动作区域增强 */
-.file-actions {
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.file-actions button {
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-/* 下载状态动画 */
-.file-item[data-downloading="true"] {
-  background: linear-gradient(90deg,
-      transparent,
-      rgba(52, 152, 219, 0.1),
-      transparent);
-  background-size: 200% 100%;
-  animation: downloadingPulse 2s ease-in-out infinite;
-}
-
-@keyframes downloadingPulse {
-
-  0%,
-  100% {
-    background-position: -200% 0;
-  }
-
-  50% {
-    background-position: 200% 0;
-  }
-}
-
-/* 搜索结果计数器 */
-.search-results-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  padding: 12px 16px;
-  background: var(--bg-tertiary);
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-}
-
-.search-results-count {
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.search-results-actions {
-  display: flex;
-  gap: 8px;
-}
-
-/* 批量下载功能 */
-.bulk-download-controls {
-  padding: 16px;
-  background: var(--bg-secondary);
-  border-radius: 8px;
-  margin-bottom: 16px;
-  border: 1px solid var(--border-color);
-  display: none;
-  /* 默认隐藏，有选中文件时显示 */
-}
-
-.bulk-download-controls.visible {
-  display: block;
-}
-
-.bulk-download-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.bulk-download-progress {
-  margin-top: 12px;
-}
-
-.bulk-progress-bar {
-  width: 100%;
-  height: 6px;
-  background: var(--border-color);
-  border-radius: 3px;
-  overflow: hidden;
-  margin-bottom: 8px;
-}
-
-.bulk-progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #3498db, #2980b9);
-  transition: width 0.3s ease;
-  border-radius: 3px;
-}
-
-/* 文件选择复选框 */
-.file-selector {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 2;
-}
-
-.file-selector input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  accent-color: #3498db;
-  cursor: pointer;
-}
-
-.file-item.selectable {
-  padding-left: 45px;
-  /* 为复选框留出空间 */
-}
-
-/* 下载队列状态 */
-.download-queue-indicator {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 12px 16px;
-  box-shadow: 0 4px 12px var(--shadow-medium);
-  z-index: 999;
-  min-width: 250px;
-  display: none;
-}
-
-.download-queue-indicator.visible {
-  display: block;
-  animation: slideInUp 0.3s ease;
-}
-
-@keyframes slideInUp {
-  from {
-    transform: translateY(100%);
-    opacity: 0;
-  }
-
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-.download-queue-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.download-queue-title {
-  font-weight: 600;
-  color: var(--text-primary);
-  font-size: 0.875rem;
-}
-
-.download-queue-close {
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
-  transition: background-color 0.2s ease;
-}
-
-.download-queue-close:hover {
-  background: var(--hover-bg);
-}
-
-.download-queue-list {
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.download-queue-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--border-color);
-  font-size: 0.8125rem;
-}
-
-.download-queue-item:last-child {
-  border-bottom: none;
-}
-
-.download-queue-status {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.download-queue-status.waiting {
-  background: #f39c12;
-}
-
-.download-queue-status.downloading {
-  background: #3498db;
-  animation: pulse 1.5s ease-in-out infinite;
-}
-
-.download-queue-status.completed {
-  background: #27ae60;
-}
-
-.download-queue-status.failed {
-  background: #e74c3c;
-}
-
-/* 搜索加载状态 */
-.search-loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 40px 20px;
-  color: var(--text-secondary);
-  font-size: 0.875rem;
-}
-
-.search-loading-spinner {
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--border-color);
-  border-top: 2px solid #3498db;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-/* 空状态样式 */
-.empty-state {
-  text-align: center;
-  padding: 60px 20px;
-  color: var(--text-secondary);
-}
-
-.empty-state-icon {
-  font-size: 3rem;
-  margin-bottom: 16px;
-  opacity: 0.5;
-}
-
-.empty-state-title {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 8px;
-}
-
-.empty-state-description {
-  font-size: 0.875rem;
-  line-height: 1.5;
-  max-width: 400px;
-  margin: 0 auto 20px;
-}
-
-.empty-state-action {
-  margin-top: 16px;
-}
-
-/* 下载速度和统计 */
-.download-stats {
-  display: flex;
-  gap: 16px;
-  font-size: 0.75rem;
-  color: var(--text-secondary);
-  margin-top: 4px;
-}
-
-.download-stat {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.download-stat-icon {
-  font-size: 0.875rem;
-}
-
-/* 文件类型图标 */
-.file-type-icon {
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: white;
-  margin-right: 8px;
-  flex-shrink: 0;
-}
-
-.file-type-icon.document {
-  background: #e74c3c;
-}
-
-.file-type-icon.image {
-  background: #9b59b6;
-}
-
-.file-type-icon.video {
-  background: #e67e22;
-}
-
-.file-type-icon.audio {
-  background: #1abc9c;
-}
-
-.file-type-icon.archive {
-  background: #34495e;
-}
-
-.file-type-icon.code {
-  background: #2ecc71;
-}
-
-.file-type-icon.unknown {
-  background: #95a5a6;
-}
-
-/* 响应式设计增强 */
-@media screen and (max-width: 768px) {
-  .file-actions {
-    flex-direction: column;
-    gap: 6px;
-    width: 100%;
-  }
-
-  .file-actions button {
-    width: 100%;
-    min-width: unset;
-  }
-
-  .download-progress .progress-text {
-    font-size: 0.75rem;
-  }
-
-  .download-queue-indicator {
-    bottom: 10px;
-    right: 10px;
-    left: 10px;
-    min-width: unset;
-  }
-
-  .bulk-download-controls {
-    padding: 12px;
-  }
-
-  .bulk-download-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-}
-
-@media screen and (max-width: 480px) {
-  .file-item.selectable {
-    padding-left: 35px;
-  }
-
-  .file-selector {
-    top: 8px;
-    left: 8px;
-  }
-
-  .file-selector input[type="checkbox"] {
-    width: 16px;
-    height: 16px;
-  }
-
-  .download-stats {
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .search-info {
-    padding: 8px 12px;
-    font-size: 0.8125rem;
-  }
-}
-
-/* 深色主题支持（可选） */
-@media (prefers-color-scheme: dark) {
-  .download-progress .progress-fill::after {
-    background: linear-gradient(45deg,
-        transparent 35%,
-        rgba(255, 255, 255, 0.1) 35%,
-        rgba(255, 255, 255, 0.1) 65%,
-        transparent 65%);
-  }
-
-  .download-status.downloaded {
-    background: linear-gradient(135deg, #1e3d2b, #2d5a3d);
-    color: #58d68d;
-  }
-
-  .download-error {
-    background: linear-gradient(135deg, #3d1e1e, #5a2d2d);
-  }
-
-  .download-error p {
-    color: #ec7063;
-  }
-}
-
-/* 打印样式 */
-@media print {
-
-  .file-actions,
-  .download-progress,
-  .download-queue-indicator,
-  .bulk-download-controls {
-    display: none !important;
-  }
-
-  .file-item {
-    break-inside: avoid;
-    margin-bottom: 12px;
-  }
-}
-
-/* 在现有 CSS 基础上添加以下样式 */
-
-/* 下载路径信息样式 */
-.download-path-info {
-  margin-top: 12px;
-  padding: 12px;
-  background: var(--bg-tertiary);
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
-  transition: background-color 0.3s ease;
-}
-
-.info-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
-}
-
-.info-item:last-child {
-  margin-bottom: 0;
-}
-
-.info-label {
-  font-weight: 500;
-  color: var(--text-primary);
-  font-size: 0.875rem;
-}
-
-.info-value {
-  font-size: 0.875rem;
-  color: var(--text-secondary);
-  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
-}
-
-.info-value.status-success {
-  color: #27ae60;
-  font-weight: 600;
-}
-
-.info-value.status-error {
-  color: #e74c3c;
-  font-weight: 600;
-}
-
-.info-value.status-warning {
-  color: #f39c12;
-  font-weight: 600;
-}
-
-/* 下载路径控制组样式 */
-.setting-control {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.setting-control input[type="text"][readonly] {
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
-  cursor: default;
-}
-
-.setting-control input[type="text"][readonly]:focus {
-  border-color: var(--border-accent);
-  box-shadow: none;
-}
-
-/* 下载操作按钮组 */
-.download-actions {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-top: 12px;
-}
-
-.download-actions button {
-  font-size: 0.875rem;
-  padding: 8px 16px;
-  min-width: auto;
-  height: 36px;
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-
-/* 浏览按钮特殊样式 */
-#browseDownloadPath {
-  background: linear-gradient(135deg, #3498db, #2980b9);
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: all 0.3s ease;
-  min-width: 80px;
-  height: 40px;
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-
-#browseDownloadPath:hover {
-  background: linear-gradient(135deg, #2980b9, #1f639a);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
-}
-
-#browseDownloadPath:active {
-  transform: translateY(0);
-}
-
-#browseDownloadPath::before {
-  content: '📁';
-  margin-right: 6px;
-  font-size: 0.875rem;
-}
-
-/* 下载文件夹管理按钮样式 */
-#openDownloadFolder {
-  background: linear-gradient(135deg, #27ae60, #2ecc71);
-}
-
-#openDownloadFolder:hover:not(:disabled) {
-  background: linear-gradient(135deg, #229954, #27ae60);
-}
-
-#openDownloadFolder::before {
-  content: '📂';
-  margin-right: 6px;
-}
-
-#cleanupDownloadFolder {
-  background: linear-gradient(135deg, #e67e22, #d35400);
-}
-
-#cleanupDownloadFolder:hover:not(:disabled) {
-  background: linear-gradient(135deg, #d35400, #c0392b);
-}
-
-#cleanupDownloadFolder::before {
-  content: '🧹';
-  margin-right: 6px;
-}
-
-#refreshDownloadInfo {
-  background: linear-gradient(135deg, #9b59b6, #8e44ad);
-}
-
-#refreshDownloadInfo:hover:not(:disabled) {
-  background: linear-gradient(135deg, #8e44ad, #7d3c98);
-}
-
-#refreshDownloadInfo::before {
-  content: '🔄';
-  margin-right: 6px;
-}
-
-/* 设置项分组标题 */
-.setting-item h3 {
-  margin: 0 0 12px 0;
-  color: var(--text-accent);
-  font-size: 1rem;
-  font-weight: 600;
-  border-bottom: 1px solid var(--border-color);
-  padding-bottom: 6px;
-}
-
-/* 下载路径验证动画 */
-.download-path-info.checking {
-  background: linear-gradient(135deg, #fff3cd, #ffeaa7);
-  border-color: #f39c12;
-}
-
-.download-path-info.valid {
-  background: linear-gradient(135deg, #d5f4e6, #c8f7c5);
-  border-color: #27ae60;
-}
-
-.download-path-info.invalid {
-  background: linear-gradient(135deg, #fadbd8, #f2d7d5);
-  border-color: #e74c3c;
-}
-
-/* 路径输入框状态 */
-.setting-control input[type="text"].path-valid {
-  border-color: #27ae60;
-  background: linear-gradient(135deg, #d5f4e6, var(--bg-secondary));
-}
-
-.setting-control input[type="text"].path-invalid {
-  border-color: #e74c3c;
-  background: linear-gradient(135deg, #fadbd8, var(--bg-secondary));
-}
-
-.setting-control input[type="text"].path-checking {
-  border-color: #f39c12;
-  background: linear-gradient(135deg, #fff3cd, var(--bg-secondary));
-}
-
-/* 加载状态指示器 */
-.info-value.loading::after {
-  content: '';
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  margin-left: 6px;
-  border: 2px solid var(--border-color);
-  border-top: 2px solid #3498db;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-/* 响应式设计 */
-@media screen and (max-width: 768px) {
-  .download-actions {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .download-actions button {
-    width: 100%;
-    min-width: unset;
-  }
-
-  .setting-control {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-  }
-
-  .setting-control input[type="text"] {
-    min-width: unset;
-    width: 100%;
-  }
-
-  #browseDownloadPath {
-    width: 100%;
-    min-width: unset;
-  }
-
-  .info-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-  }
-
-  .download-path-info {
-    padding: 8px;
-  }
-}
-
-@media screen and (max-width: 480px) {
-  .download-actions button {
-    font-size: 0.8125rem;
-    height: 32px;
-    padding: 6px 12px;
-  }
-
-  .setting-control input[type="text"] {
-    font-size: 0.8125rem;
-    height: 36px;
-    padding: 6px 10px;
-  }
-
-  #browseDownloadPath {
-    font-size: 0.8125rem;
-    height: 36px;
-    padding: 6px 12px;
-  }
-
-  .info-label,
-  .info-value {
-    font-size: 0.8125rem;
-  }
-}
-
-/* 深色主题支持（如果需要） */
-@media (prefers-color-scheme: dark) {
-  .download-path-info {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.1);
-  }
-
-  .download-path-info.checking {
-    background: rgba(243, 156, 18, 0.1);
-    border-color: #f39c12;
-  }
-
-  .download-path-info.valid {
-    background: rgba(39, 174, 96, 0.1);
-    border-color: #27ae60;
-  }
-
-  .download-path-info.invalid {
-    background: rgba(231, 76, 60, 0.1);
-    border-color: #e74c3c;
-  }
-}
-
-/* 路径信息项悬停效果 */
-.info-item:hover {
-  background: rgba(52, 152, 219, 0.05);
-  border-radius: 4px;
-  padding: 2px 6px;
-  margin: 2px -6px;
-  transition: all 0.2s ease;
-}
-
-/* 按钮组对齐 */
-.download-actions {
-  justify-content: flex-start;
-  align-items: center;
-}
-
-/* 设置项间距调整 */
-.setting-item {
-  margin-bottom: 24px;
-}
-
-.setting-item:last-child {
-  margin-bottom: 0;
-}
+/* ==============================================
+   样式文件结束
+   ============================================== */
