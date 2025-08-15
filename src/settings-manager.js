@@ -31,15 +31,9 @@ export class SettingsManager {
 
       // NAT穿透设置
       enableNATTraversal: true,
-      enableUPnP: true,
       enableHolePunching: true,
       enableAutoRelay: true,
       enableCircuitRelay: true,
-
-      // UPnP设置
-      upnpDiscoveryTimeout: 30, // 秒
-      upnpPortMappingTTL: 3600, // 1小时
-      enableUpnpIPv6: false,
 
       // 洞穿设置
       holePunchTimeout: 30, // 秒
@@ -207,7 +201,6 @@ export class SettingsManager {
           console.log(`NAT traversal ${newValue ? 'enabled' : 'disabled'}`)
           if (!newValue) {
             // 如果禁用NAT穿透，也禁用相关功能
-            this.settings.set('enableUPnP', false)
             this.settings.set('enableHolePunching', false)
             this.settings.set('enableAutoRelay', false)
           }
@@ -271,8 +264,6 @@ export class SettingsManager {
       connectionTimeout: (val) => Number.isInteger(val) && val >= 5 && val <= 300,
 
       // NAT穿透设置验证
-      upnpDiscoveryTimeout: (val) => Number.isInteger(val) && val >= 5 && val <= 120,
-      upnpPortMappingTTL: (val) => Number.isInteger(val) && val >= 300 && val <= 86400,
       holePunchTimeout: (val) => Number.isInteger(val) && val >= 5 && val <= 120,
       holePunchRetries: (val) => Number.isInteger(val) && val >= 1 && val <= 10,
 
@@ -320,12 +311,6 @@ export class SettingsManager {
   getNATTraversalSettings() {
     return {
       enabled: this.get('enableNATTraversal'),
-      upnp: {
-        enabled: this.get('enableUPnP'),
-        discoveryTimeout: this.get('upnpDiscoveryTimeout'),
-        portMappingTTL: this.get('upnpPortMappingTTL'),
-        enableIPv6: this.get('enableUpnpIPv6')
-      },
       holePunching: {
         enabled: this.get('enableHolePunching'),
         timeout: this.get('holePunchTimeout'),
@@ -358,14 +343,6 @@ export class SettingsManager {
         type: 'warning',
         message: 'NAT traversal is disabled. This may limit connectivity to peers behind firewalls.',
         action: 'Enable NAT traversal for better connectivity'
-      })
-    }
-
-    if (!this.get('enableUPnP')) {
-      recommendations.push({
-        type: 'info',
-        message: 'UPnP is disabled. Manual port forwarding may be required for optimal connectivity.',
-        action: 'Enable UPnP for automatic port forwarding'
       })
     }
 
@@ -428,7 +405,6 @@ export class SettingsManager {
       natTraversal: {
         enabled: natSettings.enabled,
         methods: [
-          natSettings.upnp.enabled ? 'UPnP' : null,
           natSettings.holePunching.enabled ? 'Hole Punching' : null,
           natSettings.relay.autoRelay ? 'Auto Relay' : null
         ].filter(Boolean)
@@ -472,7 +448,6 @@ export class SettingsManager {
           natTraversal: true,
           holePunching: true,
           circuitRelay: true,
-          upnp: true
         },
         settings: currentSettings,
         networkConfig: this.getNetworkConfigSummary()

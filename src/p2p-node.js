@@ -50,7 +50,6 @@ export class P2PNode {
 
     // NAT穿透设置
     this.holePunchingEnabled = options.enableHolePunching !== false
-    this.upnpEnabled = options.enableUPnP !== false
     this.autoRelayEnabled = options.enableAutoRelay !== false
     this.isPublicNode = false
     this.natType = 'unknown'
@@ -62,7 +61,6 @@ export class P2PNode {
       relayedConnections: 0,
       holePunchAttempts: 0,
       holePunchSuccesses: 0,
-      upnpMappings: 0
     }
   }
 
@@ -261,7 +259,6 @@ export class P2PNode {
       console.log('P2P node created successfully')
       console.log('Node ID:', this.node.peerId.toString())
       console.log('Instance ID:', this.nodeInstanceId)
-      console.log('UPnP enabled:', this.upnpEnabled)
       console.log('Hole punching enabled:', this.holePunchingEnabled)
       console.log('Auto relay enabled:', this.autoRelayEnabled)
 
@@ -1009,11 +1006,9 @@ export class P2PNode {
       discoveredPeerIds: discoveredPeers,
       isStarted: this.isStarted,
       instanceId: this.nodeInstanceId,
-      // 增强信息
       reachability: this.reachability,
       isPublicNode: this.isPublicNode,
       natType: this.natType,
-      upnpEnabled: this.upnpEnabled,
       holePunchingEnabled: this.holePunchingEnabled,
       autoRelayEnabled: this.autoRelayEnabled,
       connectionStats: {
@@ -1031,8 +1026,6 @@ export class P2PNode {
       reachability: this.reachability,
       isPublicNode: this.isPublicNode,
       natType: this.natType,
-      upnpEnabled: this.upnpEnabled,
-      upnpMappings: this.connectionStats.upnpMappings,
       holePunchingEnabled: this.holePunchingEnabled,
       holePunchAttempts: this.connectionStats.holePunchAttempts,
       holePunchSuccesses: this.connectionStats.holePunchSuccesses,

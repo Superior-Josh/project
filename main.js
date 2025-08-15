@@ -211,7 +211,6 @@ async function autoStartP2PNode(window) {
       console.log('Creating P2P node instance...')
       p2pNode = new P2PNode({
         enableHolePunching: false,
-        enableUPnP: false,
         enableAutoRelay: false
       })
 
@@ -347,7 +346,6 @@ ipcMain.handle('start-p2p-node', async () => {
 
       p2pNode = new P2PNode({
         enableHolePunching: natSettings.holePunching?.enabled !== false,
-        enableUPnP: natSettings.upnp?.enabled !== false,
         enableAutoRelay: natSettings.relay?.autoRelay !== false,
         customBootstrapNodes: natSettings.customNodes?.bootstrapNodes || [],
         customRelayNodes: natSettings.customNodes?.relayNodes || []
@@ -1439,7 +1437,6 @@ ipcMain.handle('save-settings', async (event, settings) => {
     // 如果NAT穿透设置改变了，重新配置节点
     if (p2pNode && (
       settings.hasOwnProperty('enableNATTraversal') ||
-      settings.hasOwnProperty('enableUPnP') ||
       settings.hasOwnProperty('enableHolePunching') ||
       settings.hasOwnProperty('enableAutoRelay')
     )) {
