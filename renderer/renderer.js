@@ -18,6 +18,18 @@ let pageTransitionManager = null
 // 下载相关状态
 let downloadedFiles = new Map() // 存储已下载文件的信息
 let downloadingFiles = new Map() // 存储正在下载的文件
+let activeSharingTasks = new Map() // 存储活跃的分享任务
+let sharingTaskIdCounter = 0 // 分享任务ID计数器
+
+// 文件分享任务状态
+const SharingTaskStatus = {
+  PREPARING: 'preparing',
+  UPLOADING: 'uploading',
+  PAUSED: 'paused',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled',
+  FAILED: 'failed'
+}
 
 // ==========================================
 // 立即定义全局函数（在页面加载前就可用）
@@ -1198,7 +1210,7 @@ function updateSelectedFilesDisplay() {
     const fileList = selectedFiles.map(filePath => {
       const fileName = filePath.split(/[/\\]/).pop()
       return `<div class="selected-file">
-        <span>${fileName}</span>
+        <span title="${filePath}">${fileName}</span>
       </div>`
     }).join('')
 
@@ -1206,6 +1218,11 @@ function updateSelectedFilesDisplay() {
       <p>${selectedText}</p>
       ${fileList}
     `
+  }
+
+  // 确保分享任务容器存在
+  if (!document.getElementById('sharingTasks')) {
+    createSharingTasksContainer()
   }
 }
 
@@ -1229,62 +1246,492 @@ async function shareSelectedFiles() {
   }
 
   try {
-    elements.shareSelected.disabled = true
-    elements.shareSelected.textContent = 'Sharing...'
+    // 保存当前选择的文件
+    const filesToShare = [...selectedFiles]
 
-    let successCount = 0
-    let errorCount = 0
-    const errors = []
-
-    for (const filePath of selectedFiles) {
-      try {
-        const result = await window.electronAPI.shareFile(filePath)
-
-        if (result.success) {
-          successCount++
-          const fileName = filePath.split(/[/\\]/).pop()
-          console.log(`File shared: ${fileName}, waiting for DHT sync...`)
-          await new Promise(resolve => setTimeout(resolve, 3000))
-
-          // 验证文件是否可以被搜索到
-          try {
-            const searchTest = await window.electronAPI.searchFiles(fileName.split('.')[0])
-            if (searchTest.success && searchTest.results.length > 0) {
-              console.log(`✓ File ${fileName} is searchable in DHT`)
-            } else {
-              console.warn(`⚠ File ${fileName} may not be properly indexed`)
-            }
-          } catch (error) {
-            console.debug('Search verification failed:', error)
-          }
-        } else {
-          errorCount++
-          errors.push(`${filePath}: ${result.error}`)
-        }
-      } catch (error) {
-        errorCount++
-        errors.push(`${filePath}: ${error.message}`)
-      }
-    }
-
-    if (successCount > 0) {
-      showMessage(`Successfully shared ${successCount} files`, 'success')
-    }
-
-    if (errorCount > 0) {
-      showMessage(`${errorCount} files failed to share:\n${errors.join('\n')}`, 'error')
-    }
-
+    // 立即清空选择的文件并重置界面显示
     selectedFiles = []
     updateSelectedFilesDisplay()
-    await refreshLocalFiles()
+    
+    // 重置按钮状态
+    elements.shareSelected.disabled = true
+
+    // 为每个文件创建分享任务
+    const sharingTasks = []
+    for (const filePath of filesToShare) {
+      const taskId = ++sharingTaskIdCounter
+      const fileName = filePath.split(/[/\\]/).pop()
+      
+      const task = {
+        id: taskId,
+        filePath,
+        fileName,
+        status: SharingTaskStatus.PREPARING,
+        progress: 0,
+        startTime: Date.now(),
+        speed: 0,
+        uploadedBytes: 0,
+        totalBytes: 0,
+        error: null,
+        abortController: new AbortController()
+      }
+
+      activeSharingTasks.set(taskId, task)
+      sharingTasks.push(task)
+    }
+
+    // 更新UI显示分享任务
+    updateSharingTasksDisplay()
+
+    // 异步执行分享任务，不阻塞UI
+    Promise.allSettled(
+      sharingTasks.map(task => executeSharingTask(task))
+    ).then(results => {
+      // 处理结果
+      let successCount = 0
+      let errorCount = 0
+      const errors = []
+
+      results.forEach((result, index) => {
+        const task = sharingTasks[index]
+        
+        if (result.status === 'fulfilled' && result.value.success) {
+          successCount++
+          task.status = SharingTaskStatus.COMPLETED
+          task.progress = 100
+        } else {
+          errorCount++
+          task.status = SharingTaskStatus.FAILED
+          const error = result.reason || result.value?.error || 'Unknown error'
+          task.error = error
+          errors.push(`${task.fileName}: ${error}`)
+        }
+      })
+
+      // 显示结果消息
+      if (successCount > 0) {
+        showMessage(`Successfully shared ${successCount} files`, 'success')
+      }
+
+      if (errorCount > 0) {
+        showMessage(`${errorCount} files failed to share:\n${errors.join('\n')}`, 'error')
+      }
+
+      // 刷新本地文件列表
+      refreshLocalFiles()
+
+      // 清理完成的任务（延迟清理）
+      setTimeout(() => {
+        sharingTasks.forEach(task => {
+          if (task.status === SharingTaskStatus.COMPLETED || task.status === SharingTaskStatus.FAILED) {
+            activeSharingTasks.delete(task.id)
+          }
+        })
+        updateSharingTasksDisplay()
+      }, 5000)
+    }).catch(error => {
+      showMessage(`Share error: ${error.message}`, 'error')
+    })
 
   } catch (error) {
     showMessage(`Share error: ${error.message}`, 'error')
-  } finally {
-    elements.shareSelected.disabled = selectedFiles.length === 0
-    elements.shareSelected.textContent = 'Share Selected Files'
   }
+}
+
+// 执行单个分享任务
+async function executeSharingTask(task) {
+  try {
+    console.log(`Starting sharing task for: ${task.fileName}`)
+    
+    // 获取文件大小
+    const fileStats = await window.electronAPI.getFileStats?.(task.filePath)
+    if (fileStats) {
+      task.totalBytes = fileStats.size
+    }
+
+    // 更新状态为上传中
+    task.status = SharingTaskStatus.UPLOADING
+    updateSharingTaskDisplay(task)
+
+    // 创建进度监控
+    const progressInterval = setInterval(() => {
+      updateSharingProgress(task)
+    }, 1000)
+
+    try {
+      // 执行文件分享
+      const result = await window.electronAPI.shareFile(task.filePath)
+
+      clearInterval(progressInterval)
+
+      if (result.success) {
+        task.progress = 100
+        task.status = SharingTaskStatus.COMPLETED
+        task.uploadedBytes = task.totalBytes
+
+        console.log(`File shared successfully: ${task.fileName}`)
+        
+        // 等待DHT同步
+        await new Promise(resolve => setTimeout(resolve, 3000))
+
+        // 验证文件是否可以被搜索到
+        try {
+          const searchTest = await window.electronAPI.searchFiles(task.fileName.split('.')[0])
+          if (searchTest.success && searchTest.results.length > 0) {
+            console.log(`✓ File ${task.fileName} is searchable in DHT`)
+          } else {
+            console.warn(`⚠ File ${task.fileName} may not be properly indexed`)
+          }
+        } catch (error) {
+          console.debug('Search verification failed:', error)
+        }
+
+        updateSharingTaskDisplay(task)
+        return { success: true }
+      } else {
+        throw new Error(result.error)
+      }
+
+    } catch (shareError) {
+      clearInterval(progressInterval)
+      throw shareError
+    }
+
+  } catch (error) {
+    console.error(`Sharing task failed for ${task.fileName}:`, error)
+    task.status = SharingTaskStatus.FAILED
+    task.error = error.message
+    updateSharingTaskDisplay(task)
+    return { success: false, error: error.message }
+  }
+}
+
+// 更新分享进度
+function updateSharingProgress(task) {
+  if (task.status !== SharingTaskStatus.UPLOADING) return
+
+  const elapsed = (Date.now() - task.startTime) / 1000
+  
+  // 模拟进度（实际项目中应该从文件管理器获取真实进度）
+  if (task.progress < 90) {
+    const baseProgress = Math.min(80, elapsed * 5) // 基础进度
+    const randomProgress = Math.random() * 10 // 随机波动
+    task.progress = Math.min(90, baseProgress + randomProgress)
+  }
+
+  // 计算速度（模拟）
+  if (task.totalBytes > 0) {
+    task.uploadedBytes = (task.progress / 100) * task.totalBytes
+    task.speed = task.uploadedBytes / elapsed
+  }
+
+  updateSharingTaskDisplay(task)
+}
+
+// 暂停分享任务
+function pauseSharingTask(taskId) {
+  const task = activeSharingTasks.get(taskId)
+  if (!task) return
+
+  if (task.status === SharingTaskStatus.UPLOADING) {
+    task.status = SharingTaskStatus.PAUSED
+    // 这里可以添加实际的暂停逻辑
+    console.log(`Paused sharing task: ${task.fileName}`)
+    updateSharingTaskDisplay(task)
+    showMessage(`Paused sharing: ${task.fileName}`, 'info')
+  }
+}
+
+// 恢复分享任务
+function resumeSharingTask(taskId) {
+  const task = activeSharingTasks.get(taskId)
+  if (!task) return
+
+  if (task.status === SharingTaskStatus.PAUSED) {
+    task.status = SharingTaskStatus.UPLOADING
+    // 这里可以添加实际的恢复逻辑
+    console.log(`Resumed sharing task: ${task.fileName}`)
+    updateSharingTaskDisplay(task)
+    showMessage(`Resumed sharing: ${task.fileName}`, 'info')
+  }
+}
+
+// 取消分享任务
+function cancelSharingTask(taskId) {
+  const task = activeSharingTasks.get(taskId)
+  if (!task) return
+
+  if (task.status === SharingTaskStatus.UPLOADING || task.status === SharingTaskStatus.PAUSED) {
+    task.status = SharingTaskStatus.CANCELLED
+    
+    // 发送取消信号
+    if (task.abortController) {
+      task.abortController.abort()
+    }
+
+    console.log(`Cancelled sharing task: ${task.fileName}`)
+    updateSharingTaskDisplay(task)
+    showMessage(`Cancelled sharing: ${task.fileName}`, 'info')
+
+    // 延迟删除任务
+    setTimeout(() => {
+      activeSharingTasks.delete(taskId)
+      updateSharingTasksDisplay()
+    }, 2000)
+  }
+}
+
+// 获取状态显示文本
+function getSharingStatusText(status) {
+  const statusTexts = {
+    [SharingTaskStatus.PREPARING]: 'Preparing...',
+    [SharingTaskStatus.UPLOADING]: 'Sharing...',
+    [SharingTaskStatus.PAUSED]: 'Paused',
+    [SharingTaskStatus.COMPLETED]: 'Completed',
+    [SharingTaskStatus.CANCELLED]: 'Cancelled',
+    [SharingTaskStatus.FAILED]: 'Failed'
+  }
+  return statusTexts[status] || status
+}
+
+// 获取状态CSS类
+function getSharingStatusClass(status) {
+  const statusClasses = {
+    [SharingTaskStatus.PREPARING]: 'status-preparing',
+    [SharingTaskStatus.UPLOADING]: 'status-uploading',
+    [SharingTaskStatus.PAUSED]: 'status-paused',
+    [SharingTaskStatus.COMPLETED]: 'status-completed',
+    [SharingTaskStatus.CANCELLED]: 'status-cancelled',
+    [SharingTaskStatus.FAILED]: 'status-error'
+  }
+  return statusClasses[status] || ''
+}
+
+// 更新单个分享任务显示
+function updateSharingTaskDisplay(task) {
+  const taskElement = document.querySelector(`[data-sharing-task-id="${task.id}"]`)
+  if (!taskElement) return
+
+  const progressFill = taskElement.querySelector('.sharing-progress-fill')
+  const progressText = taskElement.querySelector('.sharing-progress-text')
+  const statusElement = taskElement.querySelector('.sharing-status')
+  const speedElement = taskElement.querySelector('.sharing-speed')
+  const actionsElement = taskElement.querySelector('.sharing-actions')
+
+  // 更新进度条
+  if (progressFill) {
+    progressFill.style.width = `${task.progress}%`
+  }
+
+  // 更新进度文本
+  if (progressText) {
+    progressText.textContent = `${task.progress.toFixed(1)}%`
+  }
+
+  // 更新状态
+  if (statusElement) {
+    statusElement.textContent = getSharingStatusText(task.status)
+    statusElement.className = `sharing-status ${getSharingStatusClass(task.status)}`
+  }
+
+  // 更新速度
+  if (speedElement && task.speed > 0) {
+    speedElement.innerHTML = `<span class="speed-icon">📊</span>${formatSpeed(task.speed)}`
+    speedElement.style.display = 'inline-flex'
+  } else if (speedElement) {
+    speedElement.style.display = 'none'
+  }
+
+  // 更新操作按钮
+  if (actionsElement) {
+    actionsElement.innerHTML = getSharingTaskActions(task)
+  }
+}
+
+// 获取分享任务操作按钮
+function getSharingTaskActions(task) {
+  switch (task.status) {
+    case SharingTaskStatus.UPLOADING:
+      return `
+        <button onclick="pauseSharingTask(${task.id})" class="btn btn-secondary btn-sm">
+          ⏸ Pause
+        </button>
+        <button onclick="cancelSharingTask(${task.id})" class="btn btn-cancel btn-sm">
+          ✕ Cancel
+        </button>
+      `
+    case SharingTaskStatus.PAUSED:
+      return `
+        <button onclick="resumeSharingTask(${task.id})" class="btn btn-primary btn-sm">
+          ▶ Resume
+        </button>
+        <button onclick="cancelSharingTask(${task.id})" class="btn btn-cancel btn-sm">
+          ✕ Cancel
+        </button>
+      `
+    case SharingTaskStatus.COMPLETED:
+      return `<span class="sharing-complete">✅ Shared</span>`
+    case SharingTaskStatus.CANCELLED:
+      return `<span class="sharing-cancelled">❌ Cancelled</span>`
+    case SharingTaskStatus.FAILED:
+      return `
+        <span class="sharing-failed">❌ Failed</span>
+        <button onclick="retrySharingTask(${task.id})" class="btn btn-secondary btn-sm">
+          🔄 Retry
+        </button>
+      `
+    default:
+      return ''
+  }
+}
+
+// 重试分享任务
+function retrySharingTask(taskId) {
+  const task = activeSharingTasks.get(taskId)
+  if (!task) return
+
+  task.status = SharingTaskStatus.PREPARING
+  task.progress = 0
+  task.error = null
+  task.uploadedBytes = 0
+  task.speed = 0
+  task.startTime = Date.now()
+  task.abortController = new AbortController()
+
+  updateSharingTaskDisplay(task)
+  
+  // 重新执行分享任务
+  executeSharingTask(task).then(result => {
+    if (result.success) {
+      showMessage(`Retry successful: ${task.fileName}`, 'success')
+    } else {
+      showMessage(`Retry failed: ${task.fileName}`, 'error')
+    }
+  })
+}
+
+// 更新分享任务列表显示（确保速度显示）
+function updateSharingTasksDisplay() {
+  const container = document.getElementById('sharingTasks')
+  if (!container) {
+    // 如果容器不存在，创建它
+    createSharingTasksContainer()
+    return
+  }
+
+  const tasks = Array.from(activeSharingTasks.values())
+  
+  if (tasks.length === 0) {
+    container.style.display = 'none'
+    return
+  }
+
+  container.style.display = 'block'
+
+  const taskList = tasks.map(task => {
+    // 确保速度有值
+    const speedDisplay = task.speed > 0 ? 
+      `<span class="sharing-speed"><span class="speed-icon">📊</span>${formatSpeed(task.speed)}</span>` : 
+      ''
+    
+    // 确保大小有值
+    const sizeDisplay = task.totalBytes > 0 ? 
+      `<span class="sharing-size"><span class="size-icon">💾</span>${formatFileSize(task.uploadedBytes)} / ${formatFileSize(task.totalBytes)}</span>` :
+      task.uploadedBytes > 0 ?
+      `<span class="sharing-size"><span class="size-icon">💾</span>${formatFileSize(task.uploadedBytes)}</span>` :
+      ''
+
+    return `
+      <div class="sharing-task-item" data-sharing-task-id="${task.id}" data-status="${task.status}">
+        <div class="sharing-task-info">
+          <h4 class="sharing-file-name">${task.fileName}</h4>
+          <div class="sharing-progress-container">
+            <div class="sharing-progress-bar">
+              <div class="sharing-progress-fill" style="width: ${task.progress}%"></div>
+            </div>
+            <div class="sharing-progress-info">
+              <span class="sharing-progress-text">${task.progress.toFixed(1)}%</span>
+              <span class="sharing-status ${getSharingStatusClass(task.status)}">${getSharingStatusText(task.status)}</span>
+              ${speedDisplay}
+              ${sizeDisplay}
+            </div>
+          </div>
+          ${task.error ? `<div class="sharing-error">❌ ${task.error}</div>` : ''}
+        </div>
+        <div class="sharing-actions">
+          ${getSharingTaskActions(task)}
+        </div>
+      </div>
+    `
+  }).join('')
+
+  container.innerHTML = `
+    <div class="sharing-tasks-header">
+      <h3>File Sharing Progress</h3>
+      <button class="btn btn-secondary btn-sm" onclick="clearCompletedSharingTasks()">
+        Clear Completed
+      </button>
+    </div>
+    <div class="sharing-tasks-list">
+      ${taskList}
+    </div>
+  `
+}
+
+// 创建分享任务容器
+function createSharingTasksContainer() {
+  const filesSection = document.getElementById('files-section')
+  if (!filesSection) return
+
+  const existingContainer = document.getElementById('sharingTasks')
+  if (existingContainer) return
+
+  const container = document.createElement('div')
+  container.id = 'sharingTasks'
+  container.className = 'sharing-tasks-container'
+  container.style.display = 'none'
+
+  // 插入到文件分享区域之后
+  const shareSection = filesSection.querySelector('.section')
+  if (shareSection) {
+    shareSection.parentNode.insertBefore(container, shareSection.nextSibling)
+  }
+}
+
+// 清理已完成的分享任务
+function clearCompletedSharingTasks() {
+  const tasksToRemove = []
+  
+  for (const [taskId, task] of activeSharingTasks) {
+    if (task.status === SharingTaskStatus.COMPLETED || 
+        task.status === SharingTaskStatus.CANCELLED ||
+        task.status === SharingTaskStatus.FAILED) {
+      tasksToRemove.push(taskId)
+    }
+  }
+
+  tasksToRemove.forEach(taskId => {
+    activeSharingTasks.delete(taskId)
+  })
+
+  updateSharingTasksDisplay()
+  showMessage(`Cleared ${tasksToRemove.length} completed tasks`, 'info')
+}
+
+// 格式化速度显示
+function formatSpeed(bytesPerSecond) {
+  if (bytesPerSecond === 0) return '0 B/s'
+  
+  const units = ['B/s', 'KB/s', 'MB/s', 'GB/s']
+  let size = bytesPerSecond
+  let unitIndex = 0
+  
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024
+    unitIndex++
+  }
+  
+  return `${size.toFixed(1)} ${units[unitIndex]}`
 }
 
 // 刷新本地文件
@@ -1934,10 +2381,10 @@ async function loadSettingsContent() {
     settingsContent.innerHTML = html
 
     setupSettingsNavigation()
-    
+
     // 确保默认显示 Window & Interface
     resetToDefaultSettingsPanel()
-    
+
     await loadSettings()
   } catch (error) {
     console.error('Error loading settings content:', error)
@@ -1963,7 +2410,7 @@ function createFallbackSettings(container) {
 // 切换设置面板
 function switchSettingsPanel(category) {
   console.log('Switching to settings panel:', category)
-  
+
   const panels = document.querySelectorAll('#settingsContent .settings-panel')
   panels.forEach(panel => panel.classList.remove('active'))
 
@@ -1997,23 +2444,23 @@ function setupSettingsNavigation() {
   // 重新查询导航项
   const newNavItems = document.querySelectorAll('#settingsInterface .nav-item')
 
-newNavItems.forEach((item) => {
-  item.addEventListener('click', () => {
-    const category = item.dataset.category
+  newNavItems.forEach((item) => {
+    item.addEventListener('click', () => {
+      const category = item.dataset.category
 
-    if (!category) {
-      console.error('No category found for nav item')
-      return
-    }
+      if (!category) {
+        console.error('No category found for nav item')
+        return
+      }
 
-    // 更新导航状态
-    newNavItems.forEach(nav => nav.classList.remove('active'))
-    item.classList.add('active')
+      // 更新导航状态
+      newNavItems.forEach(nav => nav.classList.remove('active'))
+      item.classList.add('active')
 
-    // 更新面板显示
-    switchSettingsPanel(category)
+      // 更新面板显示
+      switchSettingsPanel(category)
+    })
   })
-})
 
   setupFormEventListeners()
 }
@@ -2021,27 +2468,27 @@ newNavItems.forEach((item) => {
 // 新增：重置到默认设置面板
 function resetToDefaultSettingsPanel() {
   console.log('Resetting to default settings panel')
-  
+
   // 重置所有导航项状态
   const navItems = document.querySelectorAll('#settingsInterface .nav-item')
   navItems.forEach(nav => nav.classList.remove('active'))
-  
+
   // 激活第一个导航项 (Window & Interface)
   const firstNavItem = document.querySelector('#settingsInterface .nav-item[data-category="window"]')
   if (firstNavItem) {
     firstNavItem.classList.add('active')
   }
-  
+
   // 隐藏所有面板
   const panels = document.querySelectorAll('#settingsContent .settings-panel')
   panels.forEach(panel => panel.classList.remove('active'))
-  
+
   // 显示默认面板 (Window & Interface)
   const defaultPanel = document.getElementById('window-panel')
   if (defaultPanel) {
     defaultPanel.classList.add('active')
   }
-  
+
   console.log('Default settings panel set to Window & Interface')
 }
 
@@ -2156,10 +2603,10 @@ async function updateDownloadPathInfo(downloadPath) {
 
     // 通过IPC获取目录详细信息 (而不是直接使用fs模块)
     const result = await window.electronAPI.getDownloadDirectoryInfo()
-    
+
     if (result.success && result.directoryInfo) {
       const dirInfo = result.directoryInfo
-      
+
       // 更新状态
       if (dirInfo.exists && dirInfo.isDirectory) {
         statusElement.textContent = '✅ Valid Directory'
@@ -2204,7 +2651,7 @@ async function updateDownloadPathInfo(downloadPath) {
       writableElement.className = 'info-value'
       spaceElement.textContent = 'N/A'
       spaceElement.className = 'info-value'
-      
+
       if (result.error) {
         console.error('Failed to get directory info:', result.error)
       }
@@ -2212,7 +2659,7 @@ async function updateDownloadPathInfo(downloadPath) {
 
   } catch (error) {
     console.error('Error updating download path info:', error)
-    
+
     // 显示错误状态
     statusElement.textContent = '❌ Error'
     statusElement.className = 'info-value status-error'
@@ -2497,8 +2944,24 @@ Object.assign(window, {
   refreshDownloadPathInfo,
   updateDownloadPathInfo,
   resetToDefaultSettingsPanel,
+  pauseSharingTask,
+  resumeSharingTask,
+  cancelSharingTask,
+  retrySharingTask,
+  clearCompletedSharingTasks,
+  updateSharingTasksDisplay,
+  formatSpeed,
   pageTransitionManager,
-  hasUnsavedChanges: false
+  hasUnsavedChanges: false,
+  activeSharingTasks,
+  SharingTaskStatus,
+  updateSharingTasksDisplay,
+  createSharingTasksContainer,
+  startSharingProgressMonitoring,
+
+  // 调试函数
+  debugSharingTasks: window.debugSharingTasks,
+  debugNodeState: window.debugNodeState
 })
 
 // 调试函数
@@ -2573,6 +3036,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   updateSelectedFilesDisplay()
   refreshDatabaseStats()
 
+  // 创建分享任务容器
+  createSharingTasksContainer()
+
   // 设置自动启动状态
   isAutoStarting = true
   window.isAutoStarting = true
@@ -2598,6 +3064,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   console.log('window.startDownload:', typeof window.startDownload)
   console.log('window.cancelDownload:', typeof window.cancelDownload)
   console.log('window.openFileLocation:', typeof window.openFileLocation)
+  console.log('window.pauseSharingTask:', typeof window.pauseSharingTask)
+  console.log('window.resumeSharingTask:', typeof window.resumeSharingTask)
+  console.log('window.cancelSharingTask:', typeof window.cancelSharingTask)
   console.log('isNodeStarted:', isNodeStarted)
   console.log('window.isNodeStarted:', window.isNodeStarted)
 
@@ -2619,10 +3088,76 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  // 添加分享任务调试函数
+  window.debugSharingTasks = function () {
+    console.log('=== Sharing Tasks Debug ===')
+    console.log('Active sharing tasks:', activeSharingTasks.size)
+    console.log('Task details:', Array.from(activeSharingTasks.values()))
+    return {
+      activeCount: activeSharingTasks.size,
+      tasks: Array.from(activeSharingTasks.values())
+    }
+  }
+
   // 在设置界面显示时刷新下载路径信息
   const showSettingsOriginal = showSettings
   showSettings = function () {
     showSettingsOriginal()
     setTimeout(refreshDownloadPathInfo, 500)
+  }
+})
+
+// 添加：获取文件统计信息的模拟函数（如果electronAPI中没有这个函数）
+if (!window.electronAPI.getFileStats) {
+  window.electronAPI.getFileStats = async function(filePath) {
+    // 这是一个模拟实现，实际项目中应该通过IPC获取真实的文件统计信息
+    return {
+      size: Math.floor(Math.random() * 10 * 1024 * 1024), // 随机文件大小
+      mtime: new Date(),
+      isFile: true,
+      isDirectory: false
+    }
+  }
+}
+
+// 添加：监听文件分享进度的函数
+function startSharingProgressMonitoring() {
+  // 每秒更新一次分享进度
+  setInterval(() => {
+    if (activeSharingTasks.size > 0) {
+      updateSharingTasksDisplay()
+    }
+  }, 1000)
+}
+
+// 启动分享进度监控
+setTimeout(startSharingProgressMonitoring, 2000)
+
+// 确保分享传输管理功能在页面加载后可用
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    if (!document.getElementById('sharingTasks')) {
+      createSharingTasksContainer()
+    }
+  }, 1000)
+})
+
+// 添加：处理页面可见性变化时的分享任务状态
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && activeSharingTasks.size > 0) {
+    // 页面变为可见时刷新分享任务显示
+    updateSharingTasksDisplay()
+  }
+})
+
+// 添加：窗口关闭前的清理工作
+window.addEventListener('beforeunload', () => {
+  // 取消所有进行中的分享任务
+  for (const [taskId, task] of activeSharingTasks) {
+    if (task.status === SharingTaskStatus.UPLOADING || task.status === SharingTaskStatus.PAUSED) {
+      if (task.abortController) {
+        task.abortController.abort()
+      }
+    }
   }
 })

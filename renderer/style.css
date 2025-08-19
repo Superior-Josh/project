@@ -2380,5 +2380,601 @@ body.page-transitioning #openSettings {
 }
 
 /* ==============================================
+   文件分享传输界面样式
+   ============================================== */
+
+/* 分享任务容器 */
+.sharing-tasks-container {
+  background: var(--bg-secondary);
+  border-radius: var(--border-radius-large);
+  box-shadow: 0 2px 4px var(--shadow-light);
+  margin-bottom: var(--spacing-xl);
+  overflow: hidden;
+  transition: all var(--transition-normal) ease;
+}
+
+.sharing-tasks-container:hover {
+  box-shadow: 0 4px 8px var(--shadow-medium);
+}
+
+/* 分享任务头部 */
+.sharing-tasks-header {
+  background: linear-gradient(135deg, #e8f5e8, #f0f8f0);
+  border-bottom: 1px solid var(--border-color);
+  padding: var(--spacing-lg) var(--spacing-xl);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sharing-tasks-header h3 {
+  margin: 0;
+  color: var(--text-accent);
+  font-size: 1.125rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.sharing-tasks-header h3::before {
+  content: '📤';
+  font-size: 1.25rem;
+}
+
+/* 分享任务列表 */
+.sharing-tasks-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* 分享任务项目 */
+.sharing-task-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-lg) var(--spacing-xl);
+  border-bottom: 1px solid var(--border-color);
+  transition: all var(--transition-normal) ease;
+  min-height: 80px;
+  position: relative;
+  background: var(--bg-secondary);
+}
+
+.sharing-task-item:last-child {
+  border-bottom: none;
+}
+
+.sharing-task-item:hover {
+  background: var(--bg-tertiary);
+  transform: translateX(3px);
+  box-shadow: inset 3px 0 0 var(--success-color);
+}
+
+/* 分享任务信息 */
+.sharing-task-info {
+  flex: 1;
+  min-width: 0;
+  margin-right: var(--spacing-lg);
+}
+
+.sharing-file-name {
+  margin: 0 0 var(--spacing-sm) 0;
+  color: var(--text-accent);
+  font-weight: 600;
+  font-size: 1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.sharing-file-name::before {
+  content: '📁';
+  flex-shrink: 0;
+  font-size: 0.875rem;
+}
+
+/* 分享进度容器 */
+.sharing-progress-container {
+  width: 100%;
+}
+
+/* 分享进度条 */
+.sharing-progress-bar {
+  width: 100%;
+  height: 8px;
+  background: var(--border-color);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: var(--spacing-sm) 0;
+  box-shadow: inset 0 1px 3px var(--shadow-light);
+  position: relative;
+}
+
+.sharing-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--success-color), #2ecc71);
+  border-radius: 4px;
+  transition: width var(--transition-normal) ease;
+  box-shadow: 0 1px 3px rgba(39, 174, 96, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+/* 分享进度条动画效果 */
+.sharing-progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg,
+      transparent 35%,
+      rgba(255, 255, 255, 0.2) 35%,
+      rgba(255, 255, 255, 0.2) 65%,
+      transparent 65%);
+  background-size: 20px 20px;
+  animation: sharingProgressStripes 1s linear infinite;
+}
+
+/* 不同状态的进度条颜色 */
+.sharing-task-item[data-status="uploading"] .sharing-progress-fill {
+  background: linear-gradient(90deg, var(--success-color), #2ecc71);
+}
+
+.sharing-task-item[data-status="paused"] .sharing-progress-fill {
+  background: linear-gradient(90deg, var(--warning-color), #f39c12);
+}
+
+.sharing-task-item[data-status="completed"] .sharing-progress-fill {
+  background: linear-gradient(90deg, var(--success-color), #27ae60);
+}
+
+.sharing-task-item[data-status="failed"] .sharing-progress-fill {
+  background: linear-gradient(90deg, var(--error-color), #e74c3c);
+}
+
+/* 分享进度信息 */
+.sharing-progress-info {
+  display: flex;
+  gap: var(--spacing-md);
+  align-items: center;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: var(--spacing-xs);
+  flex-wrap: wrap;
+}
+
+.sharing-progress-text {
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 40px;
+}
+
+/* 分享状态 */
+.sharing-status {
+  padding: 2px 8px;
+  border-radius: var(--border-radius-small);
+  font-weight: 600;
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.sharing-status.status-preparing {
+  background: linear-gradient(135deg, var(--info-bg), #e3f2fd);
+  color: var(--info-color);
+}
+
+.sharing-status.status-uploading {
+  background: linear-gradient(135deg, var(--success-bg), #c8f7c5);
+  color: var(--success-color);
+  animation: pulse 2s infinite;
+}
+
+.sharing-status.status-paused {
+  background: linear-gradient(135deg, var(--warning-bg), #ffeaa7);
+  color: var(--warning-color);
+}
+
+.sharing-status.status-completed {
+  background: linear-gradient(135deg, var(--success-bg), #c8f7c5);
+  color: var(--success-color);
+}
+
+.sharing-status.status-cancelled {
+  background: linear-gradient(135deg, #e9ecef, #f8f9fa);
+  color: #6c757d;
+}
+
+.sharing-status.status-error {
+  background: linear-gradient(135deg, var(--error-bg), #f2d7d5);
+  color: var(--error-color);
+}
+
+/* 分享速度 */
+.sharing-speed {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+  color: var(--info-color);
+  background: rgba(52, 152, 219, 0.1);
+  padding: 2px 6px;
+  border-radius: var(--border-radius-small);
+}
+
+.speed-icon {
+  font-size: 0.75rem;
+}
+
+/* 分享文件大小 */
+.sharing-size {
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+  background: var(--bg-tertiary);
+  padding: 2px 6px;
+  border-radius: var(--border-radius-small);
+  border: 1px solid var(--border-color);
+}
+
+/* 分享错误信息 */
+.sharing-error {
+  margin-top: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: linear-gradient(135deg, var(--error-bg), #f2d7d5);
+  border-left: 4px solid var(--error-color);
+  border-radius: 0 var(--border-radius-small) var(--border-radius-small) 0;
+  font-size: 0.8125rem;
+  color: #c0392b;
+  word-break: break-word;
+}
+
+/* 分享操作按钮 */
+.sharing-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  flex-shrink: 0;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.btn-sm {
+  padding: 4px 8px;
+  font-size: 0.6875rem;
+  height: 28px;
+  min-width: 60px;
+  border-radius: var(--border-radius-small);
+}
+
+/* 分享完成状态 */
+.sharing-complete {
+  color: var(--success-color);
+  font-weight: 600;
+  font-size: 0.8125rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: linear-gradient(135deg, var(--success-bg), #c8f7c5);
+  padding: 4px 8px;
+  border-radius: var(--border-radius-small);
+  border: 1px solid var(--success-color);
+}
+
+/* 分享取消状态 */
+.sharing-cancelled {
+  color: #6c757d;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: linear-gradient(135deg, #e9ecef, #f8f9fa);
+  padding: 4px 8px;
+  border-radius: var(--border-radius-small);
+  border: 1px solid #ced4da;
+}
+
+/* 分享失败状态 */
+.sharing-failed {
+  color: var(--error-color);
+  font-weight: 600;
+  font-size: 0.8125rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: linear-gradient(135deg, var(--error-bg), #f2d7d5);
+  padding: 4px 8px;
+  border-radius: var(--border-radius-small);
+  border: 1px solid var(--error-color);
+}
+
+/* 分享任务项根据状态的样式 */
+.sharing-task-item[data-status="uploading"] {
+  border-left: 4px solid var(--success-color);
+}
+
+.sharing-task-item[data-status="paused"] {
+  border-left: 4px solid var(--warning-color);
+}
+
+.sharing-task-item[data-status="completed"] {
+  border-left: 4px solid var(--success-color);
+  background: linear-gradient(to right, rgba(39, 174, 96, 0.05), transparent);
+}
+
+.sharing-task-item[data-status="failed"] {
+  border-left: 4px solid var(--error-color);
+  background: linear-gradient(to right, rgba(231, 76, 60, 0.05), transparent);
+}
+
+.sharing-task-item[data-status="cancelled"] {
+  border-left: 4px solid #6c757d;
+  background: linear-gradient(to right, rgba(108, 117, 125, 0.05), transparent);
+}
+
+/* 分享任务动画 */
+@keyframes sharingProgressStripes {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 20px 0;
+  }
+}
+
+@keyframes sharingPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+}
+
+/* 上传中的任务特殊效果 */
+.sharing-task-item[data-status="uploading"] {
+  position: relative;
+  overflow: hidden;
+}
+
+.sharing-task-item[data-status="uploading"]::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, 
+    transparent, 
+    rgba(39, 174, 96, 0.1), 
+    transparent);
+  animation: sharingTaskScan 3s ease-in-out infinite;
+}
+
+@keyframes sharingTaskScan {
+  0% {
+    left: -100%;
+  }
+  50% {
+    left: 100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+/* 响应式设计 */
+@media screen and (max-width: 768px) {
+  .sharing-task-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+    min-height: 100px;
+    padding: var(--spacing-md);
+  }
+
+  .sharing-task-info {
+    width: 100%;
+    margin-right: 0;
+  }
+
+  .sharing-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .sharing-progress-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-xs);
+  }
+
+  .sharing-tasks-header {
+    flex-direction: column;
+    gap: var(--spacing-md);
+    align-items: flex-start;
+  }
+
+  .sharing-tasks-header .btn {
+    align-self: flex-end;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .sharing-task-item {
+    padding: var(--spacing-sm);
+  }
+
+  .sharing-tasks-header {
+    padding: var(--spacing-md);
+  }
+
+  .sharing-tasks-header h3 {
+    font-size: 1rem;
+  }
+
+  .sharing-file-name {
+    font-size: 0.875rem;
+  }
+
+  .sharing-progress-info {
+    font-size: 0.6875rem;
+  }
+
+  .btn-sm {
+    padding: 3px 6px;
+    font-size: 0.625rem;
+    height: 24px;
+    min-width: 50px;
+  }
+
+  .sharing-actions {
+    flex-direction: column;
+    gap: var(--spacing-xs);
+  }
+
+  .sharing-actions .btn {
+    width: 100%;
+  }
+}
+
+/* 清空按钮样式 */
+.sharing-tasks-header .btn-secondary {
+  background: #6c757d;
+  color: white;
+  border: none;
+  transition: all var(--transition-normal) ease;
+}
+
+.sharing-tasks-header .btn-secondary:hover {
+  background: #545b62;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px var(--shadow-light);
+}
+
+/* 重试按钮特殊样式 */
+.sharing-actions .btn:has-text("Retry") {
+  background: linear-gradient(135deg, var(--info-color), #2980b9);
+  color: white;
+}
+
+.sharing-actions .btn:has-text("Retry"):hover {
+  background: linear-gradient(135deg, #2980b9, #1976d2);
+}
+
+/* 暂停按钮样式 */
+.sharing-actions .btn:has-text("Pause") {
+  background: linear-gradient(135deg, var(--warning-color), #e67e22);
+  color: white;
+}
+
+.sharing-actions .btn:has-text("Pause"):hover {
+  background: linear-gradient(135deg, #e67e22, #d35400);
+}
+
+/* 恢复按钮样式 */
+.sharing-actions .btn:has-text("Resume") {
+  background: linear-gradient(135deg, var(--success-color), #2ecc71);
+  color: white;
+}
+
+.sharing-actions .btn:has-text("Resume"):hover {
+  background: linear-gradient(135deg, #2ecc71, #27ae60);
+}
+
+/* 无任务时的空状态 */
+.sharing-tasks-empty {
+  padding: var(--spacing-xl);
+  text-align: center;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.sharing-tasks-empty::before {
+  content: '📤';
+  display: block;
+  font-size: 2rem;
+  margin-bottom: var(--spacing-md);
+  opacity: 0.5;
+}
+
+/* 分享统计信息 */
+.sharing-stats {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-tertiary);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.sharing-stats-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.sharing-stats-icon {
+  font-size: 0.875rem;
+}
+
+/* 高对比度模式支持 */
+@media (prefers-contrast: high) {
+  .sharing-progress-bar {
+    border: 2px solid var(--text-primary);
+  }
+
+  .sharing-progress-fill {
+    background: var(--text-primary);
+  }
+
+  .sharing-status {
+    border: 1px solid currentColor;
+  }
+}
+
+/* 减少动画模式支持 */
+@media (prefers-reduced-motion: reduce) {
+  .sharing-progress-fill::after,
+  .sharing-task-item[data-status="uploading"]::before,
+  .sharing-status.status-uploading {
+    animation: none !important;
+  }
+
+  .sharing-task-item {
+    transition: none !important;
+  }
+}
+
+/* 打印样式 */
+@media print {
+  .sharing-tasks-container {
+    break-inside: avoid;
+    box-shadow: none;
+    border: 1px solid #000;
+  }
+
+  .sharing-actions {
+    display: none;
+  }
+
+  .sharing-progress-fill::after,
+  .sharing-task-item[data-status="uploading"]::before {
+    display: none;
+  }
+}
+
+/* ==============================================
    样式文件结束
    ============================================== */
