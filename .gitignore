@@ -6,5 +6,5 @@ downloads/
 settings/
 docs/archive/
 *.ps1
-*.python
+*.py
 *.txt
