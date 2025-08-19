@@ -1199,7 +1199,6 @@ function updateSelectedFilesDisplay() {
       const fileName = filePath.split(/[/\\]/).pop()
       return `<div class="selected-file">
         <span>${fileName}</span>
-        <button onclick="removeSelectedFile('${filePath}')">Remove</button>
       </div>`
     }).join('')
 
